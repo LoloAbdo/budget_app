@@ -1,0 +1,352 @@
+"""
+views/accounts_view.py
+Account management panel.
+"""
+
+from typing import Optional
+from datetime import date
+
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QTableWidget, QTableWidgetItem, QHeaderView, QDialog,
+    QFormLayout, QLineEdit, QComboBox, QDoubleSpinBox, QMessageBox,
+    QFrame, QCheckBox,
+)
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QFont, QColor
+
+from database import DatabaseManager
+from views.i18n import tr
+
+ACCOUNT_TYPES = ["Checking", "Savings", "Credit Card", "Cash"]
+ACCOUNT_NAME_MAX = 50   # enforced in dialog; no hard DB limit
+
+
+class AccountDialog(QDialog):
+    def __init__(self, db: DatabaseManager, user_id: int, account: Optional[dict] = None,
+                 currency: str = "", parent=None):
+        super().__init__(parent)
+        self._db = db
+        self._user_id = user_id
+        self._account = account
+        self._currency = currency
+        self._orig_balance = account["current_balance"] if account else 0.0
+        self.setWindowTitle(tr("Edit Account") if account else tr("Add Account"))
+        self.setMinimumWidth(360)
+        self._build_ui()
+        if account:
+            self._populate(account)
+        self._update_interest_ui()
+
+    def _build_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+
+        form = QFormLayout()
+        form.setSpacing(10)
+
+        self._name_edit = QLineEdit()
+        self._name_edit.setPlaceholderText(tr("e.g. Main Checking"))
+        self._name_edit.setMaxLength(ACCOUNT_NAME_MAX)
+        form.addRow(tr("Account Name"), self._name_edit)
+
+        self._type_combo = QComboBox()
+        # Display localized label, store the English value used in the DB
+        for t in ACCOUNT_TYPES:
+            self._type_combo.addItem(tr(t), t)
+        form.addRow(tr("Account Type"), self._type_combo)
+
+        self._balance_spin = QDoubleSpinBox()
+        self._balance_spin.setRange(-1_000_000, 1_000_000)
+        self._balance_spin.setDecimals(2)
+        self._balance_spin.setPrefix("$ ")
+        form.addRow(tr("Current Balance"), self._balance_spin)
+
+        # Character counter shown below the name field
+        self._char_lbl = QLabel(f"0 / {ACCOUNT_NAME_MAX}")
+        self._char_lbl.setObjectName("muted")
+        self._name_edit.textChanged.connect(self._update_char_count)
+        form.addRow("", self._char_lbl)
+
+        # ── Interest / gain auto-detect (Savings accounts, editing only) ─────────
+        self._interest_chk = QCheckBox(tr("Record balance change as interest/gain"))
+        self._interest_chk.setChecked(True)
+        self._interest_chk.toggled.connect(self._update_interest_ui)
+        form.addRow("", self._interest_chk)
+
+        self._interest_hint = QLabel("")
+        self._interest_hint.setObjectName("muted")
+        self._interest_hint.setWordWrap(True)
+        form.addRow("", self._interest_hint)
+
+        # React to changes that affect the interest hint
+        self._type_combo.currentIndexChanged.connect(self._update_interest_ui)
+        self._balance_spin.valueChanged.connect(self._update_interest_ui)
+
+        layout.addLayout(form)
+
+        btn_row = QHBoxLayout()
+        cancel_btn = QPushButton(tr("Cancel"))
+        cancel_btn.setObjectName("secondary")
+        cancel_btn.clicked.connect(self.reject)
+        save_btn = QPushButton(tr("Save"))
+        save_btn.setDefault(True)
+        save_btn.clicked.connect(self._save)
+        btn_row.addWidget(cancel_btn)
+        btn_row.addWidget(save_btn)
+        layout.addLayout(btn_row)
+
+    def _update_char_count(self, text: str) -> None:
+        n = len(text)
+        self._char_lbl.setText(f"{n} / {ACCOUNT_NAME_MAX}")
+
+    def _interest_applicable(self) -> bool:
+        """Interest auto-detect applies only when editing a Savings account."""
+        return self._account is not None and self._type_combo.currentData() == "Savings"
+
+    def _update_interest_ui(self, *_args) -> None:
+        """Show/hide the interest checkbox + live delta hint based on context."""
+        applicable = self._interest_applicable()
+        self._interest_chk.setVisible(applicable)
+        self._interest_hint.setVisible(applicable)
+        if not applicable:
+            return
+
+        delta = self._balance_spin.value() - self._orig_balance
+        cur = (self._currency + " ") if self._currency else ""
+        if abs(delta) < 0.005 or not self._interest_chk.isChecked():
+            self._interest_hint.setText("")
+        else:
+            kind = tr("gain") if delta > 0 else tr("loss")
+            self._interest_hint.setText(
+                tr("Change of {amount} will be recorded as a {kind}.").format(
+                    amount=f"{cur}{abs(delta):,.2f}", kind=kind
+                )
+            )
+
+    def _populate(self, a: dict) -> None:
+        self._name_edit.setText(a["account_name"])
+        idx = ACCOUNT_TYPES.index(a["account_type"]) if a["account_type"] in ACCOUNT_TYPES else 0
+        self._type_combo.setCurrentIndex(idx)
+        self._balance_spin.setValue(a["current_balance"])
+
+    def _save(self) -> None:
+        name = self._name_edit.text().strip()
+        if not name:
+            QMessageBox.warning(self, tr("Validation"), tr("Account name required."))
+            return
+        acct_type = self._type_combo.currentData()
+        balance   = self._balance_spin.value()
+        delta     = balance - self._orig_balance
+        record_interest = (
+            self._interest_applicable()
+            and self._interest_chk.isChecked()
+            and abs(delta) >= 0.005
+        )
+        try:
+            if not self._account:
+                self._db.create_account(self._user_id, name, acct_type, balance)
+            elif record_interest:
+                # Keep the original balance, then post the difference as a signed
+                # interest/gain entry — which moves the balance to the new value.
+                self._db.update_account(self._account["id"], name, acct_type, self._orig_balance)
+                self._db.record_interest(self._account["id"], delta, date.today().isoformat())
+            else:
+                # Plain edit / correction: set the balance directly.
+                self._db.update_account(self._account["id"], name, acct_type, balance)
+        except Exception as exc:
+            QMessageBox.critical(
+                self, tr("Database Error"),
+                tr("Could not save account:\n{err}").format(err=exc)
+            )
+            return
+        self.accept()
+
+
+class AccountsView(QWidget):
+    accounts_changed = pyqtSignal()
+
+    # English keys; localized at build time via tr()
+    COLS = ["Name", "Type", "Balance"]
+
+    def __init__(self, db: DatabaseManager, user: dict, parent=None):
+        super().__init__(parent)
+        self._db = db
+        self._user = user
+        self._currency = user.get("currency", "CAD")
+        self._build_ui()
+        self.refresh()
+
+    def _build_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(14)
+
+        head_row = QHBoxLayout()
+        title = QLabel(tr("Accounts"))
+        title.setObjectName("heading")
+        head_row.addWidget(title)
+        head_row.addStretch()
+
+        add_btn = QPushButton(tr("+ Add Account"))
+        add_btn.clicked.connect(self._add_account)
+        head_row.addWidget(add_btn)
+        layout.addLayout(head_row)
+
+        # ── Filter bar ──────────────────────────────────────────────────────────
+        filter_frame = QFrame()
+        filter_frame.setObjectName("card")
+        filter_layout = QHBoxLayout(filter_frame)
+        filter_layout.setContentsMargins(12, 10, 12, 10)
+        filter_layout.setSpacing(10)
+
+        self._search_edit = QLineEdit()
+        self._search_edit.setPlaceholderText(tr("🔍 Search…"))
+        self._search_edit.textChanged.connect(self.refresh)
+        filter_layout.addWidget(self._search_edit, 2)
+
+        self._type_filter = QComboBox()
+        self._type_filter.addItem(tr("All Types"), None)
+        for t in ACCOUNT_TYPES:
+            self._type_filter.addItem(tr(t), t)
+        self._type_filter.currentIndexChanged.connect(self.refresh)
+        filter_layout.addWidget(self._type_filter, 1)
+
+        clear_btn = QPushButton(tr("Clear"))
+        clear_btn.setObjectName("secondary")
+        clear_btn.clicked.connect(self._clear_filters)
+        filter_layout.addWidget(clear_btn)
+
+        layout.addWidget(filter_frame)
+
+        self._total_lbl = QLabel()
+        self._total_lbl.setObjectName("muted")
+        layout.addWidget(self._total_lbl)
+
+        self._table = QTableWidget()
+        self._table.setColumnCount(len(self.COLS))
+        self._table.setHorizontalHeaderLabels([tr(c) for c in self.COLS])
+        self._table.setAlternatingRowColors(True)
+        self._table.verticalHeader().setVisible(False)
+        self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+
+        hdr = self._table.horizontalHeader()
+        # Set modes ONCE here — never override them inside refresh()
+        hdr.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)   # Name always fills spare space
+        hdr.setMinimumSectionSize(60)
+        self._table.setColumnWidth(1, 130)   # Type  — initial width; user can resize
+        self._table.setColumnWidth(2, 150)   # Balance
+
+        self._table.doubleClicked.connect(self._edit_selected)
+        layout.addWidget(self._table)
+
+        btn_row = QHBoxLayout()
+        edit_btn = QPushButton(tr("✏ Edit"))
+        edit_btn.setObjectName("secondary")
+        edit_btn.clicked.connect(self._edit_selected)
+        btn_row.addWidget(edit_btn)
+
+        del_btn = QPushButton(tr("🗑 Delete"))
+        del_btn.setObjectName("danger")
+        del_btn.clicked.connect(self._delete_selected)
+        btn_row.addWidget(del_btn)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+    def refresh(self) -> None:
+        all_accounts = self._db.get_accounts(self._user["id"])
+        accounts = self._apply_filters(all_accounts)
+        self._accounts = accounts
+
+        # Block signals while rebuilding rows to avoid mid-population repaints
+        self._table.blockSignals(True)
+        self._table.setRowCount(len(accounts))
+
+        # Total reflects the visible rows; label notes when a filter is active
+        filtered = len(accounts) != len(all_accounts)
+        total = sum(a["current_balance"] for a in accounts)
+        label_key = "Total (filtered): {total}" if filtered else "Total across all accounts: {total}"
+        self._total_lbl.setText(
+            tr(label_key).format(total=f"{self._currency} {total:,.2f}")
+        )
+
+        for r, a in enumerate(accounts):
+            bal_color = "#10B981" if a["current_balance"] >= 0 else "#EF4444"
+            items = [
+                (a["account_name"], None),
+                (tr(a["account_type"]), None),
+                (f"{self._currency} {a['current_balance']:,.2f}", bal_color),
+            ]
+            for c, (text, color) in enumerate(items):
+                item = QTableWidgetItem(text)
+                item.setData(Qt.ItemDataRole.UserRole, a["id"])
+                if color:
+                    item.setForeground(QColor(color))
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                self._table.setItem(r, c, item)
+
+        self._table.blockSignals(False)
+
+        # Resize only the non-stretch columns to fit their content
+        self._table.resizeColumnToContents(1)   # Type
+        self._table.resizeColumnToContents(2)   # Balance
+
+    def _apply_filters(self, accounts: list[dict]) -> list[dict]:
+        """Client-side name search + account-type filter."""
+        keyword   = self._search_edit.text().strip().lower()
+        type_data = self._type_filter.currentData()
+        result = []
+        for a in accounts:
+            if keyword and keyword not in a["account_name"].lower():
+                continue
+            if type_data and a["account_type"] != type_data:
+                continue
+            result.append(a)
+        return result
+
+    def _clear_filters(self) -> None:
+        self._search_edit.clear()
+        self._type_filter.setCurrentIndex(0)
+
+    def _add_account(self) -> None:
+        dlg = AccountDialog(self._db, self._user["id"], currency=self._currency, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self.refresh()
+            self.accounts_changed.emit()
+
+    def _edit_selected(self) -> None:
+        row = self._table.currentRow()
+        if row < 0:
+            return
+        acct_id = self._table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        acct = self._db.get_account(acct_id)
+        if acct:
+            dlg = AccountDialog(self._db, self._user["id"], account=acct, currency=self._currency, parent=self)
+            if dlg.exec() == QDialog.DialogCode.Accepted:
+                self.refresh()
+                # Restore selection so a second edit/delete works without re-clicking
+                self._table.selectRow(row)
+                self.accounts_changed.emit()
+
+    def _delete_selected(self) -> None:
+        row = self._table.currentRow()
+        if row < 0:
+            return
+        acct_id = self._table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        name    = self._table.item(row, 0).text()
+        reply   = QMessageBox.question(
+            self, tr("Delete Account"),
+            tr("Delete account '{name}' and all its transactions?").format(name=name),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self._db.delete_account(acct_id)
+            self.refresh()
+            # Select the nearest remaining row
+            new_row = min(row, self._table.rowCount() - 1)
+            if new_row >= 0:
+                self._table.selectRow(new_row)
+            self.accounts_changed.emit()

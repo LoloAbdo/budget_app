@@ -1,0 +1,287 @@
+"""
+views/main_window.py
+Main application window: sidebar navigation + content panel stack.
+"""
+
+import sys
+from typing import Optional
+
+from PyQt6.QtWidgets import (
+    QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel,
+    QPushButton, QFrame, QStackedWidget, QSizePolicy, QMessageBox,
+    QApplication,
+)
+from PyQt6.QtCore import Qt, QTimer, pyqtSlot
+from PyQt6.QtGui import QFont, QIcon, QKeySequence, QShortcut
+
+from database import DatabaseManager
+from services.backup_service import BackupService
+from services.recurring_service import RecurringService
+from views.theme import DARK_QSS, LIGHT_QSS, set_active_theme
+from views.dashboard_view   import DashboardView
+from views.transactions_view import TransactionsView
+from views.budget_view      import BudgetView
+from views.goals_view       import GoalsView
+from views.accounts_view    import AccountsView
+from views.reports_view     import ReportsView
+from views.recurring_view   import RecurringView
+from views.savings_view     import SavingsView
+from views.markets_view     import MarketsView
+from views.settings_view    import SettingsView
+from views.i18n             import tr, set_language
+
+
+# Labels here are English source strings; they are translated at build time
+# via tr() so the sidebar re-localises whenever the language changes.
+NAV_ITEMS = [
+    ("🏠", "Dashboard",      0),
+    ("💳", "Transactions",   1),
+    ("📊", "Budgets",        2),
+    ("🎯", "Goals",          3),
+    ("🏦", "Accounts",       4),
+    ("📈", "Reports",        5),
+    ("🔄", "Recurring",      6),
+    ("🐷", "Savings",        7),
+    ("💹", "Markets",        8),
+    ("⚙️",  "Settings",      9),
+]
+
+
+class MainWindow(QMainWindow):
+    """Top-level application window."""
+
+    def __init__(
+        self,
+        db: DatabaseManager,
+        user: dict,
+        backup_service: BackupService,
+        current_theme: str = "dark",
+    ) -> None:
+        super().__init__()
+        self._db      = db
+        self._user    = user
+        self._backup  = backup_service
+        self._theme   = current_theme
+        self._recurring_svc = RecurringService(db)
+
+        self.setWindowTitle(tr("Budget Manager"))
+        self.setMinimumSize(1100, 700)
+        self.resize(1280, 780)
+
+        self._apply_theme(current_theme)
+        self._build_ui()
+        self._setup_shortcuts()
+        self._process_recurring()
+        self._start_backup_timer()
+
+    # ── Theme ─────────────────────────────────────────────────────────────────
+
+    def _apply_theme(self, theme: str) -> None:
+        self._theme = theme
+        set_active_theme(theme)          # keep chart colours in sync with the UI
+        qss = DARK_QSS if theme == "dark" else LIGHT_QSS
+        self.setStyleSheet(qss)
+        # Propagate to any already-created child widgets
+        for child in self.findChildren(QWidget):
+            child.setStyleSheet("")   # force re-paint from parent
+
+    # ── Build UI ──────────────────────────────────────────────────────────────
+
+    def _build_ui(self) -> None:
+        central = QWidget()
+        self.setCentralWidget(central)
+        root_layout = QHBoxLayout(central)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        # Initialise nav dict BEFORE building sidebar (sidebar populates it)
+        self._views: dict[int, QWidget] = {}
+        self._nav_buttons: dict[int, QPushButton] = {}
+
+        # Sidebar
+        root_layout.addWidget(self._build_sidebar())
+
+        # Content stack
+        self._stack = QStackedWidget()
+        root_layout.addWidget(self._stack, 1)
+
+        # Lazy-create all views
+        self._dashboard_view    = DashboardView(self._db, self._user)
+        self._txn_view          = TransactionsView(self._db, self._user)
+        self._budget_view       = BudgetView(self._db, self._user)
+        self._goals_view        = GoalsView(self._db, self._user)
+        self._accounts_view     = AccountsView(self._db, self._user)
+        self._reports_view      = ReportsView(self._db, self._user)
+        self._recurring_view    = RecurringView(self._db, self._user)
+        self._savings_view      = SavingsView(self._db, self._user)
+        self._markets_view      = MarketsView(self._db, self._user)
+        self._settings_view     = SettingsView(
+            self._db, self._user, self._backup, self._theme
+        )
+
+        for view in [
+            self._dashboard_view,
+            self._txn_view,
+            self._budget_view,
+            self._goals_view,
+            self._accounts_view,
+            self._reports_view,
+            self._recurring_view,
+            self._savings_view,
+            self._markets_view,
+            self._settings_view,
+        ]:
+            self._stack.addWidget(view)
+
+        # Wire signals
+        self._txn_view.transaction_changed.connect(self._dashboard_view.refresh)
+        self._txn_view.transaction_changed.connect(self._budget_view.refresh)
+        self._txn_view.transaction_changed.connect(self._reports_view.refresh)
+        self._txn_view.transaction_changed.connect(self._accounts_view.refresh)
+        self._txn_view.transaction_changed.connect(self._savings_view.refresh)
+        self._accounts_view.accounts_changed.connect(self._dashboard_view.refresh)
+        self._accounts_view.accounts_changed.connect(self._savings_view.refresh)
+        self._budget_view.budget_changed.connect(self._dashboard_view.refresh)
+        self._settings_view.theme_changed.connect(self._on_theme_changed)
+        self._settings_view.data_changed.connect(self._refresh_all)
+        self._settings_view.language_changed.connect(self._on_language_changed)
+
+        # Activate dashboard
+        self._switch_to(0)
+
+    def _build_sidebar(self) -> QFrame:
+        sidebar = QFrame()
+        sidebar.setObjectName("sidebar")
+        sidebar.setFixedWidth(210)
+
+        layout = QVBoxLayout(sidebar)
+        layout.setContentsMargins(10, 20, 10, 20)
+        layout.setSpacing(4)
+
+        # App logo
+        logo = QLabel(tr("💰 Budget"))
+        logo.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        logo.setContentsMargins(0, 0, 0, 16)
+        layout.addWidget(logo)
+
+        # User greeting
+        user_lbl = QLabel(self._user["name"])
+        user_lbl.setObjectName("muted")
+        user_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        user_lbl.setContentsMargins(0, 0, 0, 10)
+        layout.addWidget(user_lbl)
+
+        # Nav buttons
+        for icon, label, idx in NAV_ITEMS:
+            btn = QPushButton(f"  {icon}  {tr(label)}")
+            btn.setObjectName("navBtn")
+            btn.setCheckable(True)
+            btn.setMinimumHeight(42)
+            btn.clicked.connect(lambda checked, i=idx: self._switch_to(i))
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            layout.addWidget(btn)
+            self._nav_buttons[idx] = btn
+
+        layout.addStretch()
+
+        # Sign out
+        signout_btn = QPushButton(f"  🚪  {tr('Sign Out')}")
+        signout_btn.setObjectName("navBtn")
+        signout_btn.clicked.connect(self._sign_out)
+        layout.addWidget(signout_btn)
+
+        return sidebar
+
+    # ── Navigation ─────────────────────────────────────────────────────────────
+
+    def _switch_to(self, idx: int) -> None:
+        self._stack.setCurrentIndex(idx)
+        for i, btn in self._nav_buttons.items():
+            btn.setChecked(i == idx)
+
+    # ── Shortcuts ──────────────────────────────────────────────────────────────
+
+    def _setup_shortcuts(self) -> None:
+        for key, idx in [
+            ("Ctrl+1", 0), ("Ctrl+2", 1), ("Ctrl+3", 2), ("Ctrl+4", 3),
+            ("Ctrl+5", 4), ("Ctrl+6", 5), ("Ctrl+7", 6), ("Ctrl+8", 7),
+            ("Ctrl+9", 8), ("Ctrl+0", 9),
+        ]:
+            sc = QShortcut(QKeySequence(key), self)
+            sc.activated.connect(lambda i=idx: self._switch_to(i))
+
+    # ── Recurring ──────────────────────────────────────────────────────────────
+
+    def _process_recurring(self) -> None:
+        count = self._recurring_svc.process_due(self._user["id"])
+        if count > 0:
+            self.statusBar().showMessage(
+                tr("✓ Posted {n} recurring transaction(s)").format(n=count), 4000
+            )
+
+    # ── Auto-backup timer ──────────────────────────────────────────────────────
+
+    def _start_backup_timer(self) -> None:
+        """Auto-backup every 24 hours while the app is running."""
+        timer = QTimer(self)
+        timer.setInterval(24 * 60 * 60 * 1000)
+        timer.timeout.connect(lambda: self._backup.create_backup("auto"))
+        timer.start()
+
+    # ── Slots ──────────────────────────────────────────────────────────────────
+
+    @pyqtSlot(str)
+    def _on_theme_changed(self, theme: str) -> None:
+        self._apply_theme(theme)
+        # Charts are matplotlib (not QSS) — redraw them so they pick up the palette
+        for view in (self._dashboard_view, self._reports_view, self._savings_view):
+            view.refresh()
+
+    @pyqtSlot(str)
+    def _on_language_changed(self, lang: str) -> None:
+        """Persist the new language and rebuild the whole UI in place."""
+        self._db.update_user_language(self._user["id"], lang)
+        self._user["language"] = lang
+        set_language(lang)
+
+        # Preserve which panel the user was on across the rebuild
+        current_idx = self._stack.currentIndex() if hasattr(self, "_stack") else 0
+
+        self.setWindowTitle(tr("Budget Manager"))
+        self._build_ui()              # recreates sidebar + all views in the new language
+        self._apply_theme(self._theme)
+        self._switch_to(current_idx)
+
+    def _refresh_all(self) -> None:
+        self._dashboard_view.refresh()
+        self._txn_view.refresh()
+        self._budget_view.refresh()
+        self._reports_view.refresh()
+        self._recurring_view.refresh()
+        self._savings_view.refresh()
+
+    def _sign_out(self) -> None:
+        reply = QMessageBox.question(
+            self, tr("Sign Out"), tr("Sign out of Budget Manager?"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.close()
+            # Re-launch login window
+            from views.login_view import LoginView
+            from services.auth_service import AuthService
+            auth = AuthService(self._db)
+            login = LoginView(auth)
+            login.login_success.connect(
+                lambda u: _reopen_main(self._db, u, self._backup, self._theme)
+            )
+            login.exec()
+
+
+def _reopen_main(db, user, backup, theme):
+    """Re-create the main window after sign-out."""
+    win = MainWindow(db, user, backup, theme)
+    win.show()
+    # Keep reference alive
+    QApplication.instance()._main_window = win  # type: ignore[attr-defined]

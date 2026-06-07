@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(python -m compileall -q views)",
+      "PowerShell(if \\($?\\) { \"COMPILE OK\" })",
+      "PowerShell($git = \\(Get-Command git -ErrorAction SilentlyContinue\\); \"git: \" + $\\(if \\($git\\) { $git.Source } else { \"NOT FOUND\" }\\); $gh = \\(Get-Command gh -ErrorAction SilentlyContinue\\); \"gh: \" + $\\(if \\($gh\\) { $gh.Source } else { \"NOT FOUND\" }\\); if \\($gh\\) { gh auth status 2>&1 | Select-Object -First 5 })"
+    ]
+  }
+}

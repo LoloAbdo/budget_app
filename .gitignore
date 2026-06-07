@@ -1,0 +1,41 @@
+# ── Private data — NEVER commit personal financial data ──────────────────────
+data/            # live SQLite database (budget.db + WAL/SHM)
+backups/         # database backups
+exports/         # generated PDF / CSV / Excel exports
+*.db
+*.db-wal
+*.db-shm
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# ── Virtual environments ─────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── Testing / tooling caches ─────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ── Editors / OS ─────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ── Scratch ──────────────────────────────────────────────────────────────────
+_tmp_*.py
+_shot_*.png

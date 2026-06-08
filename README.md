@@ -1,5 +1,7 @@
 # 💰 Budget Manager
 
+[![CI](https://github.com/LoloAbdo/budget-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/LoloAbdo/budget-manager/actions/workflows/ci.yml)
+
 A full-featured personal finance desktop application built with Python 3.12+, PyQt6, SQLite, and Matplotlib.
 
 ---

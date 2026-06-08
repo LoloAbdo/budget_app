@@ -322,6 +322,16 @@ _FR: dict[str, str] = {
     # ── Settings ──────────────────────────────────────────────────────────
     "Appearance": "Apparence",
     "Categories": "Catégories",
+    "About": "À propos",
+    "Version {v}": "Version {v}",
+    "Check for updates": "Vérifier les mises à jour",
+    "Checking…": "Vérification…",
+    "You're on the latest version.": "Vous avez la dernière version.",
+    "Update available: {v}": "Mise à jour disponible : {v}",
+    "Download": "Télécharger",
+    "Could not check for updates.": "Impossible de vérifier les mises à jour.",
+    "Update available: {v} — see Settings ▸ About":
+        "Mise à jour disponible : {v} — voir Paramètres ▸ À propos",
     "Backup & Restore": "Sauvegarde et restauration",
     "Import Data": "Importer des données",
     "Theme:": "Thème :",

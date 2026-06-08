@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QFrame, QStackedWidget, QSizePolicy, QMessageBox,
     QApplication,
 )
-from PyQt6.QtCore import Qt, QTimer, pyqtSlot
+from PyQt6.QtCore import Qt, QTimer, pyqtSlot, QThreadPool
 from PyQt6.QtGui import QFont, QIcon, QKeySequence, QShortcut
 
 from database import DatabaseManager
@@ -28,7 +28,9 @@ from views.recurring_view   import RecurringView
 from views.savings_view     import SavingsView
 from views.markets_view     import MarketsView
 from views.settings_view    import SettingsView
+from views.update_check     import UpdateCheckWorker
 from views.i18n             import tr, set_language
+from version               import __version__
 
 
 # Labels here are English source strings; they are translated at build time
@@ -73,6 +75,8 @@ class MainWindow(QMainWindow):
         self._setup_shortcuts()
         self._process_recurring()
         self._start_backup_timer()
+        # Quiet, one-shot update check shortly after launch (non-blocking).
+        QTimer.singleShot(2500, self._check_updates_quietly)
 
     # ── Theme ─────────────────────────────────────────────────────────────────
 
@@ -221,6 +225,20 @@ class MainWindow(QMainWindow):
             )
 
     # ── Auto-backup timer ──────────────────────────────────────────────────────
+
+    def _check_updates_quietly(self) -> None:
+        """Background check on launch; shows a status-bar notice only if newer."""
+        worker = UpdateCheckWorker(__version__)
+        worker.signals.done.connect(self._on_update_available)
+        QThreadPool.globalInstance().start(worker)
+
+    @pyqtSlot(object)
+    def _on_update_available(self, info) -> None:
+        if getattr(info, "available", False) and info.latest:
+            self.statusBar().showMessage(
+                tr("Update available: {v} — see Settings ▸ About").format(v=info.latest),
+                10000,
+            )
 
     def _start_backup_timer(self) -> None:
         """Auto-backup every 24 hours while the app is running."""

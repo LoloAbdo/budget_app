@@ -11,13 +11,15 @@ from PyQt6.QtWidgets import (
     QFormLayout, QLineEdit, QComboBox, QFileDialog, QMessageBox,
     QFrame, QTabWidget, QListWidget, QListWidgetItem,
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QThreadPool
 from PyQt6.QtGui import QColor, QFont
 
 from database import DatabaseManager
 from services.backup_service import BackupService
 from services.import_export_service import ImportExportService
 from views.i18n import tr, set_language, get_language, LANGUAGES
+from views.update_check import UpdateCheckWorker
+from version import __version__
 
 
 # ── Category dialog ────────────────────────────────────────────────────────────
@@ -146,6 +148,7 @@ class SettingsView(QWidget):
         tabs.addTab(self._build_categories_tab(), tr("Categories"))
         tabs.addTab(self._build_backup_tab(),     tr("Backup & Restore"))
         tabs.addTab(self._build_import_tab(),     tr("Import Data"))
+        tabs.addTab(self._build_about_tab(),      tr("About"))
 
     # ── Appearance ─────────────────────────────────────────────────────────────
 
@@ -398,3 +401,57 @@ class SettingsView(QWidget):
                 (tr(" {n} errors.").format(n=len(errors)) if errors else "")
             )
             self.data_changed.emit()
+
+    # ── About / Updates ──────────────────────────────────────────────────────
+
+    def _build_about_tab(self) -> QWidget:
+        w = QWidget()
+        layout = QVBoxLayout(w)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+
+        title = QLabel("💰 Budget Manager")
+        title.setObjectName("subheading")
+        layout.addWidget(title)
+
+        ver = QLabel(tr("Version {v}").format(v=__version__))
+        ver.setObjectName("muted")
+        layout.addWidget(ver)
+
+        row = QHBoxLayout()
+        self._update_btn = QPushButton(tr("Check for updates"))
+        self._update_btn.setObjectName("secondary")
+        self._update_btn.setMaximumWidth(220)
+        self._update_btn.clicked.connect(self._check_for_updates)
+        row.addWidget(self._update_btn)
+        row.addStretch()
+        layout.addLayout(row)
+
+        self._update_status = QLabel("")
+        self._update_status.setObjectName("muted")
+        self._update_status.setTextFormat(Qt.TextFormat.RichText)
+        self._update_status.setOpenExternalLinks(True)
+        self._update_status.setWordWrap(True)
+        layout.addWidget(self._update_status)
+
+        layout.addStretch()
+        return w
+
+    def _check_for_updates(self) -> None:
+        self._update_btn.setEnabled(False)
+        self._update_status.setText(tr("Checking…"))
+        worker = UpdateCheckWorker(__version__)
+        worker.signals.done.connect(self._on_update_checked)
+        QThreadPool.globalInstance().start(worker)
+
+    def _on_update_checked(self, info) -> None:
+        self._update_btn.setEnabled(True)
+        if getattr(info, "available", False) and info.latest:
+            self._update_status.setText(
+                tr("Update available: {v}").format(v=info.latest)
+                + f'&nbsp;&nbsp;<a href="{info.url}">' + tr("Download") + "</a>"
+            )
+        elif getattr(info, "error", ""):
+            self._update_status.setText(tr("Could not check for updates."))
+        else:
+            self._update_status.setText(tr("You're on the latest version."))

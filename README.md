@@ -104,6 +104,37 @@ pytest -v
 
 ---
 
+## Building a Standalone Windows App (.exe)
+
+Package the app into a single executable that runs **without a Python install**,
+using [PyInstaller](https://pyinstaller.org):
+
+```powershell
+# One-file build  ->  dist\BudgetManager.exe   (easiest to share)
+.\build.ps1
+
+# One-folder build ->  dist\BudgetManager\      (faster startup)
+.\build.ps1 -OneDir
+```
+
+Or directly:
+
+```powershell
+pip install pyinstaller
+pyinstaller --noconfirm --onefile --windowed --name BudgetManager --collect-all matplotlib main.py
+```
+
+**Where the data lives:** when running as an `.exe`, the database and backups are
+stored in **`%APPDATA%\BudgetManager`**, *not* next to the executable. This keeps
+your data safe across rebuilds and updates (a one-file build unpacks to a temp
+folder that Windows deletes on exit). Running from source still uses the
+project's local `data/` folder, so development data is unaffected.
+
+> The build output (`build/`, `dist/`, `*.spec`) is gitignored — don't commit the
+> ~90 MB executable; attach it to a GitHub Release instead.
+
+---
+
 ## Project Structure
 
 ```

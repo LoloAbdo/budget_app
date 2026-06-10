@@ -130,8 +130,20 @@ your data safe across rebuilds and updates (a one-file build unpacks to a temp
 folder that Windows deletes on exit). Running from source still uses the
 project's local `data/` folder, so development data is unaffected.
 
-> The build output (`build/`, `dist/`, `*.spec`) is gitignored — don't commit the
-> ~90 MB executable; attach it to a GitHub Release instead.
+### Building a Windows installer
+
+For a proper installed app (Start Menu shortcut, uninstaller, no admin prompt),
+build an installer with [Inno Setup](https://jrsoftware.org/isinfo.php):
+
+```powershell
+.\build_installer.ps1   # -> installer_output\BudgetManagerSetup.exe
+```
+
+It installs Inno Setup / PyInstaller if missing, builds the one-folder app, and
+compiles [`installer.iss`](installer.iss) with the version from `version.py`.
+
+> Build output (`build/`, `dist/`, `*.spec`, `installer_output/`) is gitignored —
+> don't commit the ~60–90 MB binaries; attach them to a GitHub Release instead.
 
 ---
 
@@ -150,12 +162,15 @@ git push origin v1.0.1
 
 The [`release` workflow](.github/workflows/release.yml) then:
 1. **Checks the tag matches `version.py`** (fails fast if you forgot to bump it).
-2. Builds `BudgetManager.exe` with PyInstaller.
-3. Creates a GitHub Release `v1.0.1` with the exe attached and auto-generated notes.
+2. Builds the app with PyInstaller and compiles the Inno Setup installer.
+3. Creates a GitHub Release `v1.0.1` with **both** downloads attached and
+   auto-generated notes:
+   - `BudgetManagerSetup.exe` — the installer (Start Menu shortcut + uninstaller)
+   - `BudgetManager.exe` — a portable single-file build (no install)
 
 Users running an older build get an **"Update available"** prompt (Settings ▸
-About, or at launch) and can download the new exe from the Release. Their data
-in `%APPDATA%\BudgetManager` is never touched.
+About, or at launch) and can download the new version from the Release. Their
+data in `%APPDATA%\BudgetManager` is never touched.
 
 > The tag **must** match `__version__` in `version.py` — that's what the in-app
 > update check compares against. The workflow enforces this so a mislabeled

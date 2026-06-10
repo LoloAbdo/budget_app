@@ -135,6 +135,34 @@ project's local `data/` folder, so development data is unaffected.
 
 ---
 
+## Releasing an Update
+
+Shipping a new version is **one command** — a GitHub Actions workflow builds the
+`.exe` on a Windows runner and publishes a GitHub Release automatically.
+
+```powershell
+# 1. Bump the version in version.py   (e.g. "1.0.0" -> "1.0.1")
+# 2. Commit that change
+# 3. Tag and push:
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+The [`release` workflow](.github/workflows/release.yml) then:
+1. **Checks the tag matches `version.py`** (fails fast if you forgot to bump it).
+2. Builds `BudgetManager.exe` with PyInstaller.
+3. Creates a GitHub Release `v1.0.1` with the exe attached and auto-generated notes.
+
+Users running an older build get an **"Update available"** prompt (Settings ▸
+About, or at launch) and can download the new exe from the Release. Their data
+in `%APPDATA%\BudgetManager` is never touched.
+
+> The tag **must** match `__version__` in `version.py` — that's what the in-app
+> update check compares against. The workflow enforces this so a mislabeled
+> build can't be released.
+
+---
+
 ## Project Structure
 
 ```

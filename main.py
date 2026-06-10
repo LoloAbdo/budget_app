@@ -32,9 +32,28 @@ from views.i18n        import set_language
 
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-DATA_DIR   = ROOT / "data"
+def _user_data_root() -> Path:
+    """
+    Folder where the app keeps its database and backups.
+
+    * Packaged (.exe): a stable per-user location (``%APPDATA%\\BudgetManager``
+      on Windows, ``~/.local/share/BudgetManager`` elsewhere). A one-file build
+      unpacks to a temp dir that Windows deletes on exit, so data must NOT live
+      next to the executable.
+    * Source run: the project folder, so existing development data keeps working.
+    """
+    if getattr(sys, "frozen", False):
+        base = os.environ.get("APPDATA") or os.path.join(
+            os.path.expanduser("~"), ".local", "share"
+        )
+        return Path(base) / "BudgetManager"
+    return ROOT
+
+
+APP_ROOT   = _user_data_root()
+DATA_DIR   = APP_ROOT / "data"
 DB_PATH    = str(DATA_DIR / "budget.db")
-BACKUP_DIR = str(ROOT / "backups")
+BACKUP_DIR = str(APP_ROOT / "backups")
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,8 +72,9 @@ def main() -> int:
         Path(DB_PATH).unlink()
         print("Database deleted.")
 
-    # ── Ensure data directory exists ───────────────────────────────────────────
+    # ── Ensure data + backup directories exist ─────────────────────────────────
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    Path(BACKUP_DIR).mkdir(parents=True, exist_ok=True)
 
     # ── Optional seeding ──────────────────────────────────────────────────────
     if args.seed:

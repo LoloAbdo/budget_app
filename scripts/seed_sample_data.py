@@ -102,7 +102,7 @@ def main() -> None:
     for cat_name, amount in budget_amounts.items():
         cat_id = cats.get(cat_name)
         if cat_id:
-            db.upsert_budget(cat_id, today.month, today.year, amount)
+            db.upsert_budget(uid, cat_id, today.month, today.year, amount)
     print("Budgets created.")
 
     # ── Goals ──────────────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ def main() -> None:
                         cats.get("Personal Care"), chk_id)
     print("Recurring transactions created.")
 
-    print("\n✅ Sample data seeding complete!")
+    print("\n[OK] Sample data seeding complete!")
     print(f"   Login with:  demo@budget.app / demo1234")
     print(f"   Database:    {DB_PATH}")
 

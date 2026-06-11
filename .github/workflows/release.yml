@@ -46,16 +46,34 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Build BudgetManager.exe
+      # Portable single-file exe (no install needed) -> dist_portable\BudgetManager.exe
+      - name: Build portable exe (one-file)
         shell: pwsh
-        run: pyinstaller --noconfirm --onefile --windowed --name BudgetManager --collect-all matplotlib main.py
+        run: pyinstaller --noconfirm --onefile --windowed --name BudgetManager --collect-all matplotlib --distpath dist_portable main.py
 
-      - name: Publish GitHub Release with the exe
+      # One-folder build (instant startup) that the installer packages -> dist\BudgetManager\
+      - name: Build app folder (one-folder, for the installer)
+        shell: pwsh
+        run: pyinstaller --noconfirm --onedir --windowed --name BudgetManager --collect-all matplotlib main.py
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          $ver = (python -c "import version; print(version.__version__)").Trim()
+          & $iscc "/DMyAppVersion=$ver" installer.iss
+
+      - name: Publish GitHub Release (installer + portable exe)
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: >
           gh release create "${{ github.ref_name }}"
-          "dist/BudgetManager.exe"
+          "installer_output/BudgetManagerSetup.exe"
+          "dist_portable/BudgetManager.exe"
           --title "Budget Manager ${{ github.ref_name }}"
           --generate-notes

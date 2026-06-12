@@ -6,7 +6,9 @@
       "PowerShell($git = \\(Get-Command git -ErrorAction SilentlyContinue\\); \"git: \" + $\\(if \\($git\\) { $git.Source } else { \"NOT FOUND\" }\\); $gh = \\(Get-Command gh -ErrorAction SilentlyContinue\\); \"gh: \" + $\\(if \\($gh\\) { $gh.Source } else { \"NOT FOUND\" }\\); if \\($gh\\) { gh auth status 2>&1 | Select-Object -First 5 })",
       "PowerShell($gh = \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\"; if \\(Test-Path $gh\\) { \"found: $gh\"; & $gh --version | Select-Object -First 1; & $gh auth status 2>&1 | Select-Object -First 3 } else { \"not at default path; searching...\"; Get-ChildItem \"C:\\\\Program Files\" -Recurse -Filter gh.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName })",
       "Bash(python -c \"import PyQt6, matplotlib, bcrypt; print\\('core deps OK'\\)\")",
-      "Bash(python -c \"import pandas, reportlab, openpyxl; print\\('all deps OK'\\)\")"
+      "Bash(python -c \"import pandas, reportlab, openpyxl; print\\('all deps OK'\\)\")",
+      "Bash(PYTHONIOENCODING=utf-8 python -c ' *)",
+      "Bash(python -m pytest -q)"
     ]
   }
 }

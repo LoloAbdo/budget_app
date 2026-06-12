@@ -31,6 +31,15 @@ def main() -> None:
     uid  = user["id"]
     print(f"User id: {uid}")
 
+    # ── Idempotency guard ──────────────────────────────────────────────────────
+    # Seeding is additive (accounts, transactions, goals and recurring entries are
+    # always inserted), so re-running would duplicate the demo data. If the demo
+    # user already has accounts, treat the database as already seeded and stop.
+    if db.get_accounts(uid):
+        print("Demo data already present — skipping to avoid duplicates.")
+        print("   To re-seed from scratch:  python main.py --reset  then  python main.py --seed")
+        return
+
     # ── Accounts ───────────────────────────────────────────────────────────────
     chk_id = db.create_account(uid, "Main Checking", "Checking", 3_200.0)
     sav_id = db.create_account(uid, "High-Interest Savings", "Savings", 8_500.0)

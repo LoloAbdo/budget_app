@@ -215,6 +215,28 @@ class DatabaseManager:
             )
             conn.commit()
 
+        # v1.0.5 — performance indexes for the hot query paths.
+        # The main transaction list joins transactions→accounts, filters by
+        # user/date/category/account and sorts by date; without indexes every
+        # call is a full scan. UNIQUE constraints already index budgets and
+        # watchlist, so we only add the non-unique foreign-key / filter columns.
+        # CREATE INDEX IF NOT EXISTS is idempotent, so this is safe on every init.
+        conn.executescript("""
+            CREATE INDEX IF NOT EXISTS idx_transactions_account_date
+                ON transactions(account_id, date);
+            CREATE INDEX IF NOT EXISTS idx_transactions_category
+                ON transactions(category_id);
+            CREATE INDEX IF NOT EXISTS idx_transactions_transfer
+                ON transactions(transfer_id);
+            CREATE INDEX IF NOT EXISTS idx_accounts_user
+                ON accounts(user_id);
+            CREATE INDEX IF NOT EXISTS idx_recurring_user
+                ON recurring_transactions(user_id);
+            CREATE INDEX IF NOT EXISTS idx_goals_user
+                ON financial_goals(user_id);
+        """)
+        conn.commit()
+
     def _seed_categories(self, conn: sqlite3.Connection) -> None:
         """Insert default categories if the table is empty."""
         if conn.execute("SELECT COUNT(*) FROM categories").fetchone()[0] == 0:

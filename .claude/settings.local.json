@@ -9,7 +9,11 @@
       "Bash(python -c \"import pandas, reportlab, openpyxl; print\\('all deps OK'\\)\")",
       "Bash(git add *)",
       "Bash(git commit -q -m '@ *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(gh pr *)",
+      "Bash(git ls-remote *)",
+      "Bash(gh release *)",
+      "Bash(git fetch *)"
     ]
   }
 }

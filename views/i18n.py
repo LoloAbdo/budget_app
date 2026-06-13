@@ -140,6 +140,9 @@ _FR: dict[str, str] = {
     "Spending by Category": "Dépenses par catégorie",
     "Income vs Expenses — Monthly": "Revenus vs Dépenses — Mensuel",
     "Net Worth — Last 12 Months": "Valeur nette — 12 derniers mois",
+    "Budget Alerts": "Alertes de budget",
+    "Over budget": "Dépassé",
+    "Near limit": "Proche de la limite",
     "Recent Transactions": "Transactions récentes",
     "Expenses": "Dépenses",
 

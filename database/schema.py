@@ -551,6 +551,25 @@ class DatabaseManager:
             (user_id, month, year, user_id, month, year),
         )
 
+    def get_budget_alerts(
+        self, user_id: int, month: int, year: int, threshold: float = 0.9
+    ) -> list[dict]:
+        """
+        Budgets for the given month whose spending has reached ``threshold`` of
+        the limit (default 90%). Each entry adds ``ratio`` (spent / budget) and
+        ``over`` (ratio >= 1.0). Sorted worst-first. Budgets of 0 are skipped.
+        """
+        alerts = []
+        for b in self.get_budgets(user_id, month, year):
+            limit = b["budget_amount"]
+            if limit <= 0:
+                continue
+            ratio = b["actual_spending"] / limit
+            if ratio >= threshold:
+                alerts.append({**b, "ratio": ratio, "over": ratio >= 1.0})
+        alerts.sort(key=lambda a: a["ratio"], reverse=True)
+        return alerts
+
     def upsert_budget(self, user_id: int, category_id: int, month: int, year: int, amount: float) -> int:
         return self._execute(
             "INSERT INTO budgets (user_id, category_id, month, year, budget_amount) VALUES (?,?,?,?,?) "

@@ -68,6 +68,7 @@ class DashboardView(QWidget):
         spending = self._db.get_spending_by_category(self._user["id"], month, year)
         monthly  = self._db.get_monthly_totals(self._user["id"], year)
         networth = self._db.get_net_worth_history(self._user["id"], 12)
+        alerts   = self._db.get_budget_alerts(self._user["id"], month, year)
         recent   = self._db.get_transactions(self._user["id"], limit=10)
 
         # ── Page header ───────────────────────────────────────────────────────
@@ -108,6 +109,10 @@ class DashboardView(QWidget):
 
         self._main_layout.addLayout(cards_row)
 
+        # ── Budget alerts ────────────────────────────────────────────────────────
+        if alerts:
+            self._main_layout.addWidget(self._build_budget_alerts(alerts))
+
         # ── Charts row ─────────────────────────────────────────────────────────
         charts_row = QHBoxLayout()
         charts_row.setSpacing(14)
@@ -128,6 +133,35 @@ class DashboardView(QWidget):
         self._main_layout.addWidget(section_lbl)
 
         self._main_layout.addWidget(self._build_txn_table(recent))
+
+    # ── Budget alerts ────────────────────────────────────────────────────────
+
+    def _build_budget_alerts(self, alerts: list[dict]) -> QFrame:
+        """A card listing categories at or over their monthly budget."""
+        card = QFrame()
+        card.setObjectName("card")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(6)
+
+        lbl = QLabel("⚠ " + tr("Budget Alerts"))
+        lbl.setObjectName("subheading")
+        layout.addWidget(lbl)
+
+        for a in alerts:
+            over = a["over"]
+            color = "#EF4444" if over else "#F59E0B"
+            status = tr("Over budget") if over else tr("Near limit")
+            text = (
+                f"{a['category_name']} — {a['ratio'] * 100:.0f}%  "
+                f"({self._currency} {a['actual_spending']:,.0f} / {a['budget_amount']:,.0f})"
+                f"  ·  {status}"
+            )
+            row = QLabel(text)
+            row.setStyleSheet(f"color: {color};")
+            layout.addWidget(row)
+
+        return card
 
     # ── Chart builders ─────────────────────────────────────────────────────────
 

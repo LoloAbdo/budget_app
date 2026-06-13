@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-06-13
+
+### Added
+- **Budget alerts** on the dashboard: a card listing categories that have
+  reached 90% or more of their monthly budget, marked "Near limit" (amber) or
+  "Over budget" (red) and sorted worst-first. Backed by
+  `DatabaseManager.get_budget_alerts()`. English/French localized.
+
 ## [1.2.0] - 2026-06-13
 
 ### Added
@@ -45,7 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial public release (portable executable only).
 
-[Unreleased]: https://github.com/LoloAbdo/budget_app/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/LoloAbdo/budget_app/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/LoloAbdo/budget_app/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/LoloAbdo/budget_app/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/LoloAbdo/budget_app/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/LoloAbdo/budget_app/compare/v1.0.0...v1.0.1

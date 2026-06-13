@@ -1,61 +1,54 @@
 # Budget Manager — Technical Documentation
 
-> **Version:** 1.0.1 · **Python:** 3.12+ · **Last updated:** June 2026
+> **Version:** 1.2.0 · **Python:** 3.12+ · **Stack:** PyQt6 · SQLite · Matplotlib · **Last updated:** June 2026
+>
+> 🇬🇧 **English** below · 🇫🇷 **Version française** [plus bas](#-documentation-technique-français)
 
 ---
+
+# 🇬🇧 Technical Documentation (English)
 
 ## Table of Contents
 
-1. [Project Overview](#1-project-overview)
+1. [Overview](#1-overview)
 2. [Technology Stack](#2-technology-stack)
 3. [Project Structure](#3-project-structure)
 4. [Architecture](#4-architecture)
-5. [Database Schema](#5-database-schema)
+5. [Database Schema & Migrations](#5-database-schema--migrations)
 6. [Services Layer](#6-services-layer)
 7. [Views Layer](#7-views-layer)
-8. [Theme System](#8-theme-system)
-9. [Security](#9-security)
-10. [Installation & Running](#10-installation--running)
-11. [Testing](#11-testing)
-12. [Bug Fixes (v1.0.1)](#12-bug-fixes-v101)
-13. [Extending the Application](#13-extending-the-application)
+8. [Internationalization (i18n)](#8-internationalization-i18n)
+9. [Theme System](#9-theme-system)
+10. [Security](#10-security)
+11. [Data Locations](#11-data-locations)
+12. [Build & Release Pipeline](#12-build--release-pipeline)
+13. [Testing](#13-testing)
+14. [Extending the Application](#14-extending-the-application)
 
 ---
 
-## 1. Project Overview
+## 1. Overview
 
-Budget Manager is a desktop personal finance application built with Python 3.12+ and PyQt6. It follows an MVC architecture, stores data in an embedded SQLite database, and provides Matplotlib charts alongside PDF/CSV/Excel export.
+Budget Manager is a desktop personal-finance application for Windows (and runnable from source on any desktop OS). It uses a layered architecture: PyQt6 views on top, a service layer for business logic, and a single `DatabaseManager` that owns all SQL against an embedded SQLite database. Charts are rendered with Matplotlib; reports export to PDF/CSV/Excel.
 
-**Key capabilities:**
-
-- Dashboard with live charts (pie + bar) and summary cards
-- Full transaction CRUD with date/category/account filtering
-- Monthly budget tracking with colour-coded progress bars
-- Financial goals with progress tracking and deposit flow
-- Account management with automatic running balance updates
-- Recurring transaction engine (auto-posted at startup)
-- Reports with PDF, CSV, and Excel export
-- Dark and light QSS themes with live switching
-- bcrypt authentication, multi-user support
-- Automatic daily backup with 30-backup rolling retention
-- CSV and Excel data import via Pandas
-- 35+ pytest unit and integration tests
+**Capabilities:** dashboard with spending, income-vs-expense, and 12-month net-worth charts; transaction CRUD with transfers, search, and filtering; monthly budgets; financial goals; multi-account management with auto-updated balances; a recurring-transaction/transfer engine; reports with export; savings/interest tracking; a keyless stocks-and-crypto markets watchlist; English/French localization; bcrypt auth; rolling automatic backups; and a notify-only GitHub update check.
 
 ---
 
 ## 2. Technology Stack
 
-| Component | Library / Version | Purpose |
+| Component | Library | Purpose |
 |---|---|---|
-| UI Framework | PyQt6 ≥ 6.4 | Cross-platform desktop GUI — widgets, signals/slots, QSS styling |
-| Database | sqlite3 (stdlib) | Embedded relational storage; WAL mode; parameterised queries |
-| Charts | Matplotlib ≥ 3.7 | Pie and bar charts embedded via the `QtAgg` backend |
-| Data Processing | Pandas ≥ 2.0 | CSV/Excel import, tabular export, report aggregation |
-| Password Hashing | bcrypt ≥ 4.0 | Secure one-way hashing for user passwords |
-| PDF Reports | ReportLab ≥ 4.0 | Monthly PDF generation: summary, categories, budgets, transactions |
-| Excel Export | openpyxl ≥ 3.1 | Write `.xlsx` files from Pandas DataFrames |
-| Date Utilities | python-dateutil | Advance recurring transaction due-dates across all frequencies |
-| Testing | pytest + pytest-cov | Unit/integration tests with coverage reporting |
+| UI framework | PyQt6 ≥ 6.6 | Desktop GUI — widgets, signals/slots, QSS styling |
+| Database | sqlite3 (stdlib) | Embedded storage; parameterized queries; per-thread connections |
+| Charts | Matplotlib ≥ 3.8 | Pie, bar, and line charts via the `QtAgg` backend |
+| Data processing | pandas ≥ 2.1 | CSV/Excel import & export |
+| Password hashing | bcrypt ≥ 4.1 | One-way password hashing |
+| PDF reports | reportlab ≥ 4.0 | Monthly PDF generation |
+| Excel export | openpyxl ≥ 3.1 | `.xlsx` workbooks |
+| Date math | python-dateutil | Advancing recurring due-dates (transitive dependency) |
+| Testing | pytest (+ pytest-qt, pytest-cov) | Unit/integration tests |
+| Packaging | PyInstaller + Inno Setup | Portable `.exe` and Windows installer |
 
 ---
 
@@ -63,512 +56,424 @@ Budget Manager is a desktop personal finance application built with Python 3.12+
 
 ```
 budget_app/
-├── main.py                         # Entry point; --seed / --reset / --theme flags
-├── requirements.txt                # pip dependencies
-├── README.md                       # User-facing guide
-├── data/                           # SQLite database (auto-created at runtime)
-├── backups/                        # Automatic and manual backup files
+├── main.py                         # Entry point; --seed / --reset / --theme flags; data-path logic
+├── version.py                      # __version__ + GitHub coordinates (single source of truth)
+├── requirements.txt
+├── README.md · USER_GUIDE.md · TECHNICAL.md · CHANGELOG.md
+├── build.ps1 · build_installer.ps1 · installer.iss · BudgetManager.spec
+├── .github/workflows/
+│   ├── ci.yml                      # pytest on push/PR
+│   └── release.yml                 # tag-triggered build + publish (installer + portable exe)
 ├── scripts/
-│   └── seed_sample_data.py         # Demo data seeder (demo@budget.app / demo1234)
+│   └── seed_sample_data.py         # Idempotent demo-data seeder (demo@budget.app / demo1234)
 ├── database/
-│   ├── __init__.py
-│   └── schema.py                   # DatabaseManager class, DDL, seed categories
+│   └── schema.py                   # DatabaseManager: DDL, migrations, all CRUD/analytics SQL
 ├── services/
-│   ├── __init__.py
 │   ├── auth_service.py             # bcrypt register/login
 │   ├── backup_service.py           # create / list / restore / prune (keep 30)
-│   ├── import_export_service.py    # CSV + Excel import/export via Pandas
-│   └── recurring_service.py        # Auto-post due recurring transactions
+│   ├── import_export_service.py    # CSV + Excel import/export (pandas)
+│   ├── recurring_service.py        # Auto-post due recurring transactions & transfers
+│   ├── market_service.py           # Keyless stock/crypto quotes + FX conversion
+│   └── update_service.py           # GitHub "latest release" version check
 ├── reports/
-│   ├── __init__.py
-│   └── pdf_report.py               # ReportLab monthly PDF report
+│   └── pdf_report.py               # ReportLab monthly PDF
 ├── views/
-│   ├── __init__.py
-│   ├── theme.py                    # DARK_QSS / LIGHT_QSS colour tokens
-│   ├── widgets.py                  # Reusable: SummaryCard, GoalProgressCard, BudgetBar
-│   ├── login_view.py               # Login / register stacked dialog
-│   ├── main_window.py              # Sidebar nav + QStackedWidget controller
-│   ├── dashboard_view.py           # Charts + summary cards + recent transactions
-│   ├── transactions_view.py        # Full CRUD + search/filter toolbar
-│   ├── budget_view.py              # Monthly budgets with BudgetBar progress bars
-│   ├── goals_view.py               # Goal cards with progress tracking
-│   ├── accounts_view.py            # Account CRUD + running balance display
-│   ├── reports_view.py             # 3-tab reports + PDF/CSV/Excel export
-│   ├── recurring_view.py           # Recurring transaction CRUD
-│   └── settings_view.py            # Theme, categories, backup, import
-└── tests/
-    ├── __init__.py
-    └── test_database.py            # 35+ pytest tests
+│   ├── theme.py                    # DARK_QSS / LIGHT_QSS + chart_colors()
+│   ├── i18n.py                     # tr(), set_language(), EN→FR table, month abbreviations
+│   ├── widgets.py                  # SummaryCard, GoalProgressCard, BudgetBar
+│   ├── login_view.py · main_window.py
+│   ├── dashboard_view.py · transactions_view.py · budget_view.py · goals_view.py
+│   ├── accounts_view.py · reports_view.py · recurring_view.py
+│   ├── savings_view.py · markets_view.py · settings_view.py
+│   └── update_check.py             # Update-check UI glue
+└── tests/                          # pytest; conftest.py fixtures (db, user_id, account_id, savings_id)
 ```
 
 ---
 
 ## 4. Architecture
 
-### 4.1 MVC Pattern
+### 4.1 Layers
 
 | Layer | Modules | Responsibility |
 |---|---|---|
-| **Model** | `database/`, `services/` | All data access, business rules, persistence. Views never touch SQL directly. |
-| **View** | `views/` | All PyQt6 widgets. Reads data via service/DB calls; emits signals on mutations. |
-| **Controller** | `main_window.py`, `main.py` | Wires views to services, routes navigation, handles cross-view refresh signals. |
+| **Data** | `database/schema.py` | All SQL, parameterized. Views never touch SQL directly. |
+| **Services** | `services/` | Business logic with no Qt dependency (auth, backup, import/export, recurring, markets, update). |
+| **Views** | `views/` | All PyQt6 widgets. Read via DB/service calls; emit signals on mutation. |
+| **Controller** | `main.py`, `main_window.py` | Startup wiring, navigation, cross-view refresh. |
 
-### 4.2 Signal / Slot Wiring
+### 4.2 Signal/Slot wiring
+Views never reference each other; they communicate through `MainWindow`. Mutations in one view (e.g. `TransactionsView.transaction_changed`) trigger `refresh()` on dependent views (Dashboard, Budgets, Reports, Savings). `SettingsView` emits `theme_changed` and `language_changed`, which `MainWindow` applies app-wide.
 
-Cross-view communication uses Qt's signal/slot mechanism. No view holds a reference to another view — they communicate through `MainWindow`:
+### 4.3 Database thread safety
+`DatabaseManager` stores **one SQLite connection per thread** via `threading.local()`. `_local` is a per-**instance** attribute (not a class attribute) — this is required so the test suite's many `DatabaseManager` instances don't share a connection. The market service performs network I/O on worker threads, which is why per-thread connections matter.
 
+### 4.4 Dialog error handling
+Every dialog `_save()` wraps DB calls in `try/except` and shows a `QMessageBox.critical` on failure (otherwise PyQt6 would swallow the exception in the slot and the dialog would appear frozen with no feedback).
+
+### 4.5 Startup sequence
 ```
-TransactionsView.transaction_changed  ──►  DashboardView.refresh
-                                      ──►  BudgetView.refresh
-                                      ──►  ReportsView.refresh
-
-AccountsView.accounts_changed         ──►  DashboardView.refresh
-BudgetView.budget_changed             ──►  DashboardView.refresh
-SettingsView.theme_changed            ──►  MainWindow._on_theme_changed
-SettingsView.data_changed             ──►  MainWindow._refresh_all
-```
-
-### 4.3 Database Thread Safety
-
-`DatabaseManager` uses `threading.local()` to store one SQLite connection per thread. The `_conn()` method creates the connection on first call for a given thread and caches it in `_local.conn`. This makes the manager safe to call from worker threads without explicit locking.
-
-The `_execute()` method captures a single connection reference before the `execute()` and `commit()` calls, ensuring both operations target the same connection object:
-
-```python
-def _execute(self, sql: str, params: tuple = ()) -> int:
-    conn = self._conn()          # single reference — avoids double-call race
-    cur  = conn.execute(sql, params)
-    conn.commit()
-    return cur.lastrowid
-```
-
-### 4.4 Error Handling in Dialog `_save` Methods
-
-All dialog `_save()` methods wrap database calls in `try/except`. If the database raises (constraint violation, file lock, schema mismatch, etc.), a `QMessageBox.critical` is shown to the user and the dialog stays open. Without this, PyQt6 would absorb the exception in the slot system and the dialog would appear unresponsive with no feedback.
-
-```python
-def _save(self) -> None:
-    # ... validation ...
-    try:
-        self._db.create_account(self._user_id, name, acct_type, balance)
-    except Exception as exc:
-        QMessageBox.critical(self, "Database Error",
-                             "Could not save account:\n" + str(exc))
-        return
-    self.accept()
-```
-
-### 4.5 Startup Sequence
-
-```
-parse_args()
-    └─ --seed?  →  seed_sample_data.main()
-    └─ --reset? →  delete data/budget.db
-
-QApplication.setHighDpiScaleFactorRoundingPolicy()   ← MUST precede QApplication()
-QApplication()
-
-DatabaseManager(DB_PATH)          ← WAL mode, FK ON, DDL applied
-AuthService(db)
-BackupService(DB_PATH, BACKUP_DIR)
-
-LoginView.exec()                  ← blocks until authenticated or cancelled
-
-MainWindow(db, user, backup)
-    ├─ _nav_buttons / _views dicts initialised   ← BEFORE _build_sidebar()
-    ├─ 8 views instantiated and added to QStackedWidget
-    ├─ signals wired
-    ├─ RecurringService.process_due()            ← post overdue recurring
-    └─ QTimer(24h) → BackupService.create_backup("auto")
-
+parse_args()  →  --reset deletes DB · --seed runs seed_sample_data.main()
+QApplication.setHighDpiScaleFactorRoundingPolicy(...)   # MUST precede QApplication()
+QApplication()  →  apply DARK_QSS
+DatabaseManager(DB_PATH) · AuthService · BackupService
+LoginView.exec()        # blocks until authenticated
+set_language(user["language"])
+MainWindow(db, user, backup, theme)   # builds 10 views, wires signals, auto-backup timer
 app.exec()
 ```
 
 ---
 
-## 5. Database Schema
+## 5. Database Schema & Migrations
 
-Database file: `data/budget.db` (relative to `budget_app/`). Settings: WAL journal mode, foreign keys ON. All queries use parameterised placeholders (`?`).
+Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, `categories`, `transactions`, `budgets`, `financial_goals`, `recurring_transactions`, `watchlist`.
 
-### Tables
+**Key columns & relationships:**
+- `users` — bcrypt `password`, `currency` (default CAD), `language` (`'en'`/`'fr'`).
+- `accounts` — `account_type` ∈ {Checking, Savings, Credit Card, Cash}, `current_balance` (kept current on every transaction mutation).
+- `categories` — **global** (no `user_id`); `type` ∈ {Income, Expense}. Includes a system **Interest** category used for savings/interest tracking.
+- `transactions` — signed `amount` (income +, expense −); `transfer_id` self-reference links the two legs of a transfer (excluded from income/expense aggregates).
+- `budgets` — `UNIQUE(user_id, category_id, month, year)`; set via UPSERT.
+- `recurring_transactions` — `frequency` ∈ {Weekly, Bi-weekly, Monthly, Quarterly, Yearly}; optional `to_account_id` for recurring transfers.
+- `watchlist` — markets symbols with cached last price/change/currency; `UNIQUE(user_id, symbol, asset_type)`.
 
-#### `users`
-```sql
-CREATE TABLE IF NOT EXISTS users (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT    NOT NULL,
-    email       TEXT    NOT NULL UNIQUE,
-    password    TEXT    NOT NULL,            -- bcrypt hash
-    currency    TEXT    NOT NULL DEFAULT 'CAD',
-    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
-);
-```
+**Balance auto-update:** `create_transaction` → `balance += amount`; `update_transaction` → reverse old, apply new; `delete_transaction` → `balance −= amount`.
 
-#### `accounts`
-```sql
-CREATE TABLE IF NOT EXISTS accounts (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    account_name    TEXT    NOT NULL,
-    account_type    TEXT    NOT NULL
-                    CHECK(account_type IN ('Checking','Savings','Credit Card','Cash')),
-    current_balance REAL    NOT NULL DEFAULT 0.0
-);
-```
+**Migrations** run on every init via `DatabaseManager._migrate()`, each guarded so it's idempotent on existing databases:
 
-#### `categories`
-```sql
-CREATE TABLE IF NOT EXISTS categories (
-    id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    name    TEXT NOT NULL,
-    type    TEXT NOT NULL CHECK(type IN ('Income','Expense')),
-    color   TEXT NOT NULL DEFAULT '#607D8B'
-);
-```
-> Note: categories are global (no `user_id`). Default categories are seeded once when the table is empty.
-
-#### `transactions`
-```sql
-CREATE TABLE IF NOT EXISTS transactions (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    account_id   INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-    category_id  INTEGER REFERENCES categories(id),
-    date         TEXT    NOT NULL,
-    description  TEXT    NOT NULL,
-    amount       REAL    NOT NULL,   -- positive = income, negative = expense
-    notes        TEXT    DEFAULT '',
-    recurring_id INTEGER REFERENCES recurring_transactions(id)
-);
-```
-
-#### `budgets`
-```sql
-CREATE TABLE IF NOT EXISTS budgets (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    category_id   INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
-    month         INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12),
-    year          INTEGER NOT NULL,
-    budget_amount REAL    NOT NULL DEFAULT 0.0,
-    UNIQUE(category_id, month, year)
-);
-```
-Set via `INSERT OR REPLACE` (UPSERT) — re-setting a budget for the same month/category overwrites the amount.
-
-#### `financial_goals`
-```sql
-CREATE TABLE IF NOT EXISTS financial_goals (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    goal_name      TEXT    NOT NULL,
-    target_amount  REAL    NOT NULL,
-    current_amount REAL    NOT NULL DEFAULT 0.0,
-    target_date    TEXT    NOT NULL
-);
-```
-
-#### `recurring_transactions`
-```sql
-CREATE TABLE IF NOT EXISTS recurring_transactions (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name          TEXT    NOT NULL,
-    amount        REAL    NOT NULL,
-    frequency     TEXT    NOT NULL
-                  CHECK(frequency IN ('Weekly','Bi-weekly','Monthly','Quarterly','Yearly')),
-    next_due_date TEXT    NOT NULL,
-    category_id   INTEGER REFERENCES categories(id),
-    account_id    INTEGER REFERENCES accounts(id)
-);
-```
-
-### Balance Auto-Update Logic
-
-`DatabaseManager` keeps `accounts.current_balance` accurate on every transaction mutation:
-
-| Operation | Balance Effect |
+| Label | Change |
 |---|---|
-| `create_transaction(account_id, ..., amount)` | `balance += amount` |
-| `update_transaction(txn_id, ..., amount)` | `balance -= old_amount`, then `balance += new_amount` |
-| `delete_transaction(txn_id)` | `balance -= amount` (reversal) |
+| v1.0.1 | Recreate `budgets` with `user_id` + corrected UNIQUE constraint |
+| v1.0.2 | Add `transactions.transfer_id` |
+| v1.0.3 | Add `recurring_transactions.to_account_id` |
+| v1.0.4 | Add `users.language` |
+| v1.0.5 | Add performance indexes (see below) |
 
-### Default Categories (seeded once on first run)
+**Indexes (v1.0.5):** `transactions(account_id, date)`, `transactions(category_id)`, `transactions(transfer_id)`, `accounts(user_id)`, `recurring_transactions(user_id)`, `financial_goals(user_id)`. `budgets` and `watchlist` are already indexed by their UNIQUE constraints. Created with `CREATE INDEX IF NOT EXISTS`, so re-running init is safe.
 
-**Income:** Salary, Freelance, Investment, Other Income
-
-**Expense:** Rent/Mortgage, Groceries, Gas, Utilities, Insurance, Entertainment, Dining Out, Healthcare, Clothing, Education, Travel, Subscriptions, Personal Care, Gifts, Miscellaneous
+**Net-worth reconstruction:** `get_net_worth_history(user_id, months=12)` returns end-of-month totals without any balance-history table. Since balances already reflect all transactions, it starts from the current total and unwinds each month's net transaction flow: `end_of_month(M-1) = end_of_month(M) − flow(M)`. Transfers net to zero across their two legs and don't distort the total.
 
 ---
 
 ## 6. Services Layer
 
-### 6.1 `AuthService` — `services/auth_service.py`
-
-| Method | Signature | Returns |
-|---|---|---|
-| `register` | `(name, email, password, currency='CAD')` | `tuple[bool, str]` — success flag + message |
-| `login` | `(email, password)` | `tuple[bool, Optional[dict], str]` — success, user dict, message |
-| `hash_password` | `(plain: str)` | `str` — bcrypt hash (12 rounds) |
-| `verify_password` | `(plain, hashed)` | `bool` — timing-safe bcrypt compare |
-
-Registration validates: non-empty name, valid email format (`@` + `.`), password ≥ 6 chars, unique email. After registration the user must log in to get a session.
-
-### 6.2 `BackupService` — `services/backup_service.py`
-
-| Method | Description |
+| Service | Highlights |
 |---|---|
-| `create_backup(label='manual')` | Copies `budget.db` → `backups/budget_YYYYMMDD_HHMMSS_{label}.db`; prunes oldest files if count > 30 |
-| `list_backups()` | Returns list of backup paths sorted newest-first |
-| `restore_backup(path)` | Copies selected backup over live DB; existing connections re-open automatically |
-
-### 6.3 `RecurringService` — `services/recurring_service.py`
-
-`process_due(user_id)` iterates all active recurring transactions. Any transaction whose `next_due_date ≤ today` is posted as a real transaction, and the due date is advanced using `python-dateutil`. Multiple missed periods are caught by a `while` loop:
-
-```python
-while date.fromisoformat(rec["next_due_date"]) <= today:
-    create_transaction(...)
-    next_due = _next_date(due, frequency)
-    update_recurring(..., str(next_due))
-```
-
-Frequency → date delta mapping:
-
-| Frequency | Delta |
-|---|---|
-| Weekly | +7 days |
-| Bi-weekly | +14 days |
-| Monthly | `relativedelta(months=1)` |
-| Quarterly | `relativedelta(months=3)` |
-| Yearly | `relativedelta(years=1)` |
-
-### 6.4 `ImportExportService` — `services/import_export_service.py`
-
-| Method | Description |
-|---|---|
-| `import_csv(user_id, path)` | Reads CSV via Pandas; maps columns `date/amount/description/category/account`; skips invalid rows; returns `(imported_count, errors)` |
-| `import_excel(user_id, path)` | Same as CSV import but reads first sheet with `pd.read_excel` |
-| `export_csv(user_id, path)` | Fetches all transactions; writes CSV via `DataFrame.to_csv` |
-| `export_excel(user_id, path)` | Writes multi-sheet Excel: Transactions, Budgets, Accounts |
+| **AuthService** | `register()` (validates name/email/password length, unique email), `login()`; bcrypt hashing with constant-time verify. |
+| **BackupService** | `create_backup(label)` writes `backups/budget_<timestamp>_<label>.db` and prunes to the 30 most recent; `list_backups()`, `restore_backup(path)`. |
+| **RecurringService** | `process_due(user_id)` posts every rule whose `next_due_date ≤ today`, advancing the date with `dateutil.relativedelta`; a `while` loop catches up multiple missed periods. Handles transfers (`to_account_id`). |
+| **ImportExportService** | CSV/Excel import (column map: `date, amount, description, category, account`; invalid rows skipped, returns counts) and CSV/multi-sheet Excel export. |
+| **market_service** | Module of functions (not a class): keyless quotes from CoinGecko (crypto) and Stooq/Yahoo (stocks), `get_fx_rate()` conversion to the user's currency, and `fetch_quotes()` which batches stock requests into one call. |
+| **update_service** | `check_for_update()` queries the GitHub "latest release" API and compares the tag to `version.__version__` via `is_newer()`. Notify-only — never installs. |
 
 ---
 
 ## 7. Views Layer
 
-All views inherit from `QWidget` and receive `db: DatabaseManager` and `user: dict` at construction. Views never hold SQL connections directly and never import from other view modules (avoids circular dependencies).
+All views inherit `QWidget`, take `db` and `user` in `__init__`, expose `refresh()`, and never import other view modules.
 
-### 7.1 View Inventory
+| File / Class | Responsibility |
+|---|---|
+| `login_view.LoginView` | Modal login/register dialog; emits `login_success(dict)`. |
+| `main_window.MainWindow` | Sidebar (`NAV_ITEMS`, 10 entries) + `QStackedWidget`; owns signal wiring, `Ctrl+1…0` shortcuts, and the 24-hour auto-backup timer. |
+| `dashboard_view.DashboardView` | 5 summary cards; spending donut, income-vs-expense bars, and the **net-worth line chart**; recent transactions. |
+| `transactions_view.TransactionsView` | CRUD + transfers; date/category/account/search filters; emits `transaction_changed`. |
+| `budget_view.BudgetView` | Month picker + per-category `BudgetBar`; UPSERT; emits `budget_changed`. |
+| `goals_view.GoalsView` | `GoalProgressCard` grid; add/edit/delete/deposit. |
+| `accounts_view.AccountsView` | Account CRUD; emits `accounts_changed`. |
+| `reports_view.ReportsView` | Summary / Categories / Cash Flow tabs; PDF/CSV/Excel export. |
+| `recurring_view.RecurringView` | Recurring-rule CRUD; overdue rows highlighted. |
+| `savings_view.SavingsView` | Savings-account grouping; interest this month/year/all-time cards, interest-over-time chart, history table. |
+| `markets_view.MarketsView` | Watchlist; add/remove symbols; manual refresh (auto-refresh defaults to Off). |
+| `settings_view.SettingsView` | Tabs: Appearance (theme + language), Categories, Backup & Restore, Import Data, About (version + update check). Emits `theme_changed`, `language_changed`, `data_changed`. |
 
-| File | Class | Responsibility |
+**Reusable widgets (`views/widgets.py`):** `SummaryCard`, `GoalProgressCard`, `BudgetBar` (green <70%, yellow <90%, red ≥90%).
+
+---
+
+## 8. Internationalization (i18n)
+
+`views/i18n.py` is the translation layer. **English is the source/key**: `tr("English text")` looks up the active language's table and falls back to the key itself when a translation is missing. French strings live in `_FR`. `set_language(code)` / `get_language()` switch the active language; the user's choice is persisted in `users.language` and applied at startup.
+
+**DB-writing combos** display localized text but **store English values** (e.g. account types, frequencies), so the database stays language-independent. `month_abbr()` returns localized month abbreviations for charts.
+
+---
+
+## 9. Theme System
+
+`views/theme.py` defines `DARK_QSS` and `LIGHT_QSS`. Runtime switching reapplies the stylesheet at the root and clears child stylesheets to force repaint. `chart_colors()` returns a theme-aware palette (`bg`, `fg`, `muted`, `grid`, `income`, `expense`, `accent`) so Matplotlib figures match the active theme — the net-worth line uses `accent`.
+
+Common `objectName` targets: `sidebar`, `navBtn` (`:checked` = active), `card`, `heading`, `subheading`, `muted`, `danger`, `secondary`.
+
+---
+
+## 10. Security
+
+- **Passwords:** bcrypt hashed; constant-time verify; never logged or stored in plaintext.
+- **SQL injection:** every statement uses `?` placeholders; no string interpolation of user input.
+- **Data isolation:** queries filter by `user_id` (directly or via `accounts.user_id`); a user only sees their own data.
+- **Backups:** written locally; `restore_backup` copies into place so a failure leaves the live DB intact.
+- **Network:** the market and update services make outbound HTTPS calls to public, keyless endpoints only; no credentials are transmitted.
+
+---
+
+## 11. Data Locations
+
+| Run mode | Data root |
+|---|---|
+| Source (`python main.py`) | `./data` (project folder) — keeps dev data working |
+| Frozen `.exe` | `%APPDATA%\BudgetManager` (Windows) / `~/.local/share/BudgetManager` |
+
+A one-file PyInstaller build unpacks to a temp dir Windows wipes on exit, so data **must not** live next to the executable. Consequently the source app and the packaged app use **separate** databases.
+
+---
+
+## 12. Build & Release Pipeline
+
+**Local builds:**
+```powershell
+.\build.ps1            # dist\BudgetManager.exe (PyInstaller one-file)
+.\build_installer.ps1  # installer_output\BudgetManagerSetup.exe (Inno Setup)
+```
+
+**Automated release** (`.github/workflows/release.yml`, triggered by pushing a `vX.Y.Z` tag):
+1. Bump `__version__` in `version.py` to match the tag (the workflow **verifies** this and fails otherwise).
+2. `git tag vX.Y.Z && git push origin vX.Y.Z`.
+3. A Windows runner builds the portable exe + installer and publishes a GitHub Release with both attached.
+
+The publish step is **idempotent**: it creates the release if missing, otherwise uploads assets with `--clobber`, so a pre-existing release or a workflow re-run won't strand the binaries. **Do not pre-create the release manually** — just push the tag.
+
+**CI** (`.github/workflows/ci.yml`) runs `pytest` on every push/PR.
+
+---
+
+## 13. Testing
+
+Tests live in `tests/` and use isolated temp-file databases via `conftest.py` fixtures (`db`, `user_id`, `account_id`, `savings_id`).
+
+```powershell
+pytest                       # full suite (config in pytest.ini); must stay green
+```
+
+Coverage spans database CRUD, auth, recurring transfers, savings/interest, markets, watchlist, i18n, the update service, and net-worth history. **Note:** `pytest --cov` can fail with a PyO3/bcrypt "initialized once" error in some environments — that's coverage re-importing bcrypt, not a real test failure. Plain `pytest` is clean.
+
+---
+
+## 14. Extending the Application
+
+**New view:** create `views/x_view.py` (inherit `QWidget`, accept `db`/`user`, implement `refresh()`); add it to `NAV_ITEMS` and the `QStackedWidget` in `main_window.py`; wire any cross-view signals; add a `Ctrl+N` shortcut.
+
+**New service:** create `services/x_service.py` taking `db`; keep it Qt-free and filter by `user_id`.
+
+**New table/column:** add DDL to `SCHEMA_SQL` and an **idempotent** step in `_migrate()` (guard with a `PRAGMA table_info` check or `IF NOT EXISTS`); add CRUD methods and tests.
+
+**New translatable string:** wrap user-facing text in `tr("...")` and add the French entry to `_FR` in `views/i18n.py`.
+
+**New release:** bump `version.py`, add a `CHANGELOG.md` entry, merge, then tag.
+
+---
+---
+
+# 🇫🇷 Documentation technique (Français)
+
+> **Version :** 1.2.0 · **Python :** 3.12+ · **Pile :** PyQt6 · SQLite · Matplotlib
+
+## Table des matières
+
+1. [Vue d'ensemble](#1-vue-densemble)
+2. [Pile technologique](#2-pile-technologique)
+3. [Structure du projet](#3-structure-du-projet)
+4. [Architecture](#4-architecture-fr)
+5. [Schéma de base de données et migrations](#5-schéma-de-base-de-données-et-migrations)
+6. [Couche de services](#6-couche-de-services)
+7. [Couche de vues](#7-couche-de-vues)
+8. [Internationalisation (i18n)](#8-internationalisation-i18n-fr)
+9. [Système de thème](#9-système-de-thème)
+10. [Sécurité](#10-sécurité)
+11. [Emplacements des données](#11-emplacements-des-données)
+12. [Chaîne de compilation et de publication](#12-chaîne-de-compilation-et-de-publication)
+13. [Tests](#13-tests-fr)
+14. [Étendre l'application](#14-étendre-lapplication)
+
+---
+
+## 1. Vue d'ensemble
+
+Budget Manager est une application de finances personnelles de bureau pour Windows (et exécutable depuis le code source sur tout système). Elle suit une architecture en couches : des vues PyQt6 en haut, une couche de services pour la logique métier, et un unique `DatabaseManager` qui possède tout le SQL contre une base SQLite embarquée. Les graphiques sont produits avec Matplotlib ; les rapports s'exportent en PDF/CSV/Excel.
+
+**Fonctionnalités :** tableau de bord avec graphiques des dépenses, revenus vs dépenses et valeur nette sur 12 mois ; CRUD des transactions avec virements, recherche et filtres ; budgets mensuels ; objectifs financiers ; gestion multi-comptes avec soldes mis à jour automatiquement ; moteur de transactions/virements récurrents ; rapports avec export ; suivi de l'épargne et des intérêts ; liste de surveillance d'actions et crypto sans clé ; localisation anglais/français ; authentification bcrypt ; sauvegardes automatiques continues ; et une vérification de mise à jour GitHub informative seulement.
+
+---
+
+## 2. Pile technologique
+
+| Composant | Bibliothèque | Rôle |
 |---|---|---|
-| `login_view.py` | `LoginView` | Modal `QDialog` with stacked login/register panels. Emits `login_success(dict)` on success. |
-| `main_window.py` | `MainWindow` | `QMainWindow` hosting a 210 px fixed sidebar and `QStackedWidget` (8 views). Owns all cross-view signal wiring and the 24-hour auto-backup timer. |
-| `dashboard_view.py` | `DashboardView` | 5 `SummaryCard` widgets, embedded Matplotlib pie + bar charts, recent 10 transactions table. |
-| `transactions_view.py` | `TransactionsView` | `QTableWidget` with Add/Edit/Delete. Filter toolbar: date range, category, account, search text. Emits `transaction_changed` on every mutation. |
-| `budget_view.py` | `BudgetView` | Month picker + per-category `BudgetBar` widgets. Quick-set budget dialog with UPSERT. Emits `budget_changed`. |
-| `goals_view.py` | `GoalsView` | Card grid of `GoalProgressCard` per goal. Add/Edit/Delete + Deposit dialogs. |
-| `accounts_view.py` | `AccountsView` | `QTableWidget` of accounts. Add/Edit/Delete. Emits `accounts_changed` on mutation. |
-| `reports_view.py` | `ReportsView` | `QTabWidget`: Summary, Categories, Cash Flow tabs. Export buttons for PDF/CSV/Excel. |
-| `recurring_view.py` | `RecurringView` | `QTableWidget` of recurring rules. Overdue rows highlighted red. |
-| `settings_view.py` | `SettingsView` | Theme toggle, category CRUD, manual backup/restore, CSV/Excel import. Emits `theme_changed(str)` and `data_changed()`. |
+| Interface | PyQt6 ≥ 6.6 | Interface de bureau — widgets, signaux/slots, styles QSS |
+| Base de données | sqlite3 (stdlib) | Stockage embarqué ; requêtes paramétrées ; connexions par thread |
+| Graphiques | Matplotlib ≥ 3.8 | Camemberts, barres et courbes via le backend `QtAgg` |
+| Traitement de données | pandas ≥ 2.1 | Import/export CSV/Excel |
+| Hachage de mot de passe | bcrypt ≥ 4.1 | Hachage à sens unique |
+| Rapports PDF | reportlab ≥ 4.0 | Génération de PDF mensuels |
+| Export Excel | openpyxl ≥ 3.1 | Classeurs `.xlsx` |
+| Calcul de dates | python-dateutil | Avancement des échéances récurrentes (dépendance transitive) |
+| Tests | pytest (+ pytest-qt, pytest-cov) | Tests unitaires/d'intégration |
+| Empaquetage | PyInstaller + Inno Setup | `.exe` portable et programme d'installation Windows |
 
-### 7.2 Reusable Widgets — `views/widgets.py`
+---
 
-| Widget | Description |
+## 3. Structure du projet
+
+Voir l'arborescence dans la section anglaise [§3](#3-project-structure) — les noms de fichiers sont identiques. Points clés : `main.py` (point d'entrée + logique des chemins de données), `version.py` (source unique de la version), `database/schema.py` (tout le SQL et les migrations), `services/` (6 services sans dépendance Qt), `views/` (10 vues + `theme.py`, `i18n.py`, `widgets.py`), et `.github/workflows/` (CI + publication).
+
+---
+
+## 4. Architecture {#4-architecture-fr}
+
+### 4.1 Couches
+
+| Couche | Modules | Responsabilité |
+|---|---|---|
+| **Données** | `database/schema.py` | Tout le SQL, paramétré. Les vues ne touchent jamais au SQL directement. |
+| **Services** | `services/` | Logique métier sans dépendance Qt (auth, sauvegarde, import/export, récurrent, marchés, mise à jour). |
+| **Vues** | `views/` | Tous les widgets PyQt6. Lisent via la base/les services ; émettent des signaux à la modification. |
+| **Contrôleur** | `main.py`, `main_window.py` | Démarrage, navigation, rafraîchissement inter-vues. |
+
+### 4.2 Signaux/slots
+Les vues ne se référencent jamais entre elles ; elles communiquent via `MainWindow`. Une modification dans une vue (ex. `TransactionsView.transaction_changed`) déclenche `refresh()` sur les vues dépendantes (Tableau de bord, Budgets, Rapports, Épargne). `SettingsView` émet `theme_changed` et `language_changed`, que `MainWindow` applique à toute l'application.
+
+### 4.3 Sécurité des threads de la base
+`DatabaseManager` conserve **une connexion SQLite par thread** via `threading.local()`. `_local` est un attribut **d'instance** (pas de classe) — nécessaire pour que les nombreuses instances de la suite de tests ne partagent pas une connexion. Le service de marchés effectue des E/S réseau sur des threads de travail, d'où l'importance des connexions par thread.
+
+### 4.4 Gestion des erreurs des dialogues
+Chaque `_save()` de dialogue entoure les appels à la base d'un `try/except` et affiche un `QMessageBox.critical` en cas d'échec (sinon PyQt6 absorberait l'exception dans le slot et le dialogue semblerait figé, sans retour).
+
+### 4.5 Séquence de démarrage
+Identique à la section anglaise [§4.5](#45-startup-sequence) : analyse des arguments (`--reset`/`--seed`), politique High-DPI **avant** `QApplication()`, création de la base et des services, dialogue de connexion bloquant, application de la langue, puis `MainWindow` (10 vues, câblage des signaux, minuterie de sauvegarde).
+
+---
+
+## 5. Schéma de base de données et migrations
+
+Requêtes paramétrées partout ; clés étrangères activées. Tables : `users`, `accounts`, `categories`, `transactions`, `budgets`, `financial_goals`, `recurring_transactions`, `watchlist`.
+
+**Colonnes et relations clés :**
+- `users` — `password` bcrypt, `currency` (CAD par défaut), `language` (`'en'`/`'fr'`).
+- `accounts` — `account_type` ∈ {Checking, Savings, Credit Card, Cash}, `current_balance` (tenu à jour à chaque mutation de transaction).
+- `categories` — **globales** (pas de `user_id`) ; `type` ∈ {Income, Expense}. Inclut une catégorie système **Interest** pour le suivi des intérêts.
+- `transactions` — `amount` signé (revenu +, dépense −) ; `transfer_id` (auto-référence) lie les deux volets d'un virement (exclus des agrégats revenus/dépenses).
+- `budgets` — `UNIQUE(user_id, category_id, month, year)` ; définis par UPSERT.
+- `recurring_transactions` — `frequency` ∈ {Weekly, Bi-weekly, Monthly, Quarterly, Yearly} ; `to_account_id` optionnel pour les virements récurrents.
+- `watchlist` — symboles de marchés avec dernier cours/variation/devise en cache ; `UNIQUE(user_id, symbol, asset_type)`.
+
+**Mise à jour automatique des soldes :** `create_transaction` → `solde += montant` ; `update_transaction` → annule l'ancien, applique le nouveau ; `delete_transaction` → `solde −= montant`.
+
+**Migrations** exécutées à chaque init via `_migrate()`, chacune protégée pour être idempotente : v1.0.1 (recréation de `budgets` avec `user_id`), v1.0.2 (`transactions.transfer_id`), v1.0.3 (`recurring_transactions.to_account_id`), v1.0.4 (`users.language`), v1.0.5 (index de performance).
+
+**Index (v1.0.5) :** `transactions(account_id, date)`, `transactions(category_id)`, `transactions(transfer_id)`, `accounts(user_id)`, `recurring_transactions(user_id)`, `financial_goals(user_id)`. `budgets` et `watchlist` sont déjà indexés par leurs contraintes UNIQUE. Créés avec `CREATE INDEX IF NOT EXISTS`, donc ré-exécuter l'init est sans risque.
+
+**Reconstruction de la valeur nette :** `get_net_worth_history(user_id, months=12)` renvoie les totaux de fin de mois sans table d'historique des soldes. Comme les soldes reflètent déjà toutes les transactions, on part du total actuel et on « déroule » le flux net de chaque mois : `fin_de_mois(M-1) = fin_de_mois(M) − flux(M)`. Les virements s'annulent sur leurs deux volets et ne faussent pas le total.
+
+---
+
+## 6. Couche de services
+
+| Service | Points clés |
 |---|---|
-| `SummaryCard` | Rounded card: icon + label + formatted value. Used on Dashboard. |
-| `GoalProgressCard` | Card showing goal name, current/target amounts, percentage, colour-coded `QProgressBar`. |
-| `BudgetBar` | `QProgressBar` subclass — green `< 70%`, yellow `< 90%`, red `≥ 90%` of monthly budget. |
+| **AuthService** | `register()` (valide nom/courriel/longueur du mot de passe, courriel unique), `login()` ; hachage bcrypt avec vérification à temps constant. |
+| **BackupService** | `create_backup(label)` écrit `backups/budget_<horodatage>_<label>.db` et élague aux 30 plus récents ; `list_backups()`, `restore_backup(path)`. |
+| **RecurringService** | `process_due(user_id)` publie chaque règle dont `next_due_date ≤ aujourd'hui`, en avançant la date avec `dateutil.relativedelta` ; une boucle `while` rattrape les périodes manquées. Gère les virements (`to_account_id`). |
+| **ImportExportService** | Import CSV/Excel (colonnes : `date, amount, description, category, account` ; lignes invalides ignorées, renvoie les compteurs) et export CSV / Excel multi-feuilles. |
+| **market_service** | Module de fonctions (pas une classe) : cours sans clé depuis CoinGecko (crypto) et Stooq/Yahoo (actions), conversion `get_fx_rate()` vers la devise de l'utilisateur, et `fetch_quotes()` qui regroupe les requêtes d'actions en un seul appel. |
+| **update_service** | `check_for_update()` interroge l'API « latest release » de GitHub et compare le tag à `version.__version__` via `is_newer()`. Informatif seulement — n'installe jamais. |
 
 ---
 
-## 8. Theme System
+## 7. Couche de vues
 
-Themes are defined as two QSS strings in `views/theme.py`: `DARK_QSS` and `LIGHT_QSS`. Runtime switching calls `MainWindow._apply_theme(theme)`, which sets the stylesheet on the root widget and clears all child widget stylesheets to force re-painting from the parent.
+Toutes les vues héritent de `QWidget`, prennent `db` et `user` dans `__init__`, exposent `refresh()`, et n'importent jamais d'autres modules de vue. L'inventaire des 10 vues correspond à la section anglaise [§7](#7-views-layer) : Login, MainWindow (barre latérale `NAV_ITEMS` + `QStackedWidget`, raccourcis `Ctrl+1…0`, minuterie de sauvegarde), Dashboard (cartes + camembert, barres, **courbe de valeur nette**), Transactions (CRUD + virements + filtres), Budgets, Goals, Accounts, Reports, Recurring, Savings, Markets, Settings (Apparence, Catégories, Sauvegarde, Import, À propos).
 
-### QSS Object Name Targets
+**Widgets réutilisables (`views/widgets.py`) :** `SummaryCard`, `GoalProgressCard`, `BudgetBar` (vert <70 %, jaune <90 %, rouge ≥90 %).
 
-| `objectName` | Used By |
+---
+
+## 8. Internationalisation (i18n) {#8-internationalisation-i18n-fr}
+
+`views/i18n.py` est la couche de traduction. **L'anglais est la source/la clé** : `tr("texte anglais")` cherche dans la table de la langue active et retombe sur la clé elle-même si une traduction manque. Les chaînes françaises sont dans `_FR`. `set_language(code)` / `get_language()` changent la langue active ; le choix de l'utilisateur est conservé dans `users.language` et appliqué au démarrage.
+
+Les **listes déroulantes qui écrivent en base** affichent du texte localisé mais **stockent des valeurs anglaises** (ex. types de compte, fréquences), pour que la base reste indépendante de la langue. `month_abbr()` renvoie les abréviations de mois localisées pour les graphiques.
+
+---
+
+## 9. Système de thème
+
+`views/theme.py` définit `DARK_QSS` et `LIGHT_QSS`. Le changement à l'exécution réapplique la feuille de style à la racine et efface les feuilles enfants pour forcer le redessin. `chart_colors()` renvoie une palette adaptée au thème (`bg`, `fg`, `muted`, `grid`, `income`, `expense`, `accent`) afin que les figures Matplotlib correspondent au thème — la courbe de valeur nette utilise `accent`.
+
+Cibles `objectName` courantes : `sidebar`, `navBtn` (`:checked` = actif), `card`, `heading`, `subheading`, `muted`, `danger`, `secondary`.
+
+---
+
+## 10. Sécurité
+
+- **Mots de passe :** hachés avec bcrypt ; vérification à temps constant ; jamais journalisés ni stockés en clair.
+- **Injection SQL :** chaque instruction utilise des `?` ; aucune interpolation de chaîne d'entrée utilisateur.
+- **Isolation des données :** les requêtes filtrent par `user_id` (directement ou via `accounts.user_id`) ; un utilisateur ne voit que ses propres données.
+- **Sauvegardes :** écrites localement ; `restore_backup` copie en place pour qu'un échec laisse la base active intacte.
+- **Réseau :** les services de marchés et de mise à jour ne font que des appels HTTPS sortants vers des points publics sans clé ; aucun identifiant transmis.
+
+---
+
+## 11. Emplacements des données
+
+| Mode d'exécution | Racine des données |
 |---|---|
-| `sidebar` | Left navigation `QFrame` |
-| `navBtn` | Sidebar `QPushButton` — `:checked` state indicates active page |
-| `card` | `SummaryCard` container frames |
-| `muted` | Secondary / hint `QLabel` |
-| `heading` | Page title `QLabel` |
-| `danger` | Delete `QPushButton` (red tint) |
-| `secondary` | Cancel / secondary action `QPushButton` |
+| Source (`python main.py`) | `./data` (dossier du projet) |
+| `.exe` figé | `%APPDATA%\BudgetManager` (Windows) / `~/.local/share/BudgetManager` |
+
+Une compilation PyInstaller mono-fichier se décompresse dans un dossier temporaire que Windows efface à la sortie ; les données ne **doivent donc pas** se trouver à côté de l'exécutable. Par conséquent, l'application source et l'application empaquetée utilisent des bases **distinctes**.
 
 ---
 
-## 9. Security
+## 12. Chaîne de compilation et de publication
 
-### Password Storage
-Passwords are hashed with `bcrypt` (cost factor 12). Login uses `bcrypt.checkpw()` — constant-time comparison. Plaintext passwords are never stored or logged.
-
-### SQL Injection Prevention
-Every SQL statement uses parameterised placeholders (`?`). No user-supplied string is ever interpolated into a query.
-
-### Data Isolation
-All queries include a `user_id` WHERE clause or join through `accounts.user_id`. A user can only read or modify their own accounts, transactions, budgets, goals, categories, and recurring rules.
-
-### Backup File Safety
-Backup files are written locally to `backups/`. `restore_backup` copies the file into place before deleting the old DB, so a copy failure leaves the live database intact.
-
----
-
-## 10. Installation & Running
-
-### Prerequisites
-- Python 3.12 or later
-- pip / pip3
-- Display environment (PyQt6 requires a screen; set `DISPLAY` on headless Linux)
-
-### Install
-
-```bash
-unzip budget_manager.zip
-cd budget_app
-pip install -r requirements.txt
+**Compilations locales :**
+```powershell
+.\build.ps1            # dist\BudgetManager.exe (PyInstaller mono-fichier)
+.\build_installer.ps1  # installer_output\BudgetManagerSetup.exe (Inno Setup)
 ```
 
-### Run
+**Publication automatique** (`.github/workflows/release.yml`, déclenchée par le push d'un tag `vX.Y.Z`) :
+1. Mettre `__version__` dans `version.py` au niveau du tag (le workflow le **vérifie** et échoue sinon).
+2. `git tag vX.Y.Z && git push origin vX.Y.Z`.
+3. Un runner Windows compile l'exe portable + le programme d'installation et publie une Release GitHub avec les deux en pièces jointes.
 
-| Command | Effect |
-|---|---|
-| `python main.py` | Normal launch |
-| `python main.py --seed` | Seed demo data then launch (`demo@budget.app` / `demo1234`) |
-| `python main.py --reset` | Delete DB and start fresh |
-| `python main.py --theme light` | Launch with light theme |
+L'étape de publication est **idempotente** : elle crée la release si absente, sinon téléverse les fichiers avec `--clobber`, de sorte qu'une release pré-existante ou une ré-exécution du workflow n'abandonne pas les binaires. **Ne créez pas la release manuellement à l'avance** — poussez seulement le tag.
 
-> **Note:** Run `--reset` before `--seed` if a database already exists with a conflicting `demo@budget.app` account.
-
-### Keyboard Shortcuts
-
-| Shortcut | View |
-|---|---|
-| `Ctrl+1` | Dashboard |
-| `Ctrl+2` | Transactions |
-| `Ctrl+3` | Budgets |
-| `Ctrl+4` | Goals |
-| `Ctrl+5` | Accounts |
-| `Ctrl+6` | Reports |
-| `Ctrl+7` | Recurring |
-| `Ctrl+8` | Settings |
+La **CI** (`.github/workflows/ci.yml`) exécute `pytest` à chaque push/PR.
 
 ---
 
-## 11. Testing
+## 13. Tests {#13-tests-fr}
 
-Tests live in `tests/test_database.py` and use an in-memory SQLite database (`:memory:`) — no files created or cleaned up between runs.
+Les tests sont dans `tests/` et utilisent des bases temporaires isolées via les fixtures de `conftest.py` (`db`, `user_id`, `account_id`, `savings_id`).
 
-```bash
-pytest tests/ -v
-pytest tests/ --cov=. --cov-report=term-missing
+```powershell
+pytest                       # suite complète (config dans pytest.ini) ; doit rester verte
 ```
 
-### Test Classes
-
-| Class | Scenarios |
-|---|---|
-| `TestAuthService` | Registration success, duplicate email rejection, login success, wrong password |
-| `TestAccounts` | Create, list, update, delete account |
-| `TestTransactions` | Add income/expense, balance adjustment verification, update with correction, delete with reversal, filtering |
-| `TestBudgets` | Set budget, list monthly budgets, UPSERT behaviour, budget vs spending |
-| `TestGoals` | Create, list, update progress, complete, delete |
-| `TestRecurring` | Create rule, process_due posts + advances date, inactive rules skipped, multiple missed periods |
-| `TestReporting` | Monthly summary totals, category breakdown, cash-flow structure |
-| `TestBackupService` | Create file, list sorted, restore, prune when > 30 |
+La couverture inclut le CRUD de la base, l'authentification, les virements récurrents, l'épargne/les intérêts, les marchés, la liste de surveillance, l'i18n, le service de mise à jour et l'historique de valeur nette. **Note :** `pytest --cov` peut échouer avec une erreur PyO3/bcrypt « initialized once » dans certains environnements — c'est la couverture qui réimporte bcrypt, pas un vrai échec de test. Le `pytest` simple est propre.
 
 ---
 
-## 12. Bug Fixes (v1.0.1)
+## 14. Étendre l'application
 
-### Fix 1 — `setHighDpiScaleFactorRoundingPolicy` warning (`main.py`)
+**Nouvelle vue :** créez `views/x_view.py` (hériter de `QWidget`, accepter `db`/`user`, implémenter `refresh()`) ; ajoutez-la à `NAV_ITEMS` et au `QStackedWidget` dans `main_window.py` ; câblez les signaux inter-vues ; ajoutez un raccourci `Ctrl+N`.
 
-**Symptom:** Console warning on startup: *"setHighDpiScaleFactorRoundingPolicy must be called before creating the QGuiApplication instance"*
+**Nouveau service :** créez `services/x_service.py` prenant `db` ; gardez-le sans Qt et filtrez par `user_id`.
 
-**Root cause:** The call was made as an *instance method* (`app.setHighDpiScaleFactorRoundingPolicy(...)`) **after** `QApplication()` was constructed. Qt requires this to be set as a *class method* before instantiation.
+**Nouvelle table/colonne :** ajoutez le DDL à `SCHEMA_SQL` et une étape **idempotente** dans `_migrate()` (protégée par un `PRAGMA table_info` ou `IF NOT EXISTS`) ; ajoutez les méthodes CRUD et des tests.
 
-**Fix:**
-```python
-# BEFORE (wrong)
-app = QApplication(sys.argv)
-app.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+**Nouvelle chaîne traduisible :** entourez le texte visible de `tr("...")` et ajoutez l'entrée française à `_FR` dans `views/i18n.py`.
 
-# AFTER (correct)
-QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
-app = QApplication(sys.argv)
-```
-
----
-
-### Fix 2 — `AttributeError: '_nav_buttons'` crash on startup (`views/main_window.py`)
-
-**Symptom:** `AttributeError: 'MainWindow' object has no attribute '_nav_buttons'` at launch.
-
-**Root cause:** `_build_ui()` called `_build_sidebar()` first. Inside `_build_sidebar()`, the loop `self._nav_buttons[idx] = btn` ran before `self._nav_buttons` was ever initialised as a dict.
-
-**Fix:** Move both dict initialisations before the `_build_sidebar()` call:
-```python
-# Initialise BEFORE building sidebar (sidebar populates these dicts)
-self._views: dict[int, QWidget] = {}
-self._nav_buttons: dict[int, QPushButton] = {}
-
-root_layout.addWidget(self._build_sidebar())   # now safe to populate
-```
-
----
-
-### Fix 3 — Account creation silently fails (`views/accounts_view.py`, all dialogs)
-
-**Symptom:** Clicking "Save" in the Add Account dialog appeared to do nothing. No account appeared in the list, and no error was shown.
-
-**Root cause (primary):** Dialog `_save()` methods had no `try/except` around database calls. In PyQt6, an unhandled exception inside a slot is printed to stderr but the slot returns normally — so `self.accept()` was never reached (the dialog stayed open), giving the impression that nothing happened.
-
-**Root cause (secondary):** `DatabaseManager._execute()` called `self._conn()` twice — once for `execute()` and once for `commit()`. While the connection cache made this safe in practice, it introduced an unnecessary re-lookup. Fixed to capture a single `conn` reference.
-
-**Fix (accounts_view.py — same pattern applied to all dialogs):**
-```python
-def _save(self) -> None:
-    name = self._name_edit.text().strip()
-    if not name:
-        QMessageBox.warning(self, "Validation", "Account name required.")
-        return
-    try:
-        if self._account:
-            self._db.update_account(self._account["id"], name, acct_type, balance)
-        else:
-            self._db.create_account(self._user_id, name, acct_type, balance)
-    except Exception as exc:
-        QMessageBox.critical(self, "Database Error",
-                             "Could not save account:\n" + str(exc))
-        return
-    self.accept()
-```
-
----
-
-## 13. Extending the Application
-
-### Adding a New View
-
-1. Create `views/my_view.py` with a class inheriting `QWidget`; accept `db` and `user` in `__init__`.
-2. Add a `refresh()` method that re-queries and re-populates widgets.
-3. In `main_window.py`: add an entry to `NAV_ITEMS`, import the class, instantiate it in `_build_ui()`, and add it to `self._stack`.
-4. Add a `Ctrl+N` shortcut in `_setup_shortcuts()`.
-
-### Adding a New Service
-
-1. Create `services/my_service.py`; accept `db: DatabaseManager` in `__init__`.
-2. All queries should filter by `user_id` for data isolation.
-3. Instantiate in the relevant view or in `MainWindow` and pass it down.
-
-### Adding a New Database Table
-
-1. Add `CREATE TABLE IF NOT EXISTS` DDL to `DatabaseManager.__init__()` in `database/schema.py`.
-2. Add corresponding CRUD methods to `DatabaseManager` or a new service.
-3. Add tests to `tests/test_database.py` using the existing in-memory fixture pattern.
-
-### Adding a New Export Format
-
-1. Add a method to `ImportExportService` (e.g. `export_ods()`).
-2. Add an export button to `reports_view.py` and connect its `clicked` signal.
+**Nouvelle version :** mettez à jour `version.py`, ajoutez une entrée à `CHANGELOG.md`, fusionnez, puis taguez.

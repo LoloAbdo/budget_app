@@ -1,8 +1,12 @@
 # Budget Manager — User Guide
 
-> Track your spending, plan budgets, and reach your financial goals — all in one place.
+> **Version 1.2.0** · Track your spending, plan budgets, watch your investments, and reach your financial goals — all in one place.
+>
+> 🇬🇧 **English** below · 🇫🇷 **Version française** [plus bas](#-guide-de-lutilisateur-français)
 
 ---
+
+# 🇬🇧 User Guide (English)
 
 ## Table of Contents
 
@@ -15,10 +19,12 @@
 7. [Goals](#7-goals)
 8. [Recurring Transactions](#8-recurring-transactions)
 9. [Reports](#9-reports)
-10. [Settings](#10-settings)
-11. [Keyboard Shortcuts](#11-keyboard-shortcuts)
-12. [Tips & Best Practices](#12-tips--best-practices)
-13. [Troubleshooting](#13-troubleshooting)
+10. [Savings & Interest](#10-savings--interest)
+11. [Markets](#11-markets)
+12. [Settings](#12-settings)
+13. [Keyboard Shortcuts](#13-keyboard-shortcuts)
+14. [Tips & Best Practices](#14-tips--best-practices)
+15. [Troubleshooting](#15-troubleshooting)
 
 ---
 
@@ -26,19 +32,27 @@
 
 ### Installing the app
 
-1. Unzip `budget_manager.zip` to a folder of your choice.
-2. Open a terminal in that folder and run:
-   ```
-   pip install -r requirements.txt
-   ```
-3. Launch the app:
-   ```
-   python main.py
-   ```
+There are two ways to use Budget Manager on Windows:
+
+**Option A — Installer (recommended for most people)**
+1. Download `BudgetManagerSetup.exe` from the [Releases page](https://github.com/LoloAbdo/budget_app/releases/latest).
+2. Run it and follow the prompts. The app installs like any normal Windows program and adds a Start-menu shortcut.
+
+**Option B — Portable**
+1. Download `BudgetManager.exe` from the [Releases page](https://github.com/LoloAbdo/budget_app/releases/latest).
+2. Double-click it — no installation needed.
+
+> **Where your data lives:** the installed/portable app keeps your database and backups in `%APPDATA%\BudgetManager`. (Running from source code instead uses a local `./data` folder — see the Technical Documentation.)
+
+**Option C — Run from source (for developers)**
+```
+pip install -r requirements.txt
+python main.py
+```
 
 ### Try the demo first
 
-If you want to explore the app with sample data already loaded, run:
+To explore the app with realistic sample data already loaded, run from source with:
 ```
 python main.py --seed
 ```
@@ -48,19 +62,18 @@ Then log in with:
 
 ### Creating your account
 
-1. On the login screen, click **"Don't have an account? Register"**.
+1. On the login screen, switch to the **Register** panel.
 2. Fill in your name, email, and a password (at least 6 characters).
-3. Choose your currency (defaults to CAD).
-4. Click **Register**.
-5. You'll see a confirmation — now sign in with your new credentials.
+3. Choose your currency (defaults to CAD). This is the currency used everywhere in the app, including Markets conversion.
+4. Click **Register**, then sign in with your new credentials.
 
-> Your password is encrypted and never stored in plain text.
+> Your password is encrypted with bcrypt and never stored in plain text.
 
 ---
 
 ## 2. Navigating the App
 
-Once logged in, you'll see the main window with a **sidebar on the left** and the **content panel on the right**.
+After logging in you'll see a **sidebar on the left** and the **content panel on the right**:
 
 ```
 💰 Budget
@@ -73,349 +86,559 @@ Once logged in, you'll see the main window with a **sidebar on the left** and th
   🏦  Accounts
   📈  Reports
   🔄  Recurring
+  🐷  Savings
+  💹  Markets
   ⚙️  Settings
-
-  🚪  Sign Out
 ```
 
-Click any item in the sidebar to switch views. You can also use the keyboard shortcuts listed in [Section 11](#11-keyboard-shortcuts).
+Click any item to switch views, or use the [keyboard shortcuts](#13-keyboard-shortcuts).
 
 ---
 
 ## 3. Dashboard
 
-The Dashboard gives you a real-time snapshot of your finances for the current month.
+The Dashboard is your real-time financial snapshot for the current month.
 
-### What you'll see
-
-**Summary cards** across the top row:
+**Summary cards** across the top:
 
 | Card | What it shows |
 |---|---|
-| 💚 Total Income | All income transactions this month |
-| 🔴 Total Expenses | All expense transactions this month |
-| 💰 Net Balance | Income minus Expenses |
-| 📊 Savings Rate | Percentage of income saved |
-| 🎯 Goal Progress | Average progress across all active goals |
+| Total Balance | Sum of all your account balances right now |
+| Monthly Income | All income this month |
+| Monthly Expenses | All expenses this month |
+| Net Savings | Income minus expenses this month |
+| Savings Rate | Percentage of this month's income saved |
 
 **Charts:**
-- **Pie chart** — Spending breakdown by category
-- **Bar chart** — Monthly income vs expenses over the year
+- **Spending by Category** — a donut chart of where your money went this month.
+- **Income vs Expenses — Monthly** — bars for each month of the current year.
+- **Net Worth — Last 12 Months** *(new in 1.2.0)* — a line chart of your total net worth over the past year, so you can see whether you're trending up or down at a glance.
 
-**Recent Transactions** — A table of your last 10 transactions.
+**Recent Transactions** — your last 10 entries.
 
-### Keeping it up to date
-
-The Dashboard refreshes automatically whenever you add, edit, or delete a transaction, budget, or account. You don't need to do anything — it always reflects your latest data.
+The Dashboard refreshes automatically whenever you change a transaction, budget, or account.
 
 ---
 
 ## 4. Accounts
 
-Accounts represent the places you store or owe money — checking accounts, savings, credit cards, and cash.
+Accounts represent where you store or owe money — checking, savings, credit cards, and cash.
 
 ### Adding an account
+1. Go to **Accounts** → **+ Add Account**.
+2. Enter the **name**, **type** (Checking, Savings, Credit Card, Cash), and **current balance** (use a negative number for credit-card debt).
+3. Click **Save**.
 
-1. Go to **Accounts** in the sidebar.
-2. Click **+ Add Account**.
-3. Enter:
-   - **Account Name** — e.g. "Main Checking", "Visa Credit Card"
-   - **Account Type** — Checking, Savings, Credit Card, or Cash
-   - **Current Balance** — your current balance (use a negative number for credit card debt)
-4. Click **Save**.
+### Editing / deleting
+Double-click a row (or select it and click **Edit**) to change details. Deleting an account also deletes all of its transactions.
 
-### Editing an account
+> **Tip:** account balances update automatically as you add and remove transactions. Only edit a balance directly to correct a discrepancy — and for **Savings** accounts, doing so triggers interest tracking (see [Section 10](#10-savings--interest)).
 
-Double-click a row in the table, or select it and click **✏ Edit**. You can change the name, type, and balance.
-
-> **Tip:** The balance shown for each account automatically updates every time you add or delete a transaction linked to that account. Only edit the balance directly if you need to correct a discrepancy.
-
-### Deleting an account
-
-Select the account and click **🗑 Delete**. You'll be asked to confirm. Deleting an account also deletes all transactions linked to it.
-
-> **Warning:** This cannot be undone. Consider creating a backup first (see [Section 10](#10-settings)).
+> **Warning:** deleting is permanent. Create a backup first if unsure.
 
 ---
 
 ## 5. Transactions
 
-Transactions are the heart of Budget Manager — every time money comes in or goes out, you record it here.
+Every time money moves, you record it here.
 
 ### Adding a transaction
+1. Go to **Transactions** → **+ Add Transaction**.
+2. Fill in **Date**, **Description**, **Amount** (positive = income, negative = expense, e.g. `-42.50`), **Category**, **Account**, and optional **Notes**.
+3. Click **Save**. The account balance updates automatically.
 
-1. Go to **Transactions**.
-2. Click **+ Add Transaction**.
-3. Fill in the form:
-   - **Date** — when the transaction occurred
-   - **Description** — a short label (e.g. "Groceries at IGA")
-   - **Amount** — enter a **positive number for income**, a **negative number for expenses** (e.g. `-42.50` for a $42.50 expense)
-   - **Category** — choose the most relevant category
-   - **Account** — which account this transaction belongs to
-   - **Notes** — optional extra details
-4. Click **Save**.
+### Transfers between accounts
+Use a transfer when you move money between your own accounts (e.g. checking → savings). A transfer creates two linked entries — money out of one account and into the other — and is excluded from income/expense totals so it doesn't distort your reports.
 
-> The linked account's balance updates automatically.
+### Editing / deleting
+Editing corrects the account balance automatically; deleting reverses it.
 
-### Editing a transaction
-
-Double-click a row, or select it and click **✏ Edit**. All fields can be changed, and the account balance will be corrected automatically.
-
-### Deleting a transaction
-
-Select the row and click **🗑 Delete**. The account balance will be reversed automatically.
-
-### Filtering transactions
-
-Use the toolbar at the top of the Transactions view to narrow down what you see:
-
-| Filter | How to use |
-|---|---|
-| **Date range** | Set a start and end date |
-| **Category** | Pick a category from the dropdown |
-| **Account** | Pick an account from the dropdown |
-| **Search** | Type a keyword to search descriptions and notes |
-
-Click **Clear** to remove all filters and see every transaction.
+### Filtering
+The toolbar lets you filter by **date range**, **category**, **account**, and **search keyword** (matches description and notes). Click **Clear** to reset.
 
 ---
 
 ## 6. Budgets
 
-Budgets let you set a monthly spending limit for each category and see how you're tracking.
+Set a monthly spending limit per category and track it.
 
-### Setting a budget
+1. Go to **Budgets** and pick the **month/year**.
+2. For any expense category, click **Set Budget** and enter an amount.
 
-1. Go to **Budgets**.
-2. Use the **month/year picker** at the top to select which month you're budgeting for.
-3. For any expense category, click **Set Budget** (or double-click the row).
-4. Enter the amount you want to spend in that category.
-5. Click **Save**.
-
-You can set budgets for as many or as few categories as you want. Unused categories are simply not tracked.
-
-### Reading the progress bars
-
-Each category shows a colour-coded bar:
+**Reading the bars:**
 
 | Colour | Meaning |
 |---|---|
-| 🟢 Green | Under 70% of budget spent — you're on track |
-| 🟡 Yellow | 70–90% of budget spent — approaching the limit |
-| 🔴 Red | Over 90% spent — at or over budget |
+| 🟢 Green | Under 70% spent — on track |
+| 🟡 Yellow | 70–90% spent — approaching the limit |
+| 🔴 Red | Over 90% — at or over budget |
 
-The bar also shows the actual amount spent vs your budget in numbers (e.g. `$320 / $400`).
-
-### Copying a budget to another month
-
-Currently, budgets must be set per month manually. A quick way to repeat last month's budget is to note the amounts and re-enter them for the new month. Future versions will support budget templates.
+Each bar also shows spent vs budgeted in numbers (e.g. `$320 / $400`). Budgets are per-month; re-setting the same category/month overwrites the amount.
 
 ---
 
 ## 7. Goals
 
-Goals help you save towards a specific target — an emergency fund, a holiday, a new car, anything you like.
+Goals help you save toward a target — an emergency fund, a holiday, a new laptop.
 
-### Creating a goal
+1. **Goals** → **+ Add Goal**: enter **name**, **target amount**, **current amount**, and **target date**.
+2. Use **Deposit** to add progress toward a goal.
 
-1. Go to **Goals**.
-2. Click **+ Add Goal**.
-3. Enter:
-   - **Goal Name** — e.g. "Emergency Fund"
-   - **Target Amount** — how much you want to save
-   - **Current Amount** — how much you've saved so far (can be 0)
-   - **Target Date** — your deadline
-4. Click **Save**.
-
-### Adding money to a goal
-
-1. Select the goal card.
-2. Click **💰 Deposit**.
-3. Enter the amount you're adding.
-4. Click **Save**.
-
-> Note: Goal deposits are tracked separately from your transaction history. They don't affect account balances — think of them as tracking progress, not moving money.
-
-### Editing or deleting a goal
-
-Click **✏ Edit** to change any details, or **🗑 Delete** to remove the goal entirely.
+> Goal progress is tracked separately from your accounts — it measures progress, it doesn't move real money.
 
 ---
 
 ## 8. Recurring Transactions
 
-Recurring transactions are bills or income that happen on a regular schedule — rent, salary, subscriptions, loan payments, etc.
+Recurring rules are bills or income on a schedule — rent, salary, subscriptions.
 
-### Setting up a recurring transaction
+1. **Recurring** → **+ Add Recurring**: enter **name**, **amount** (signed), **frequency** (Weekly, Bi-weekly, Monthly, Quarterly, Yearly), **next due date**, and optionally a **category** and **account**.
+2. Recurring **transfers** between accounts are also supported.
 
-1. Go to **Recurring**.
-2. Click **+ Add Recurring**.
-3. Fill in:
-   - **Name** — e.g. "Netflix Subscription"
-   - **Amount** — positive for income, negative for an expense
-   - **Frequency** — Weekly, Bi-weekly, Monthly, Quarterly, or Yearly
-   - **Next Due Date** — the next time this should be posted
-   - **Category** and **Account** (optional but recommended)
-4. Click **Save**.
+**How it works:** every time you open the app, any rule whose due date is today or earlier is posted automatically, and its next due date advances. Missed periods are all caught up at once. Overdue rules appear highlighted in red.
 
-### How recurring transactions work
-
-Every time you start the app, Budget Manager checks all your recurring rules. Any transaction whose due date is today or in the past is **automatically posted** to your transaction history, and the next due date is advanced by the frequency you set.
-
-For example, if you set up "Netflix — $18.00 — Monthly — due 2026-06-05", when you open the app on June 5th (or later), a transaction for −$18.00 will be added automatically.
-
-### Overdue transactions
-
-Rows highlighted in **red** in the Recurring view are ones whose due date has already passed. They'll be posted the next time you open the app.
-
-### Editing or deleting a recurring rule
-
-Select the row and click **✏ Edit** or **🗑 Delete**. Deleting a rule does not delete transactions that were already posted.
+Deleting a rule does not remove transactions it already posted.
 
 ---
 
 ## 9. Reports
 
-Reports give you a deeper look at your finances over time.
+Deeper analysis over time. Pick a **month/year** at the top.
 
-### Choosing a time period
+- **Summary** — totals for the month (income, expenses, net, savings rate) plus a category pie chart.
+- **Categories** — spending per category, its share of the total, and budget comparison.
+- **Cash Flow** — income vs expenses for each month of the year.
 
-Use the **month/year pickers** at the top of the Reports view to select the period you want to analyse.
-
-### The three report tabs
-
-**Summary tab**
-A table with totals for the selected month: total income, total expenses, net balance, and savings rate. Includes a pie chart of spending by category.
-
-**Categories tab**
-A breakdown of spending per expense category — how much you spent, what percentage of total spending it represents, and how it compares to your budget (if you set one).
-
-**Cash Flow tab**
-A bar chart showing income vs expenses for each month of the selected year, giving you a picture of seasonal trends.
-
-### Exporting reports
-
-Three export options are available:
+**Exports:**
 
 | Button | Output |
 |---|---|
-| **Export PDF** | A formatted PDF report for the selected month, saved to a location you choose |
-| **Export CSV** | A spreadsheet-friendly CSV of all your transactions |
-| **Export Excel** | An Excel workbook with separate sheets for Transactions, Budgets, and Accounts |
+| Export PDF | Formatted monthly report |
+| Export CSV | All transactions, spreadsheet-friendly |
+| Export Excel | Workbook with Transactions, Budgets, and Accounts sheets |
 
 ---
 
-## 10. Settings
+## 10. Savings & Interest
 
-### Switching themes
+The **Savings** tab groups all of your **Savings**-type accounts and tracks the interest/gains they earn.
 
-At the top of Settings, toggle between **Dark** and **Light** mode. The change applies instantly to the whole application.
+**How interest is detected:** when you edit a Savings account's balance, the app compares the new balance to what your recorded transactions would predict. Any unexplained difference is recorded as a signed **Interest** entry (a gain is positive, a loss negative). A checkbox lets you opt out for any individual edit (e.g. when you're just correcting a typo rather than recording real interest).
 
-### Managing categories
-
-The Categories section lets you customise the categories used for transactions and budgets.
-
-- **+ Add Category** — create a new income or expense category, pick a name and colour
-- **✏ Edit** — rename a category or change its colour
-- **🗑 Delete** — remove a category (transactions using it will lose their category link)
-
-> The 19 default categories (Groceries, Rent, Salary, etc.) cover most common needs. You only need to add custom ones if your situation calls for it.
-
-### Backups
-
-Budget Manager automatically saves a backup of your database **every 24 hours** while the app is running. You can also create or restore backups manually:
-
-- **Create Backup** — saves a timestamped copy of your database to the `backups/` folder
-- **Restore** — select a backup from the list and restore it; your current data will be replaced
-
-> It's a good idea to create a manual backup before importing data or making large changes.
-
-### Importing data
-
-To import transactions from another app or spreadsheet:
-
-1. Export your data as CSV or Excel from the other application.
-2. Make sure your file has columns named: `date`, `amount`, `description`, `category`, `account`.
-3. In Settings, click **Import CSV** or **Import Excel**.
-4. Select your file.
-5. Budget Manager will import valid rows and report how many were imported and how many were skipped.
+The tab shows:
+- Cards for **Total Savings** and interest earned **this month / this year / all-time**.
+- A chart of **interest earned over time**.
+- A history table of recent interest activity per account.
 
 ---
 
-## 11. Keyboard Shortcuts
+## 11. Markets
 
-| Keys | Action |
+Track a watchlist of **stocks and crypto**, converted into your account currency.
+
+1. **Markets** → **+ Add Symbol**: choose **Stock** or **Crypto** and enter a ticker (e.g. `AAPL`, `BTC`).
+2. Prices come from **keyless** public sources (CoinGecko for crypto; Stooq/Yahoo for stocks) — no API key or sign-up needed.
+
+**Refreshing:**
+- **Auto-refresh defaults to Off (manual)** to avoid unnecessary network calls — click **Refresh** when you want fresh prices.
+- You can switch auto-refresh to a fixed interval (e.g. every few minutes) from the dropdown.
+
+Prices and daily change are converted to your currency. Stock requests are batched into a single call for speed.
+
+---
+
+## 12. Settings
+
+Settings has five tabs:
+
+**Appearance**
+- **Theme** — switch between Dark and Light instantly.
+- **Language** — English or French. Pick a language and click **Apply Language**; the entire interface re-localizes.
+
+**Categories**
+- Add, edit, or delete income/expense categories (name + colour). The defaults cover most needs; deleting a category unlinks it from existing transactions.
+
+**Backup & Restore**
+- The app auto-saves a backup every 24 hours while running (keeping the 30 most recent).
+- **Create Backup** saves a timestamped copy now; **Restore** replaces your current data with a selected backup.
+
+**Import Data**
+- Import transactions from CSV or Excel. Your file should have columns: `date`, `amount`, `description`, `category`, `account`. Valid rows are imported and a summary reports how many were imported vs skipped.
+
+**About**
+- Shows the app version and lets you check for updates. The update check is **notify-only**: it compares your version to the latest GitHub release and links the download — it never installs anything automatically.
+
+---
+
+## 13. Keyboard Shortcuts
+
+| Keys | Action | Keys | Action |
+|---|---|---|---|
+| `Ctrl + 1` | Dashboard | `Ctrl + 6` | Reports |
+| `Ctrl + 2` | Transactions | `Ctrl + 7` | Recurring |
+| `Ctrl + 3` | Budgets | `Ctrl + 8` | Savings |
+| `Ctrl + 4` | Goals | `Ctrl + 9` | Markets |
+| `Ctrl + 5` | Accounts | `Ctrl + 0` | Settings |
+
+---
+
+## 14. Tips & Best Practices
+
+- **Set up accounts first** with accurate starting balances before recording transactions.
+- **Use signed amounts** — positive for income, negative for expenses.
+- **Use transfers** (not two separate transactions) when moving money between your accounts, so reports stay accurate.
+- **Categorise everything**, even as "Miscellaneous", to make charts meaningful.
+- **Set budgets on the 1st** of each month.
+- **Automate regular bills** with recurring rules.
+- **Refresh Markets manually** unless you specifically want live updates.
+- **Back up before big changes** (imports, bulk deletes), and keep an Excel export as an extra safety net.
+
+---
+
+## 15. Troubleshooting
+
+**The "check for updates" says I'm up to date, but I expected a new version.**
+The update check compares your installed version to the **latest published GitHub Release**. If a new version's release hasn't finished publishing yet, you'll be told you're current — wait a few minutes and check again.
+
+**I ran `--seed` and it said "Demo data already present".**
+That's expected — seeding is idempotent and won't duplicate data. To start fresh:
+```
+python main.py --reset    (deletes the database)
+python main.py --seed     (re-seeds clean demo data)
+```
+
+**Charts aren't showing on the Dashboard (running from source).**
+Ensure dependencies are installed: `pip install -r requirements.txt`.
+
+**Market prices won't load.**
+Markets needs an internet connection and reaches public price sources. If a symbol shows no price, double-check the ticker, then click **Refresh**. Occasional source hiccups resolve on the next refresh.
+
+**My account balance looks wrong.**
+Edit the account and correct the balance. For a **Savings** account, untick the interest checkbox if the change isn't real interest. Reviewing an Excel/CSV export helps spot inconsistent entries.
+
+**I forgot my password.**
+There's no automated recovery. Back up `%APPDATA%\BudgetManager\data\budget.db`, then register a new account (or run `--reset` from source for a clean start).
+
+**The app feels slow with lots of data.**
+Version 1.1.0+ added database indexes that keep the transaction list fast at personal-finance scale. If you still notice lag, filter the Transactions view to a narrower date range.
+
+---
+---
+
+# 🇫🇷 Guide de l'utilisateur (Français)
+
+> **Version 1.2.0** · Suivez vos dépenses, planifiez vos budgets, surveillez vos placements et atteignez vos objectifs financiers — le tout au même endroit.
+
+## Table des matières
+
+1. [Premiers pas](#1-premiers-pas)
+2. [Naviguer dans l'application](#2-naviguer-dans-lapplication)
+3. [Tableau de bord](#3-tableau-de-bord)
+4. [Comptes](#4-comptes)
+5. [Transactions](#5-transactions-fr)
+6. [Budgets](#6-budgets-fr)
+7. [Objectifs](#7-objectifs)
+8. [Transactions récurrentes](#8-transactions-récurrentes)
+9. [Rapports](#9-rapports)
+10. [Épargne et intérêts](#10-épargne-et-intérêts)
+11. [Marchés](#11-marchés)
+12. [Paramètres](#12-paramètres)
+13. [Raccourcis clavier](#13-raccourcis-clavier)
+14. [Conseils et bonnes pratiques](#14-conseils-et-bonnes-pratiques)
+15. [Dépannage](#15-dépannage)
+
+---
+
+## 1. Premiers pas
+
+### Installer l'application
+
+Deux façons d'utiliser Budget Manager sous Windows :
+
+**Option A — Programme d'installation (recommandé)**
+1. Téléchargez `BudgetManagerSetup.exe` depuis la [page des versions](https://github.com/LoloAbdo/budget_app/releases/latest).
+2. Lancez-le et suivez les instructions. L'application s'installe comme un logiciel Windows classique et ajoute un raccourci au menu Démarrer.
+
+**Option B — Version portable**
+1. Téléchargez `BudgetManager.exe` depuis la [page des versions](https://github.com/LoloAbdo/budget_app/releases/latest).
+2. Double-cliquez dessus — aucune installation requise.
+
+> **Où sont vos données :** l'application (installée ou portable) conserve sa base de données et ses sauvegardes dans `%APPDATA%\BudgetManager`. (L'exécution depuis le code source utilise plutôt un dossier local `./data` — voir la documentation technique.)
+
+**Option C — Exécuter depuis le code source (développeurs)**
+```
+pip install -r requirements.txt
+python main.py
+```
+
+### Essayer la démo d'abord
+
+Pour explorer l'application avec des données d'exemple réalistes, exécutez depuis le code source :
+```
+python main.py --seed
+```
+Puis connectez-vous avec :
+- **Courriel :** `demo@budget.app`
+- **Mot de passe :** `demo1234`
+
+### Créer votre compte
+
+1. Sur l'écran de connexion, passez au panneau **Inscription**.
+2. Saisissez votre nom, votre courriel et un mot de passe (au moins 6 caractères).
+3. Choisissez votre devise (CAD par défaut). Cette devise est utilisée partout, y compris pour la conversion dans Marchés.
+4. Cliquez sur **S'inscrire**, puis connectez-vous.
+
+> Votre mot de passe est chiffré avec bcrypt et n'est jamais stocké en clair.
+
+---
+
+## 2. Naviguer dans l'application
+
+Après connexion, une **barre latérale à gauche** et le **panneau de contenu à droite** s'affichent :
+
+```
+💰 Budget
+  [Votre nom]
+
+  🏠  Tableau de bord
+  💳  Transactions
+  📊  Budgets
+  🎯  Objectifs
+  🏦  Comptes
+  📈  Rapports
+  🔄  Récurrent
+  🐷  Épargne
+  💹  Marchés
+  ⚙️  Paramètres
+```
+
+Cliquez sur un élément pour changer de vue, ou utilisez les [raccourcis clavier](#13-raccourcis-clavier).
+
+---
+
+## 3. Tableau de bord
+
+Le tableau de bord est votre aperçu financier en temps réel pour le mois en cours.
+
+**Cartes de synthèse** en haut :
+
+| Carte | Ce qu'elle affiche |
 |---|---|
-| `Ctrl + 1` | Go to Dashboard |
-| `Ctrl + 2` | Go to Transactions |
-| `Ctrl + 3` | Go to Budgets |
-| `Ctrl + 4` | Go to Goals |
-| `Ctrl + 5` | Go to Accounts |
-| `Ctrl + 6` | Go to Reports |
-| `Ctrl + 7` | Go to Recurring |
-| `Ctrl + 8` | Go to Settings |
+| Solde total | Somme de tous vos soldes de comptes actuels |
+| Revenus du mois | Tous les revenus du mois |
+| Dépenses du mois | Toutes les dépenses du mois |
+| Épargne nette | Revenus moins dépenses du mois |
+| Taux d'épargne | Pourcentage des revenus du mois épargné |
+
+**Graphiques :**
+- **Dépenses par catégorie** — un graphique en anneau de la répartition du mois.
+- **Revenus vs Dépenses — Mensuel** — des barres pour chaque mois de l'année.
+- **Valeur nette — 12 derniers mois** *(nouveau dans la 1.2.0)* — une courbe de votre valeur nette totale sur l'année écoulée, pour voir d'un coup d'œil la tendance.
+
+**Transactions récentes** — vos 10 dernières entrées.
+
+Le tableau de bord se met à jour automatiquement à chaque modification d'une transaction, d'un budget ou d'un compte.
 
 ---
 
-## 12. Tips & Best Practices
+## 4. Comptes
 
-**Set up your accounts first.** Before recording any transactions, add all your accounts (checking, savings, credit cards) with their current balances. This gives you an accurate starting point.
+Les comptes représentent où vous gardez ou devez de l'argent — chèque, épargne, cartes de crédit, espèces.
 
-**Use negative amounts for expenses.** The app uses sign to distinguish income from spending — positive = money in, negative = money out. So groceries worth $65 should be entered as `-65.00`.
+### Ajouter un compte
+1. **Comptes** → **+ Ajouter un compte**.
+2. Saisissez le **nom**, le **type** (Chèque, Épargne, Carte de crédit, Espèces) et le **solde actuel** (un nombre négatif pour une dette de carte de crédit).
+3. Cliquez sur **Enregistrer**.
 
-**Categorise everything.** Even if a category is just "Miscellaneous", categorising every transaction makes your pie charts and category reports meaningful.
+### Modifier / supprimer
+Double-cliquez une ligne (ou sélectionnez-la puis **Modifier**) pour changer les détails. Supprimer un compte supprime aussi toutes ses transactions.
 
-**Set budgets at the start of each month.** Five minutes on the first of the month to set your category budgets will make the progress bars useful all month long.
+> **Astuce :** les soldes se mettent à jour automatiquement avec vos transactions. Ne modifiez un solde directement que pour corriger un écart — et pour les comptes **Épargne**, cela déclenche le suivi des intérêts (voir [Section 10](#10-épargne-et-intérêts)).
 
-**Use recurring for regular bills.** Setting up rent, subscriptions, and salary as recurring rules means they'll be posted automatically — you only need to manually add irregular one-off purchases.
-
-**Export before major changes.** Before importing data or deleting old transactions, use **Export Excel** from the Reports view to keep a complete backup in a format you can open in any spreadsheet app.
-
-**Back up regularly.** The auto-backup runs every 24 hours the app is open, but creating a manual backup from Settings before any big change is a good habit.
+> **Attention :** la suppression est définitive. Créez une sauvegarde en cas de doute.
 
 ---
 
-## 13. Troubleshooting
+## 5. Transactions {#5-transactions-fr}
 
-### I clicked "Save" in the Add Account dialog but nothing happened
+Chaque mouvement d'argent se note ici.
 
-This was a bug in v1.0.0. It has been fixed in v1.0.1 — the app will now show an error message if saving fails for any reason. Please download and replace your copy with the updated version.
+### Ajouter une transaction
+1. **Transactions** → **+ Ajouter une transaction**.
+2. Remplissez **Date**, **Description**, **Montant** (positif = revenu, négatif = dépense, ex. `-42,50`), **Catégorie**, **Compte** et **Notes** facultatives.
+3. Cliquez sur **Enregistrer**. Le solde du compte se met à jour automatiquement.
 
-If you're on v1.0.1 and the problem persists, the error message will tell you what went wrong (e.g. a database lock or a duplicate name).
+### Virements entre comptes
+Utilisez un virement lorsque vous déplacez de l'argent entre vos propres comptes (ex. chèque → épargne). Un virement crée deux entrées liées — une sortie d'un compte et une entrée dans l'autre — et est exclu des totaux de revenus/dépenses pour ne pas fausser vos rapports.
 
-### The app shows a warning about "setHighDpiScaleFactorRoundingPolicy"
+### Modifier / supprimer
+La modification corrige automatiquement le solde ; la suppression l'annule.
 
-This was a startup warning in v1.0.0 and is fixed in v1.0.1. It was harmless and didn't affect functionality.
+### Filtrer
+La barre d'outils permet de filtrer par **plage de dates**, **catégorie**, **compte** et **mot-clé** (recherche dans la description et les notes). Cliquez sur **Effacer** pour réinitialiser.
 
-### I ran `--seed` but get an error about a duplicate email
+---
 
-The demo account `demo@budget.app` already exists in your database. Run:
+## 6. Budgets {#6-budgets-fr}
+
+Fixez une limite de dépense mensuelle par catégorie et suivez-la.
+
+1. **Budgets**, puis choisissez le **mois/année**.
+2. Pour une catégorie de dépense, cliquez sur **Définir le budget** et saisissez un montant.
+
+**Lire les barres :**
+
+| Couleur | Signification |
+|---|---|
+| 🟢 Vert | Moins de 70 % dépensé — sur la bonne voie |
+| 🟡 Jaune | 70–90 % dépensé — proche de la limite |
+| 🔴 Rouge | Plus de 90 % — à la limite ou dépassé |
+
+Chaque barre affiche aussi le montant dépensé vs budgété (ex. `320 $ / 400 $`). Les budgets sont mensuels ; redéfinir la même catégorie/le même mois remplace le montant.
+
+---
+
+## 7. Objectifs
+
+Les objectifs vous aident à épargner pour un but — fonds d'urgence, vacances, nouvel ordinateur.
+
+1. **Objectifs** → **+ Ajouter un objectif** : saisissez **nom**, **montant cible**, **montant actuel** et **date cible**.
+2. Utilisez **Dépôt** pour faire progresser un objectif.
+
+> La progression des objectifs est suivie séparément de vos comptes — elle mesure l'avancement, sans déplacer d'argent réel.
+
+---
+
+## 8. Transactions récurrentes
+
+Les règles récurrentes sont des factures ou revenus planifiés — loyer, salaire, abonnements.
+
+1. **Récurrent** → **+ Ajouter** : saisissez **nom**, **montant** (signé), **fréquence** (Hebdomadaire, Aux deux semaines, Mensuel, Trimestriel, Annuel), **prochaine échéance**, et éventuellement une **catégorie** et un **compte**.
+2. Les **virements** récurrents entre comptes sont aussi pris en charge.
+
+**Fonctionnement :** à chaque ouverture de l'application, toute règle dont l'échéance est aujourd'hui ou passée est publiée automatiquement, et sa prochaine échéance avance. Les périodes manquées sont toutes rattrapées d'un coup. Les règles en retard apparaissent en rouge.
+
+Supprimer une règle ne supprime pas les transactions déjà publiées.
+
+---
+
+## 9. Rapports
+
+Analyse approfondie dans le temps. Choisissez un **mois/année** en haut.
+
+- **Synthèse** — totaux du mois (revenus, dépenses, net, taux d'épargne) avec un graphique en camembert par catégorie.
+- **Catégories** — dépenses par catégorie, leur part du total et comparaison au budget.
+- **Flux de trésorerie** — revenus vs dépenses pour chaque mois de l'année.
+
+**Exports :**
+
+| Bouton | Résultat |
+|---|---|
+| Exporter PDF | Rapport mensuel mis en forme |
+| Exporter CSV | Toutes les transactions, compatible tableur |
+| Exporter Excel | Classeur avec feuilles Transactions, Budgets et Comptes |
+
+---
+
+## 10. Épargne et intérêts
+
+L'onglet **Épargne** regroupe tous vos comptes de type **Épargne** et suit les intérêts/gains qu'ils génèrent.
+
+**Détection des intérêts :** lorsque vous modifiez le solde d'un compte d'épargne, l'application compare le nouveau solde à ce que vos transactions enregistrées prévoient. Toute différence inexpliquée est enregistrée comme une entrée **Intérêt** signée (un gain est positif, une perte négative). Une case à cocher permet de désactiver ce comportement pour une modification donnée (par exemple, une simple correction).
+
+L'onglet affiche :
+- Des cartes pour l'**épargne totale** et les intérêts gagnés **ce mois / cette année / depuis toujours**.
+- Un graphique des **intérêts gagnés dans le temps**.
+- Un historique des activités d'intérêt récentes par compte.
+
+---
+
+## 11. Marchés
+
+Suivez une liste d'**actions et de cryptomonnaies**, converties dans la devise de votre compte.
+
+1. **Marchés** → **+ Ajouter un symbole** : choisissez **Action** ou **Crypto** et saisissez un symbole (ex. `AAPL`, `BTC`).
+2. Les cours proviennent de sources publiques **sans clé** (CoinGecko pour la crypto ; Stooq/Yahoo pour les actions) — aucune clé API ni inscription nécessaire.
+
+**Actualisation :**
+- L'**actualisation automatique est désactivée par défaut (manuelle)** pour éviter les appels réseau inutiles — cliquez sur **Actualiser** au besoin.
+- Vous pouvez activer un intervalle fixe (ex. toutes les quelques minutes) dans le menu déroulant.
+
+Les cours et la variation quotidienne sont convertis dans votre devise. Les requêtes d'actions sont regroupées en un seul appel pour plus de rapidité.
+
+---
+
+## 12. Paramètres
+
+Les paramètres comportent cinq onglets :
+
+**Apparence**
+- **Thème** — basculez instantanément entre sombre et clair.
+- **Langue** — anglais ou français. Choisissez une langue puis cliquez sur **Appliquer la langue** ; toute l'interface est traduite.
+
+**Catégories**
+- Ajoutez, modifiez ou supprimez des catégories de revenus/dépenses (nom + couleur). Les valeurs par défaut couvrent l'essentiel ; supprimer une catégorie la dissocie des transactions existantes.
+
+**Sauvegarde et restauration**
+- L'application enregistre automatiquement une sauvegarde toutes les 24 heures pendant son exécution (en conservant les 30 plus récentes).
+- **Créer une sauvegarde** enregistre une copie horodatée ; **Restaurer** remplace vos données actuelles par une sauvegarde choisie.
+
+**Importer des données**
+- Importez des transactions depuis CSV ou Excel. Votre fichier doit comporter les colonnes : `date`, `amount`, `description`, `category`, `account`. Les lignes valides sont importées et un résumé indique combien ont été importées vs ignorées.
+
+**À propos**
+- Affiche la version de l'application et permet de vérifier les mises à jour. La vérification est **informative seulement** : elle compare votre version à la dernière version GitHub et propose le téléchargement — elle n'installe jamais rien automatiquement.
+
+---
+
+## 13. Raccourcis clavier
+
+| Touches | Action | Touches | Action |
+|---|---|---|---|
+| `Ctrl + 1` | Tableau de bord | `Ctrl + 6` | Rapports |
+| `Ctrl + 2` | Transactions | `Ctrl + 7` | Récurrent |
+| `Ctrl + 3` | Budgets | `Ctrl + 8` | Épargne |
+| `Ctrl + 4` | Objectifs | `Ctrl + 9` | Marchés |
+| `Ctrl + 5` | Comptes | `Ctrl + 0` | Paramètres |
+
+---
+
+## 14. Conseils et bonnes pratiques
+
+- **Configurez d'abord vos comptes** avec des soldes de départ exacts avant d'enregistrer des transactions.
+- **Utilisez des montants signés** — positif pour les revenus, négatif pour les dépenses.
+- **Utilisez les virements** (et non deux transactions séparées) pour déplacer de l'argent entre vos comptes, afin que les rapports restent exacts.
+- **Catégorisez tout**, même en « Divers », pour des graphiques utiles.
+- **Définissez vos budgets le 1er** de chaque mois.
+- **Automatisez les factures régulières** avec des règles récurrentes.
+- **Actualisez Marchés manuellement** sauf si vous voulez des mises à jour en direct.
+- **Sauvegardez avant les grands changements** (imports, suppressions en masse), et gardez un export Excel comme filet de sécurité.
+
+---
+
+## 15. Dépannage
+
+**La vérification des mises à jour dit que je suis à jour, mais j'attendais une nouvelle version.**
+La vérification compare votre version installée à la **dernière version GitHub publiée**. Si la publication d'une nouvelle version n'est pas terminée, vous serez informé que vous êtes à jour — attendez quelques minutes et réessayez.
+
+**J'ai lancé `--seed` et il a indiqué « Demo data already present ».**
+C'est normal — le seeding est idempotent et ne duplique pas les données. Pour repartir à neuf :
 ```
-python main.py --reset --seed
+python main.py --reset    (supprime la base de données)
+python main.py --seed     (recrée des données démo propres)
 ```
-`--reset` deletes the existing database first, then `--seed` creates fresh demo data.
 
-### Charts aren't showing up on the Dashboard
+**Les graphiques ne s'affichent pas sur le tableau de bord (exécution depuis le source).**
+Assurez-vous que les dépendances sont installées : `pip install -r requirements.txt`.
 
-Make sure `matplotlib` is installed:
-```
-pip install matplotlib
-```
-If you're running on a headless server, Matplotlib needs a display. Set the environment variable `MPLBACKEND=Agg` before launching (charts won't be interactive but will still render).
+**Les cours des marchés ne se chargent pas.**
+Marchés nécessite une connexion Internet et interroge des sources publiques. Si un symbole n'affiche aucun cours, vérifiez le symbole puis cliquez sur **Actualiser**. Les ratés occasionnels se règlent à l'actualisation suivante.
 
-### I deleted a transaction but my account balance looks wrong
+**Mon solde de compte semble incorrect.**
+Modifiez le compte et corrigez le solde. Pour un compte **Épargne**, décochez la case d'intérêt si le changement n'est pas un intérêt réel. Examiner un export Excel/CSV aide à repérer les entrées incohérentes.
 
-Try editing the account (Accounts → Edit) and manually correcting the balance. If this keeps happening, it may be a sign that some transactions were imported or created with inconsistent amounts — exporting to CSV and reviewing the data can help identify the issue.
+**J'ai oublié mon mot de passe.**
+Aucune récupération automatique n'existe. Sauvegardez `%APPDATA%\BudgetManager\data\budget.db`, puis créez un nouveau compte (ou exécutez `--reset` depuis le source pour repartir à neuf).
 
-### I forgot my password
-
-Password recovery isn't built into v1.0.0. If you know your database file location (`data/budget.db`), you can:
-1. Make a backup of the database file.
-2. Run `python main.py --reset` to start fresh.
-3. Register a new account.
-
-If you have important data you don't want to lose, please reach out for manual database assistance.
-
-### The app is slow when I have many transactions
-
-The database is optimised for personal-finance scale (thousands of transactions). If you experience slowness, try filtering the Transactions view to a narrower date range rather than loading all records at once.
+**L'application est lente avec beaucoup de données.**
+La version 1.1.0+ a ajouté des index de base de données qui maintiennent la liste des transactions rapide à l'échelle des finances personnelles. Si vous constatez encore des ralentissements, filtrez la vue Transactions sur une plage de dates plus étroite.

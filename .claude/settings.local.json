@@ -8,7 +8,10 @@
       "Bash(python -c \"import PyQt6, matplotlib, bcrypt; print\\('core deps OK'\\)\")",
       "Bash(python -c \"import pandas, reportlab, openpyxl; print\\('all deps OK'\\)\")",
       "Bash(PYTHONIOENCODING=utf-8 python -c ' *)",
-      "Bash(python -m pytest -q)"
+      "Bash(python -m pytest -q)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(gh pr *)"
     ]
   }
 }

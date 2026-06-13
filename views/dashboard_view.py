@@ -67,6 +67,7 @@ class DashboardView(QWidget):
         balance  = self._db.get_total_balance(self._user["id"])
         spending = self._db.get_spending_by_category(self._user["id"], month, year)
         monthly  = self._db.get_monthly_totals(self._user["id"], year)
+        networth = self._db.get_net_worth_history(self._user["id"], 12)
         recent   = self._db.get_transactions(self._user["id"], limit=10)
 
         # ── Page header ───────────────────────────────────────────────────────
@@ -116,6 +117,10 @@ class DashboardView(QWidget):
         charts_row.addWidget(self._build_bar_chart(monthly), 2)
 
         self._main_layout.addLayout(charts_row)
+
+        # ── Net worth trend ─────────────────────────────────────────────────────
+        if networth:
+            self._main_layout.addWidget(self._build_net_worth_chart(networth))
 
         # ── Recent transactions ────────────────────────────────────────────────
         section_lbl = QLabel(tr("Recent Transactions"))
@@ -205,6 +210,45 @@ class DashboardView(QWidget):
         ax.spines[:].set_color(c["grid"])
         ax.yaxis.set_tick_params(labelcolor=c["muted"])
         ax.legend(framealpha=0, labelcolor=c["fg"], fontsize=9)
+        fig.tight_layout(pad=1.2)
+
+        canvas = FigureCanvas(fig)
+        canvas.setMinimumHeight(230)
+        layout.addWidget(canvas)
+        return card
+
+    def _build_net_worth_chart(self, history: list[dict]) -> QFrame:
+        """Net-worth-over-time line chart for the last 12 months."""
+        card = QFrame()
+        card.setObjectName("card")
+        card.setMinimumHeight(280)
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(14, 14, 14, 14)
+
+        lbl = QLabel(tr("Net Worth — Last 12 Months"))
+        lbl.setObjectName("subheading")
+        layout.addWidget(lbl)
+
+        c = chart_colors()
+        fig = Figure(figsize=(8, 3), facecolor=c["bg"])
+        ax = fig.add_subplot(111)
+        ax.set_facecolor(c["bg"])
+
+        # Labels: localized 3-letter month abbreviations.
+        abbr = month_abbr()
+        labels = [abbr[int(p["month"][5:]) - 1] for p in history]
+        vals   = [p["balance"] for p in history]
+        x = range(len(vals))
+
+        ax.plot(list(x), vals, color=c["accent"], linewidth=2, marker="o", markersize=4)
+        ax.fill_between(list(x), vals, min(vals + [0]), color=c["accent"], alpha=0.12)
+        ax.axhline(0, color=c["grid"], linewidth=0.8)
+
+        ax.set_xticks(list(x))
+        ax.set_xticklabels(labels, fontsize=8, color=c["muted"])
+        ax.tick_params(axis="y", colors=c["muted"], labelsize=8)
+        ax.spines[:].set_color(c["grid"])
+        ax.yaxis.set_tick_params(labelcolor=c["muted"])
         fig.tight_layout(pad=1.2)
 
         canvas = FigureCanvas(fig)

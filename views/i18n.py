@@ -139,6 +139,7 @@ _FR: dict[str, str] = {
     "Savings Rate": "Taux d'épargne",
     "Spending by Category": "Dépenses par catégorie",
     "Income vs Expenses — Monthly": "Revenus vs Dépenses — Mensuel",
+    "Net Worth — Last 12 Months": "Valeur nette — 12 derniers mois",
     "Recent Transactions": "Transactions récentes",
     "Expenses": "Dépenses",
 

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-13
+
+### Added
+- **Net worth trend** on the dashboard: a line chart of total net worth over
+  the last 12 months. Historical points are reconstructed from the current
+  account balances by unwinding each month's transaction flow (no schema
+  change required). Backed by `DatabaseManager.get_net_worth_history()`.
+
 ## [1.1.0] - 2026-06-11
 
 ### Added
@@ -37,7 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial public release (portable executable only).
 
-[Unreleased]: https://github.com/LoloAbdo/budget_app/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/LoloAbdo/budget_app/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/LoloAbdo/budget_app/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/LoloAbdo/budget_app/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/LoloAbdo/budget_app/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/LoloAbdo/budget_app/releases/tag/v1.0.0

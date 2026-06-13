@@ -693,6 +693,63 @@ class DatabaseManager:
         )
         return row["bal"] if row else 0.0
 
+    def get_net_worth_history(self, user_id: int, months: int = 12) -> list[dict]:
+        """
+        Reconstruct end-of-month total net worth for the last ``months`` months.
+
+        Account balances already reflect every transaction, so the current total
+        balance is the net worth as of today. Earlier points are reconstructed by
+        unwinding each month's net transaction flow:
+            end_of_month(M-1) = end_of_month(M) - flow(M)
+        Transfers net to zero across the two legs, so they don't affect the total.
+        Returns a chronological list of ``{"month": "YYYY-MM", "balance": float}``.
+        """
+        if months < 1:
+            return []
+
+        # Net signed transaction flow per month (income +, expense -).
+        flows = {
+            r["ym"]: r["flow"]
+            for r in self._fetchall(
+                """SELECT strftime('%Y-%m', t.date) AS ym,
+                          COALESCE(SUM(t.amount), 0) AS flow
+                   FROM transactions t
+                   JOIN accounts a ON t.account_id = a.id
+                   WHERE a.user_id = ?
+                   GROUP BY ym""",
+                (user_id,),
+            )
+        }
+
+        # Build the list of target months, oldest -> current.
+        now = datetime.now()
+        y, m = now.year, now.month
+        month_keys: list[str] = []
+        for _ in range(months):
+            month_keys.append(f"{y:04d}-{m:02d}")
+            m -= 1
+            if m == 0:
+                m, y = 12, y - 1
+        month_keys.reverse()
+
+        # Walk backward from the current balance, unwinding each month's flow.
+        balance = self.get_total_balance(user_id)
+        balances: dict[str, float] = {}
+        cursor = f"{now.year:04d}-{now.month:02d}"
+        oldest = month_keys[0]
+        while True:
+            balances[cursor] = round(balance, 2)
+            if cursor <= oldest:
+                break
+            balance -= flows.get(cursor, 0.0)  # step back one month
+            cy, cm = int(cursor[:4]), int(cursor[5:])
+            cm -= 1
+            if cm == 0:
+                cm, cy = 12, cy - 1
+            cursor = f"{cy:04d}-{cm:02d}"
+
+        return [{"month": k, "balance": balances.get(k, 0.0)} for k in month_keys]
+
     # ── Savings / Interest ─────────────────────────────────────────────────────
 
     def get_category_by_name(self, name: str) -> Optional[dict]:

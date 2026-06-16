@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-06-16
+
+### Fixed
+- PDF report export always failed: `PDFReportGenerator.generate_monthly_report()`
+  called `get_budgets()` with the wrong arguments (`month, year` instead of
+  `user_id, month, year`), raising a `TypeError` before the file was written.
+  Added regression tests covering the full report path, including the
+  budget-status section.
+
 ## [1.3.0] - 2026-06-13
 
 ### Added
@@ -53,7 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial public release (portable executable only).
 
-[Unreleased]: https://github.com/LoloAbdo/budget_app/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/LoloAbdo/budget_app/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/LoloAbdo/budget_app/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/LoloAbdo/budget_app/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/LoloAbdo/budget_app/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/LoloAbdo/budget_app/compare/v1.0.1...v1.1.0

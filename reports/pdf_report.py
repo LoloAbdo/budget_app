@@ -46,7 +46,7 @@ class PDFReportGenerator:
         user = self._db.get_user(user_id)
         summary = self._db.get_monthly_summary(user_id, month, year)
         spending = self._db.get_spending_by_category(user_id, month, year)
-        budgets = self._db.get_budgets(month, year)
+        budgets = self._db.get_budgets(user_id, month, year)
         transactions = self._db.get_transactions(
             user_id,
             start_date=f"{year}-{month:02d}-01",

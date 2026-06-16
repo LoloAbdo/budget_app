@@ -1,9 +1,12 @@
-PyQt6>=6.6.0
-matplotlib>=3.8.0
-pandas>=2.1.0
-bcrypt>=4.1.0
-reportlab>=4.0.0
-openpyxl>=3.1.0
-pytest>=7.4.0
-pytest-cov>=4.1.0
-pytest-qt>=4.2.0
+# Pinned for reproducible release builds. Bump deliberately, then re-run the
+# test suite and a real build before tagging a release.
+PyQt6==6.11.0
+matplotlib==3.10.9
+pandas==2.2.2
+python-dateutil==2.9.0.post0   # used by services/recurring_service.py (also a pandas/matplotlib dep)
+bcrypt==5.0.0
+reportlab==4.5.1
+openpyxl==3.1.5
+pytest==8.2.2
+pytest-cov==7.1.0
+pytest-qt==4.5.0

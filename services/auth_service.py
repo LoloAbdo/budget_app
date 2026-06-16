@@ -57,3 +57,25 @@ class AuthService:
         if not self.verify_password(password, user["password"]):
             return False, None, "Incorrect password."
         return True, user, "Login successful."
+
+    def change_password(
+        self, user_id: int, current_password: str, new_password: str
+    ) -> tuple[bool, str]:
+        """
+        Change a user's password after verifying the current one.
+
+        Returns (success, message). The message is an English source string so
+        the UI can localize it via tr().
+        """
+        user = self._db.get_user(user_id)
+        if not user:
+            return False, "Account not found."
+        if not self.verify_password(current_password, user["password"]):
+            return False, "Current password is incorrect."
+        if len(new_password) < 6:
+            return False, "New password must be at least 6 characters."
+        if new_password == current_password:
+            return False, "New password must be different from the current one."
+
+        self._db.update_user_password(user_id, self.hash_password(new_password))
+        return True, "Password updated successfully."

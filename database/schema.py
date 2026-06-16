@@ -296,6 +296,9 @@ class DatabaseManager:
     def update_user_language(self, user_id: int, language: str) -> None:
         self._execute("UPDATE users SET language=? WHERE id=?", (language, user_id))
 
+    def update_user_password(self, user_id: int, password_hash: str) -> None:
+        self._execute("UPDATE users SET password=? WHERE id=?", (password_hash, user_id))
+
     # ── Accounts ──────────────────────────────────────────────────────────────
 
     def get_accounts(self, user_id: int) -> list[dict]:

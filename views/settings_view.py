@@ -15,6 +15,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QThreadPool
 from PyQt6.QtGui import QColor, QFont
 
 from database import DatabaseManager
+from services.auth_service import AuthService
 from services.backup_service import BackupService
 from services.import_export_service import ImportExportService
 from views.i18n import tr, set_language, get_language, LANGUAGES
@@ -145,6 +146,7 @@ class SettingsView(QWidget):
         layout.addWidget(tabs)
 
         tabs.addTab(self._build_appearance_tab(), tr("Appearance"))
+        tabs.addTab(self._build_security_tab(),   tr("Security"))
         tabs.addTab(self._build_categories_tab(), tr("Categories"))
         tabs.addTab(self._build_backup_tab(),     tr("Backup & Restore"))
         tabs.addTab(self._build_import_tab(),     tr("Import Data"))
@@ -207,6 +209,70 @@ class SettingsView(QWidget):
         code = self._lang_combo.currentData()
         if code != get_language():
             self.language_changed.emit(code)
+
+    # ── Security ───────────────────────────────────────────────────────────────
+
+    def _build_security_tab(self) -> QWidget:
+        w = QWidget()
+        layout = QVBoxLayout(w)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
+
+        title = QLabel(tr("Change Password"))
+        title.setObjectName("subheading")
+        layout.addWidget(title)
+
+        form = QFormLayout()
+        form.setSpacing(10)
+
+        self._current_pw = QLineEdit()
+        self._current_pw.setEchoMode(QLineEdit.EchoMode.Password)
+        form.addRow(tr("Current Password"), self._current_pw)
+
+        self._new_pw = QLineEdit()
+        self._new_pw.setEchoMode(QLineEdit.EchoMode.Password)
+        form.addRow(tr("New Password"), self._new_pw)
+
+        self._confirm_pw = QLineEdit()
+        self._confirm_pw.setEchoMode(QLineEdit.EchoMode.Password)
+        form.addRow(tr("Confirm New Password"), self._confirm_pw)
+
+        layout.addLayout(form)
+
+        update_btn = QPushButton(tr("Update Password"))
+        update_btn.setMaximumWidth(200)
+        update_btn.clicked.connect(self._change_password)
+        layout.addWidget(update_btn)
+
+        self._pw_status = QLabel("")
+        self._pw_status.setObjectName("muted")
+        self._pw_status.setWordWrap(True)
+        layout.addWidget(self._pw_status)
+
+        layout.addStretch()
+        return w
+
+    def _change_password(self) -> None:
+        current = self._current_pw.text()
+        new     = self._new_pw.text()
+        confirm = self._confirm_pw.text()
+
+        if not current or not new or not confirm:
+            self._pw_status.setText(tr("All fields are required."))
+            return
+        if new != confirm:
+            self._pw_status.setText(tr("New passwords do not match."))
+            return
+
+        ok, msg = AuthService(self._db).change_password(self._user["id"], current, new)
+        if ok:
+            self._current_pw.clear()
+            self._new_pw.clear()
+            self._confirm_pw.clear()
+            self._pw_status.setText("")
+            QMessageBox.information(self, tr("Password"), tr(msg))
+        else:
+            self._pw_status.setText(tr(msg))
 
     # ── Categories ─────────────────────────────────────────────────────────────
 

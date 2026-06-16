@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Change password** in Settings ▸ Security: verifies the current password,
+  enforces a 6-character minimum, and requires the new password to differ from
+  the old one. Backed by `AuthService.change_password()` /
+  `DatabaseManager.update_user_password()`. English/French localized.
+
+### Changed
+- Pinned all dependencies in `requirements.txt` to exact versions for
+  reproducible release builds, and declared `python-dateutil` explicitly
+  (previously only present transitively via pandas/matplotlib).
+
 ## [1.3.1] - 2026-06-16
 
 ### Fixed

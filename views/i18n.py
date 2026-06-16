@@ -326,6 +326,23 @@ _FR: dict[str, str] = {
     # ── Settings ──────────────────────────────────────────────────────────
     "Appearance": "Apparence",
     "Categories": "Catégories",
+    # ── Security / password ───────────────────────────────────────────────
+    "Security": "Sécurité",
+    "Change Password": "Changer le mot de passe",
+    "Current Password": "Mot de passe actuel",
+    "New Password": "Nouveau mot de passe",
+    "Confirm New Password": "Confirmer le nouveau mot de passe",
+    "Update Password": "Mettre à jour le mot de passe",
+    "Password": "Mot de passe",
+    "All fields are required.": "Tous les champs sont obligatoires.",
+    "New passwords do not match.": "Les nouveaux mots de passe ne correspondent pas.",
+    "Current password is incorrect.": "Le mot de passe actuel est incorrect.",
+    "New password must be at least 6 characters.":
+        "Le nouveau mot de passe doit comporter au moins 6 caractères.",
+    "New password must be different from the current one.":
+        "Le nouveau mot de passe doit être différent de l'actuel.",
+    "Password updated successfully.": "Mot de passe mis à jour avec succès.",
+    "Account not found.": "Compte introuvable.",
     "About": "À propos",
     "Version {v}": "Version {v}",
     "Check for updates": "Vérifier les mises à jour",

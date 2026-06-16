@@ -15,7 +15,10 @@
       "Bash(git fetch *)",
       "Bash(git ls-remote *)",
       "Bash(gh release *)",
-      "Bash(gh run *)"
+      "Bash(gh run *)",
+      "Bash(rmdir '{pieces_template,utils}')",
+      "Read(//e/e/AI_Project/chess_eval/**)",
+      "Bash(python -m py_compile main.py move_tracker.py mask_test.py board_detector.py piece_classifier.py evaluator.py fen_builder.py eval_bar.py screen_capture.py)"
     ]
   }
 }

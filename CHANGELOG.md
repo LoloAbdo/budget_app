@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-06-16
+
 ### Added
 - **Change password** in Settings ▸ Security: verifies the current password,
   enforces a 6-character minimum, and requires the new password to differ from
@@ -73,7 +75,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial public release (portable executable only).
 
-[Unreleased]: https://github.com/LoloAbdo/budget_app/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/LoloAbdo/budget_app/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/LoloAbdo/budget_app/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/LoloAbdo/budget_app/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/LoloAbdo/budget_app/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/LoloAbdo/budget_app/compare/v1.1.0...v1.2.0

@@ -18,6 +18,7 @@ from PyQt6.QtGui import QColor
 
 from database import DatabaseManager
 from views.i18n import tr
+from views.sortable import SortableItem, SORT_ROLE, enable_sorting
 
 FREQUENCIES = ["Weekly", "Bi-weekly", "Monthly", "Quarterly", "Yearly"]
 
@@ -325,6 +326,7 @@ class RecurringView(QWidget):
         self._table.setColumnWidth(5, 140)
         self._table.setColumnWidth(6, 140)
         self._table.doubleClicked.connect(self._edit_selected)
+        enable_sorting(self._table, 0, Qt.SortOrder.AscendingOrder)
         layout.addWidget(self._table)
 
         btn_row = QHBoxLayout()
@@ -371,6 +373,7 @@ class RecurringView(QWidget):
     def refresh(self) -> None:
         recurrings = self._apply_filters(self._db.get_recurring(self._user["id"]))
         self._table.blockSignals(True)
+        self._table.setSortingEnabled(False)
         self._table.setRowCount(len(recurrings))
         today = date.today().isoformat()
 
@@ -390,8 +393,10 @@ class RecurringView(QWidget):
                 last_col,
             ]
             for c, text in enumerate(items):
-                item = QTableWidgetItem(text)
+                item = SortableItem(text)
                 item.setData(Qt.ItemDataRole.UserRole, rec["id"])
+                if c == 1:
+                    item.setData(SORT_ROLE, abs(rec["amount"]))   # sort Amount numerically
                 # Overdue: red on date column
                 if c == 3 and due <= today:
                     item.setForeground(QColor("#EF4444"))
@@ -401,6 +406,7 @@ class RecurringView(QWidget):
                 self._table.setItem(r, c, item)
 
         self._table.blockSignals(False)
+        self._table.setSortingEnabled(True)
         self._table.resizeColumnToContents(1)
         self._table.resizeColumnToContents(2)
         self._table.resizeColumnToContents(3)

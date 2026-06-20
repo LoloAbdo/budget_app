@@ -19,6 +19,7 @@ from services.auth_service import AuthService
 from services.backup_service import BackupService
 from services.import_export_service import ImportExportService
 from views.i18n import tr, set_language, get_language, LANGUAGES
+from views.sortable import SortableItem, enable_sorting
 from views.update_check import UpdateCheckWorker
 from version import __version__
 
@@ -301,6 +302,7 @@ class SettingsView(QWidget):
         hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         hdr.setMinimumSectionSize(60)
         self._cat_table.doubleClicked.connect(self._edit_category)
+        enable_sorting(self._cat_table, 0, Qt.SortOrder.AscendingOrder)
         layout.addWidget(self._cat_table)
 
         del_btn = QPushButton(tr("🗑 Delete Selected"))
@@ -314,11 +316,12 @@ class SettingsView(QWidget):
 
     def _refresh_categories(self) -> None:
         cats = self._db.get_categories()
+        self._cat_table.setSortingEnabled(False)
         self._cat_table.setRowCount(len(cats))
         for r, c in enumerate(cats):
             items = [c["name"], tr(c["type"]), c["color"]]
             for col, text in enumerate(items):
-                item = QTableWidgetItem(text)
+                item = SortableItem(text)
                 item.setData(Qt.ItemDataRole.UserRole, c["id"])
                 if col == 2:
                     item.setBackground(QColor(c["color"]))
@@ -326,6 +329,7 @@ class SettingsView(QWidget):
 
         self._cat_table.resizeColumnsToContents()
         self._cat_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self._cat_table.setSortingEnabled(True)
 
     def _add_category(self) -> None:
         dlg = CategoryDialog(self._db, parent=self)

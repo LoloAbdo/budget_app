@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Click-to-sort table columns** across every panel (Transactions, Accounts,
+  Recurring, Markets, Settings ▸ Categories, Savings, and the dashboard's recent
+  transactions). Click a column header to sort ascending, click again for
+  descending. Currency and percentage columns sort by their underlying number
+  (so `$1,000` comes after `$200`, not before), via a new
+  `views/sortable.py` helper.
+
 ## [1.4.0] - 2026-06-16
 
 ### Added

@@ -26,6 +26,7 @@ from database import DatabaseManager
 from views.widgets import SummaryCard
 from views.i18n import tr, month_abbr
 from views.theme import chart_colors
+from views.sortable import SortableItem, enable_sorting
 
 MONTHS = ["January", "February", "March", "April", "May", "June",
           "July", "August", "September", "October", "November", "December"]
@@ -155,14 +156,14 @@ class SavingsView(QWidget):
 
         for r, s in enumerate(summary):
             values = [
-                (s["account_name"], None),
-                (self._money(s["current_balance"]), None),
-                (self._money(s["interest_month"]), self._sign_color(s["interest_month"])),
-                (self._money(s["interest_year"]),  self._sign_color(s["interest_year"])),
-                (self._money(s["interest_total"]), self._sign_color(s["interest_total"])),
+                (s["account_name"], None, None),
+                (self._money(s["current_balance"]), None, s["current_balance"]),
+                (self._money(s["interest_month"]), self._sign_color(s["interest_month"]), s["interest_month"]),
+                (self._money(s["interest_year"]),  self._sign_color(s["interest_year"]),  s["interest_year"]),
+                (self._money(s["interest_total"]), self._sign_color(s["interest_total"]), s["interest_total"]),
             ]
-            for c, (text, color) in enumerate(values):
-                item = QTableWidgetItem(text)
+            for c, (text, color, sort_key) in enumerate(values):
+                item = SortableItem(text, sort_key)
                 if c >= 1:
                     item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 if color and abs(self._raw(s, c)) >= 0.005:
@@ -170,6 +171,7 @@ class SavingsView(QWidget):
                 tbl.setItem(r, c, item)
 
         tbl.setMinimumHeight(min(360, 46 + len(summary) * 40))
+        enable_sorting(tbl, 0, Qt.SortOrder.AscendingOrder)
         return tbl
 
     @staticmethod
@@ -224,14 +226,15 @@ class SavingsView(QWidget):
         hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
 
         for r, e in enumerate(entries):
-            tbl.setItem(r, 0, QTableWidgetItem(e["date"]))
-            tbl.setItem(r, 1, QTableWidgetItem(e["account_name"]))
-            amt = QTableWidgetItem(self._money(e["amount"]))
+            tbl.setItem(r, 0, SortableItem(e["date"]))
+            tbl.setItem(r, 1, SortableItem(e["account_name"]))
+            amt = SortableItem(self._money(e["amount"]), e["amount"])
             amt.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             amt.setForeground(QColor(self._sign_color(e["amount"])))
             tbl.setItem(r, 2, amt)
 
         tbl.setMinimumHeight(min(360, 46 + max(len(entries), 1) * 36))
+        enable_sorting(tbl, 0, Qt.SortOrder.DescendingOrder)
         return tbl
 
     # ── Helpers ─────────────────────────────────────────────────────────────────

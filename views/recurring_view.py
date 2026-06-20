@@ -19,6 +19,7 @@ from PyQt6.QtGui import QColor
 from database import DatabaseManager
 from views.i18n import tr
 from views.sortable import SortableItem, SORT_ROLE, enable_sorting
+from views.widgets import add_table_shortcuts
 
 FREQUENCIES = ["Weekly", "Bi-weekly", "Monthly", "Quarterly", "Yearly"]
 
@@ -327,6 +328,7 @@ class RecurringView(QWidget):
         self._table.setColumnWidth(6, 140)
         self._table.doubleClicked.connect(self._edit_selected)
         enable_sorting(self._table, 0, Qt.SortOrder.AscendingOrder)
+        add_table_shortcuts(self._table, on_delete=self._delete_selected, on_edit=self._edit_selected)
         layout.addWidget(self._table)
 
         btn_row = QHBoxLayout()

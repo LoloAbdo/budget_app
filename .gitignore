@@ -38,6 +38,9 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# ── Claude Code local settings (per-machine; never commit) ───────────────────
+.claude/settings.local.json
+
 # ── Scratch ──────────────────────────────────────────────────────────────────
 _tmp_*.py
 _shot_*.png

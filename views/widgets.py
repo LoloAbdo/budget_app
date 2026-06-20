@@ -5,12 +5,33 @@ Small reusable widgets: SummaryCard, AmountLabel, SectionHeader, etc.
 
 from PyQt6.QtWidgets import (
     QFrame, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy,
-    QProgressBar, QPushButton,
+    QProgressBar, QPushButton, QTableWidget,
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QColor
+from PyQt6.QtGui import QFont, QColor, QKeySequence, QShortcut
 
 from views.i18n import tr
+
+
+def add_table_shortcuts(table: QTableWidget, on_delete=None, on_edit=None) -> None:
+    """Wire keyboard shortcuts to a data table for quicker, mouse-free editing.
+
+    - ``Delete``        → ``on_delete`` (remove the selected row)
+    - ``Enter``/``Return`` → ``on_edit`` (edit the selected row, like a double-click)
+
+    Shortcuts use ``WidgetShortcut`` context so they fire only while the table has
+    focus. The connected slots already no-op when nothing is selected.
+    """
+    def _bind(key, slot) -> None:
+        sc = QShortcut(QKeySequence(key), table)
+        sc.setContext(Qt.ShortcutContext.WidgetShortcut)
+        sc.activated.connect(slot)
+
+    if on_delete:
+        _bind(QKeySequence.StandardKey.Delete, on_delete)
+    if on_edit:
+        _bind(Qt.Key.Key_Return, on_edit)
+        _bind(Qt.Key.Key_Enter, on_edit)   # numeric-keypad Enter
 
 
 class SummaryCard(QFrame):

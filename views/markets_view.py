@@ -24,6 +24,7 @@ from database import DatabaseManager
 from services import market_service as ms
 from views.i18n import tr
 from views.sortable import SortableItem, SORT_ROLE, enable_sorting
+from views.widgets import add_table_shortcuts
 
 GREEN = "#10B981"
 RED = "#EF4444"
@@ -182,6 +183,7 @@ class MarketsView(QWidget):
         for c in range(2, len(self.COLS)):
             hdr.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
         enable_sorting(self._table, 0, Qt.SortOrder.AscendingOrder)
+        add_table_shortcuts(self._table, on_delete=self._remove_selected)
         layout.addWidget(self._table)
 
         self._empty_lbl = QLabel(tr("No symbols yet.\nClick '+ Add Symbol' to start tracking."))

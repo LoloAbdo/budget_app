@@ -17,6 +17,7 @@ from PyQt6.QtGui import QFont, QColor
 
 from database import DatabaseManager
 from views.i18n import tr
+from views.sortable import SortableItem, enable_sorting
 
 ACCOUNT_TYPES = ["Checking", "Savings", "Credit Card", "Cash"]
 ACCOUNT_NAME_MAX = 50   # enforced in dialog; no hard DB limit
@@ -241,6 +242,7 @@ class AccountsView(QWidget):
         self._table.setColumnWidth(2, 150)   # Balance
 
         self._table.doubleClicked.connect(self._edit_selected)
+        enable_sorting(self._table, 0, Qt.SortOrder.AscendingOrder)
         layout.addWidget(self._table)
 
         btn_row = QHBoxLayout()
@@ -263,6 +265,7 @@ class AccountsView(QWidget):
 
         # Block signals while rebuilding rows to avoid mid-population repaints
         self._table.blockSignals(True)
+        self._table.setSortingEnabled(False)
         self._table.setRowCount(len(accounts))
 
         # Total reflects the visible rows; label notes when a filter is active
@@ -276,12 +279,12 @@ class AccountsView(QWidget):
         for r, a in enumerate(accounts):
             bal_color = "#10B981" if a["current_balance"] >= 0 else "#EF4444"
             items = [
-                (a["account_name"], None),
-                (tr(a["account_type"]), None),
-                (f"{self._currency} {a['current_balance']:,.2f}", bal_color),
+                (a["account_name"], None, None),
+                (tr(a["account_type"]), None, None),
+                (f"{self._currency} {a['current_balance']:,.2f}", bal_color, a["current_balance"]),
             ]
-            for c, (text, color) in enumerate(items):
-                item = QTableWidgetItem(text)
+            for c, (text, color, sort_key) in enumerate(items):
+                item = SortableItem(text, sort_key)
                 item.setData(Qt.ItemDataRole.UserRole, a["id"])
                 if color:
                     item.setForeground(QColor(color))
@@ -289,6 +292,7 @@ class AccountsView(QWidget):
                 self._table.setItem(r, c, item)
 
         self._table.blockSignals(False)
+        self._table.setSortingEnabled(True)
 
         # Resize only the non-stretch columns to fit their content
         self._table.resizeColumnToContents(1)   # Type

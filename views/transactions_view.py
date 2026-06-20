@@ -17,6 +17,7 @@ from PyQt6.QtGui import QColor, QFont
 
 from database import DatabaseManager
 from views.i18n import tr
+from views.sortable import SortableItem, SORT_ROLE, enable_sorting
 
 
 # ── Transaction dialog ─────────────────────────────────────────────────────────
@@ -391,6 +392,8 @@ class TransactionsView(QWidget):
         self._table.setColumnWidth(4, 100)   # Amount
         self._table.setColumnWidth(5, 150)   # Notes
         self._table.doubleClicked.connect(self._edit_selected)
+        # Newest-first by default; every column is click-sortable.
+        enable_sorting(self._table, 0, Qt.SortOrder.DescendingOrder)
         layout.addWidget(self._table)
 
         # Action row
@@ -430,6 +433,9 @@ class TransactionsView(QWidget):
             keyword=keyword,
         )
         self._rows = rows
+        # Disable sorting while we rebuild rows, then re-enable so the table
+        # re-sorts once by the user's current column choice.
+        self._table.setSortingEnabled(False)
         self._table.setRowCount(len(rows))
 
         for r_idx, txn in enumerate(rows):
@@ -443,9 +449,10 @@ class TransactionsView(QWidget):
                 txn.get("notes") or "",
             ]
             for c_idx, text in enumerate(items):
-                item = QTableWidgetItem(text)
+                item = SortableItem(text)
                 item.setData(Qt.ItemDataRole.UserRole, txn["id"])
                 if c_idx == 4:
+                    item.setData(SORT_ROLE, txn["amount"])   # sort by number, not "$1,234.56"
                     item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                     if txn.get("transfer_id") is not None:
                         item.setForeground(QColor("#8B5CF6"))  # purple for transfers
@@ -460,6 +467,7 @@ class TransactionsView(QWidget):
 
         self._table.resizeColumnsToContents()
         self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self._table.setSortingEnabled(True)
         self._count_lbl.setText(tr("{n} transactions").format(n=len(rows)))
 
     def _clear_filters(self) -> None:

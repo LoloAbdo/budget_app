@@ -23,6 +23,7 @@ from database import DatabaseManager
 from views.widgets import SummaryCard
 from views.i18n import tr, month_abbr
 from views.theme import chart_colors
+from views.sortable import SortableItem, SORT_ROLE, enable_sorting
 
 
 class DashboardView(QWidget):
@@ -318,8 +319,9 @@ class DashboardView(QWidget):
                 f"{self._currency} {txn['amount']:,.2f}",
             ]
             for col_idx, text in enumerate(items):
-                item = QTableWidgetItem(text)
+                item = SortableItem(text)
                 if col_idx == 4:
+                    item.setData(SORT_ROLE, txn["amount"])   # sort Amount numerically
                     item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                     color = "#10B981" if txn.get("category_type") == "Income" else "#EF4444"
                     item.setForeground(QColor(color))
@@ -327,6 +329,7 @@ class DashboardView(QWidget):
 
         tbl.resizeColumnsToContents()
         tbl.setMinimumHeight(min(400, 46 + len(transactions) * 40))
+        enable_sorting(tbl, 0, Qt.SortOrder.DescendingOrder)
         return tbl
 
     # ── Utilities ──────────────────────────────────────────────────────────────

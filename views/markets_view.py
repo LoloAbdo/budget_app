@@ -23,6 +23,7 @@ from PyQt6.QtCore import Qt, QObject, QRunnable, QThreadPool, QTimer, pyqtSignal
 from database import DatabaseManager
 from services import market_service as ms
 from views.i18n import tr
+from views.sortable import SortableItem, SORT_ROLE, enable_sorting
 
 GREEN = "#10B981"
 RED = "#EF4444"
@@ -124,7 +125,6 @@ class MarketsView(QWidget):
         self._currency = user.get("currency", "CAD")
         self._pool = QThreadPool.globalInstance()
         self._fetching = False
-        self._row_by_key: dict[tuple[str, str], int] = {}
 
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._fetch)
@@ -181,6 +181,7 @@ class MarketsView(QWidget):
         hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         for c in range(2, len(self.COLS)):
             hdr.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
+        enable_sorting(self._table, 0, Qt.SortOrder.AscendingOrder)
         layout.addWidget(self._table)
 
         self._empty_lbl = QLabel(tr("No symbols yet.\nClick '+ Add Symbol' to start tracking."))
@@ -205,31 +206,31 @@ class MarketsView(QWidget):
         """(Re)build table rows from the DB watchlist, showing cached prices."""
         rows = self._db.get_watchlist(self._user["id"])
         self._watch = rows
-        self._row_by_key.clear()
+        self._table.setSortingEnabled(False)
         self._table.setRowCount(len(rows))
         self._empty_lbl.setVisible(not rows)
         self._table.setVisible(bool(rows))
 
         for r, w in enumerate(rows):
-            key = (w["symbol"].upper(), w["asset_type"])
-            self._row_by_key[key] = r
             name = w.get("display_name") or "—"
             cells = [
-                w["symbol"],
-                name,
-                tr(w["asset_type"]),
-                self._fmt_price(w.get("last_price")),
-                self._fmt_change(w.get("last_change_pct")),
-                (w.get("last_updated") or "—"),
+                (w["symbol"], None),
+                (name, None),
+                (tr(w["asset_type"]), None),
+                (self._fmt_price(w.get("last_price")), w.get("last_price")),
+                (self._fmt_change(w.get("last_change_pct")), w.get("last_change_pct")),
+                ((w.get("last_updated") or "—"), None),
             ]
-            for c, text in enumerate(cells):
-                item = QTableWidgetItem(text)
+            for c, (text, sort_key) in enumerate(cells):
+                item = SortableItem(text, sort_key)
                 item.setData(Qt.ItemDataRole.UserRole, w["id"])
                 if c in (3, 4):
                     item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 if c == 4:
                     item.setForeground(self._change_color(w.get("last_change_pct")))
                 self._table.setItem(r, c, item)
+
+        self._table.setSortingEnabled(True)
 
     def _fetch(self) -> None:
         """Start a background quote fetch for the current watchlist."""
@@ -250,29 +251,47 @@ class MarketsView(QWidget):
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
         any_ok = False
 
+        # Pause sorting so rows don't reshuffle mid-update; the visual order may
+        # differ from _reload's if the user clicked a header, so locate each row
+        # by its watch id rather than a cached index.
+        self._table.setSortingEnabled(False)
         for w in self._watch:
             key = (w["symbol"].upper(), w["asset_type"])
             quote = result.get(key)
-            row = self._row_by_key.get(key)
+            row = self._row_for_watch(w["id"])
             if quote is None or not quote.ok or row is None:
                 continue
             any_ok = True
             self._db.update_watch_cache(w["id"], quote.price, quote.change_pct, quote.currency, now)
-            self._set_cell(row, 3, self._fmt_price(quote.price), align_right=True)
+            self._set_cell(row, 3, self._fmt_price(quote.price), align_right=True,
+                           sort_key=quote.price)
             self._set_cell(row, 4, self._fmt_change(quote.change_pct),
-                           align_right=True, color=self._change_color(quote.change_pct))
+                           align_right=True, color=self._change_color(quote.change_pct),
+                           sort_key=quote.change_pct)
             self._set_cell(row, 5, now)
+        self._table.setSortingEnabled(True)
 
         if any_ok:
             self._status.setText(tr("Updated {time}").format(time=now))
         else:
             self._status.setText(tr("⚠ Couldn't update — showing last saved values"))
 
-    def _set_cell(self, row: int, col: int, text: str, align_right=False, color=None) -> None:
+    def _row_for_watch(self, watch_id) -> Optional[int]:
+        """Current visual row whose symbol cell carries this watch id, or None."""
+        for r in range(self._table.rowCount()):
+            it = self._table.item(r, 0)
+            if it is not None and it.data(Qt.ItemDataRole.UserRole) == watch_id:
+                return r
+        return None
+
+    def _set_cell(self, row: int, col: int, text: str, align_right=False, color=None,
+                  sort_key=None) -> None:
         item = self._table.item(row, col)
         if item is None:
             return
         item.setText(text)
+        if sort_key is not None:
+            item.setData(SORT_ROLE, sort_key)
         if align_right:
             item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         if color is not None:

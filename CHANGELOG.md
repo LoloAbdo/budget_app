@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   French localized.
 - **Shortcut hints** in the Edit/Delete/Remove button tooltips (e.g. "Delete
   selected (Del)") so the new keyboard shortcuts are discoverable.
+- **Window remembers its size, position, and last-open panel** between launches
+  (stored via `QSettings`).
+
+### Fixed
+- **Theme choice now persists across restarts.** The dark/light preference is
+  saved per-user (new `theme` column, migration v1.0.6) just like the language,
+  instead of resetting to dark every launch. An explicit `--theme` flag still
+  overrides the saved value for that run.
 
 ### Changed
 - `.claude/settings.local.json` is now gitignored and untracked, so per-machine

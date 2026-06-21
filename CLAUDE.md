@@ -32,7 +32,7 @@ v1.4.0 (change password + pinned deps), v1.5.0 (sortable table columns).
 
 ## Architecture
 - `main.py` — entry point + data-path logic.
-- `database/schema.py` — `DatabaseManager` (all SQL, parameterized) + idempotent migrations run on every init (latest: v1.0.5 adds performance indexes). Analytics helpers include `get_net_worth_history()` (dashboard net-worth trend, reconstructed by unwinding monthly flow — no balance-history table) and `get_budget_alerts()` (categories ≥90% of monthly budget).
+- `database/schema.py` — `DatabaseManager` (all SQL, parameterized) + idempotent migrations run on every init (latest: v1.0.6 adds a per-user `theme` column; v1.0.5 adds performance indexes). Analytics helpers include `get_net_worth_history()` (dashboard net-worth trend, reconstructed by unwinding monthly flow — no balance-history table) and `get_budget_alerts()` (categories ≥90% of monthly budget).
 - `services/` — `auth`, `backup`, `import_export`, `recurring`, `market` (stocks/crypto), `update` (GitHub releases check).
 - `views/` — PyQt6 panels; `main_window.py` wires the sidebar + signals. `theme.py` holds QSS + chart colors. `i18n.py` is the translation layer.
 - `tests/` — pytest; `conftest.py` has shared fixtures (`db`, `user_id`, `account_id`, `savings_id`).
@@ -44,6 +44,7 @@ v1.4.0 (change password + pinned deps), v1.5.0 (sortable table columns).
 - **Savings/interest**: editing a Savings account's balance records the unexplained delta as a signed "Interest" income transaction (auto-detect, with an opt-out checkbox). Summary in the Savings tab.
 - **Markets**: keyless data (CoinGecko crypto + Stooq/Yahoo stocks), converted to the user's currency. Auto-refresh defaults to **Off (manual)**; stock requests are batched into one call.
 - **Update check**: notify-only — compares `version.py` to the latest GitHub release and links the download; does not auto-install.
+- **Preferences split**: per-user prefs that belong with the data (currency, `language`, `theme`) live in the `users` table; per-machine window state (size/position + last-open panel) lives in `QSettings` (org `BudgetApp` / app `Budget Manager`), saved in `MainWindow.closeEvent`. `--theme` overrides the saved theme for one run.
 
 ## Gotchas / lessons
 - `DatabaseManager._local` is **per-instance** (not a class attr) — required so the test suite's many DB instances don't share a connection.

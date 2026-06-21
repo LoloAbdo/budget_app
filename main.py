@@ -60,7 +60,8 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Budget Manager")
     p.add_argument("--seed",  action="store_true", help="Seed sample data before launching")
     p.add_argument("--reset", action="store_true", help="Delete the database and start fresh")
-    p.add_argument("--theme", choices=["dark", "light"], default="dark", help="UI theme")
+    p.add_argument("--theme", choices=["dark", "light"], default=None,
+                   help="UI theme (overrides the saved preference for this run)")
     return p.parse_args()
 
 
@@ -117,7 +118,9 @@ def main() -> int:
     set_language(user.get("language", "en"))
 
     # ── Main window ────────────────────────────────────────────────────────────
-    window = MainWindow(db, user, backup, current_theme=args.theme)
+    # Saved per-user theme wins; an explicit --theme flag overrides it for this run.
+    theme = args.theme or user.get("theme") or "dark"
+    window = MainWindow(db, user, backup, current_theme=theme)
     app._main_window = window  # keep reference alive
     window.show()
 

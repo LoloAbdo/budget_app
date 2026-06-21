@@ -215,6 +215,13 @@ class DatabaseManager:
             )
             conn.commit()
 
+        # v1.0.6 — add theme preference to users if missing (mirrors language)
+        if "theme" not in user_cols:
+            conn.execute(
+                "ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'dark'"
+            )
+            conn.commit()
+
         # v1.0.5 — performance indexes for the hot query paths.
         # The main transaction list joins transactions→accounts, filters by
         # user/date/category/account and sorts by date; without indexes every
@@ -295,6 +302,9 @@ class DatabaseManager:
 
     def update_user_language(self, user_id: int, language: str) -> None:
         self._execute("UPDATE users SET language=? WHERE id=?", (language, user_id))
+
+    def update_user_theme(self, user_id: int, theme: str) -> None:
+        self._execute("UPDATE users SET theme=? WHERE id=?", (theme, user_id))
 
     def update_user_password(self, user_id: int, password_hash: str) -> None:
         self._execute("UPDATE users SET password=? WHERE id=?", (password_hash, user_id))

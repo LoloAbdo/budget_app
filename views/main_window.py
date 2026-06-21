@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QFrame, QStackedWidget, QSizePolicy, QMessageBox,
     QApplication,
 )
-from PyQt6.QtCore import Qt, QTimer, pyqtSlot, QThreadPool
+from PyQt6.QtCore import Qt, QTimer, pyqtSlot, QThreadPool, QSettings
 from PyQt6.QtGui import QFont, QIcon, QKeySequence, QShortcut
 
 from database import DatabaseManager
@@ -70,8 +70,15 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1100, 700)
         self.resize(1280, 780)
 
+        # Restore the window size/position from the last session, if any.
+        self._settings = QSettings()
+        geo = self._settings.value("window/geometry")
+        if geo is not None:
+            self.restoreGeometry(geo)
+
         self._apply_theme(current_theme)
         self._build_ui()
+        self._restore_last_panel()
         self._setup_shortcuts()
         self._process_recurring()
         self._start_backup_timer()
@@ -204,6 +211,18 @@ class MainWindow(QMainWindow):
         for i, btn in self._nav_buttons.items():
             btn.setChecked(i == idx)
 
+    def _restore_last_panel(self) -> None:
+        """Reopen on the sidebar panel that was active when the app last closed."""
+        idx = self._settings.value("window/panel", 0, type=int)
+        if 0 <= idx < len(self._nav_buttons):
+            self._switch_to(idx)
+
+    def closeEvent(self, event) -> None:
+        """Persist window geometry and the active panel for next launch."""
+        self._settings.setValue("window/geometry", self.saveGeometry())
+        self._settings.setValue("window/panel", self._stack.currentIndex())
+        super().closeEvent(event)
+
     # ── Shortcuts ──────────────────────────────────────────────────────────────
 
     def _setup_shortcuts(self) -> None:
@@ -252,6 +271,9 @@ class MainWindow(QMainWindow):
     @pyqtSlot(str)
     def _on_theme_changed(self, theme: str) -> None:
         self._apply_theme(theme)
+        # Persist so the choice survives a restart (mirrors language).
+        self._db.update_user_theme(self._user["id"], theme)
+        self._user["theme"] = theme
         # Charts are matplotlib (not QSS) — redraw them so they pick up the palette
         for view in (self._dashboard_view, self._reports_view, self._savings_view):
             view.refresh()

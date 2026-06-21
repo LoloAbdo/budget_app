@@ -20,7 +20,7 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
 from database import DatabaseManager
-from views.widgets import SummaryCard
+from views.widgets import SummaryCard, make_empty_state
 from views.i18n import tr, month_abbr
 from views.theme import chart_colors
 from views.sortable import SortableItem, SORT_ROLE, enable_sorting
@@ -293,7 +293,9 @@ class DashboardView(QWidget):
 
     # ── Transaction table ──────────────────────────────────────────────────────
 
-    def _build_txn_table(self, transactions: list[dict]) -> QTableWidget:
+    def _build_txn_table(self, transactions: list[dict]):
+        if not transactions:
+            return make_empty_state(tr("No transactions yet."))
         cols = [tr("Date"), tr("Description"), tr("Category"), tr("Account"), tr("Amount")]
         tbl = QTableWidget(len(transactions), len(cols))
         tbl.setHorizontalHeaderLabels(cols)

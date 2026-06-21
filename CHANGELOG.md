@@ -12,10 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   selected row and `Enter` to edit it (matching double-click), in Transactions,
   Accounts, Recurring, and Markets (Markets supports `Delete` only). Shortcuts
   fire only while the table is focused.
-- **Empty-state messages** for the Transactions, Accounts, and Recurring tables:
-  instead of a blank grid, an empty list now shows a friendly prompt, and the
+- **Empty-state messages** for the Transactions, Accounts, Recurring, Savings
+  (interest history), and dashboard (recent transactions) tables: instead of a
+  blank grid, an empty list now shows a friendly prompt, and the CRUD tables'
   wording adapts ("nothing yet" vs. "nothing matches your filters"). English/
   French localized.
+- **Shortcut hints** in the Edit/Delete/Remove button tooltips (e.g. "Delete
+  selected (Del)") so the new keyboard shortcuts are discoverable.
 
 ### Changed
 - `.claude/settings.local.json` is now gitignored and untracked, so per-machine

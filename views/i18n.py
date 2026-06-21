@@ -167,6 +167,11 @@ _FR: dict[str, str] = {
         "Aucun élément récurrent ne correspond à vos filtres.",
     "No recurring items yet. Click '+ Add Recurring' to start.":
         "Aucun élément récurrent pour l'instant. Cliquez sur « + Ajouter un récurrent » pour commencer.",
+    "No transactions yet.": "Aucune transaction pour l'instant.",
+    "No interest recorded yet.": "Aucun intérêt enregistré pour l'instant.",
+    "Edit selected (Enter)": "Modifier la sélection (Entrée)",
+    "Delete selected (Del)": "Supprimer la sélection (Suppr)",
+    "Remove selected (Del)": "Retirer la sélection (Suppr)",
     "Add Transaction": "Ajouter une transaction",
     "Edit Transaction": "Modifier la transaction",
     "e.g. Grocery run": "ex. Épicerie",

@@ -338,11 +338,13 @@ class RecurringView(QWidget):
         edit_btn = QPushButton(tr("✏ Edit"))
         edit_btn.setObjectName("secondary")
         edit_btn.clicked.connect(self._edit_selected)
+        edit_btn.setToolTip(tr("Edit selected (Enter)"))
         btn_row.addWidget(edit_btn)
 
         del_btn = QPushButton(tr("🗑 Delete"))
         del_btn.setObjectName("danger")
         del_btn.clicked.connect(self._delete_selected)
+        del_btn.setToolTip(tr("Delete selected (Del)"))
         btn_row.addWidget(del_btn)
         btn_row.addStretch()
         layout.addLayout(btn_row)

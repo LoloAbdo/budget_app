@@ -195,6 +195,7 @@ class MarketsView(QWidget):
         del_btn.setObjectName("danger")
         del_btn.setMaximumWidth(160)
         del_btn.clicked.connect(self._remove_selected)
+        del_btn.setToolTip(tr("Remove selected (Del)"))
         layout.addWidget(del_btn)
 
     # ── Data / table ─────────────────────────────────────────────────────────

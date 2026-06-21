@@ -19,7 +19,7 @@ from PyQt6.QtGui import QColor
 from database import DatabaseManager
 from views.i18n import tr
 from views.sortable import SortableItem, SORT_ROLE, enable_sorting
-from views.widgets import add_table_shortcuts
+from views.widgets import add_table_shortcuts, make_empty_state
 
 FREQUENCIES = ["Weekly", "Bi-weekly", "Monthly", "Quarterly", "Yearly"]
 
@@ -331,6 +331,9 @@ class RecurringView(QWidget):
         add_table_shortcuts(self._table, on_delete=self._delete_selected, on_edit=self._edit_selected)
         layout.addWidget(self._table)
 
+        self._empty_lbl = make_empty_state("")
+        layout.addWidget(self._empty_lbl)
+
         btn_row = QHBoxLayout()
         edit_btn = QPushButton(tr("✏ Edit"))
         edit_btn.setObjectName("secondary")
@@ -373,7 +376,8 @@ class RecurringView(QWidget):
         self._type_filter.setCurrentIndex(0)
 
     def refresh(self) -> None:
-        recurrings = self._apply_filters(self._db.get_recurring(self._user["id"]))
+        all_recurrings = self._db.get_recurring(self._user["id"])
+        recurrings = self._apply_filters(all_recurrings)
         self._table.blockSignals(True)
         self._table.setSortingEnabled(False)
         self._table.setRowCount(len(recurrings))
@@ -413,6 +417,14 @@ class RecurringView(QWidget):
         self._table.resizeColumnToContents(2)
         self._table.resizeColumnToContents(3)
         self._table.resizeColumnToContents(4)
+
+        # Empty state: nothing scheduled vs. filters hiding everything.
+        self._empty_lbl.setText(
+            tr("No recurring items match your filters.") if all_recurrings
+            else tr("No recurring items yet. Click '+ Add Recurring' to start.")
+        )
+        self._empty_lbl.setVisible(not recurrings)
+        self._table.setVisible(bool(recurrings))
 
     def _add_recurring(self) -> None:
         dlg = RecurringDialog(self._db, self._user["id"], parent=self)

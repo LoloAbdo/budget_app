@@ -13,6 +13,15 @@ from PyQt6.QtGui import QFont, QColor, QKeySequence, QShortcut
 from views.i18n import tr
 
 
+def make_empty_state(text: str) -> QLabel:
+    """A centered, muted placeholder shown in place of an empty table."""
+    lbl = QLabel(text)
+    lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    lbl.setObjectName("muted")
+    lbl.setWordWrap(True)
+    return lbl
+
+
 def add_table_shortcuts(table: QTableWidget, on_delete=None, on_edit=None) -> None:
     """Wire keyboard shortcuts to a data table for quicker, mouse-free editing.
 

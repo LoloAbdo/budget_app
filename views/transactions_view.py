@@ -18,7 +18,7 @@ from PyQt6.QtGui import QColor, QFont
 from database import DatabaseManager
 from views.i18n import tr
 from views.sortable import SortableItem, SORT_ROLE, enable_sorting
-from views.widgets import add_table_shortcuts
+from views.widgets import add_table_shortcuts, make_empty_state
 
 
 # ── Transaction dialog ─────────────────────────────────────────────────────────
@@ -398,6 +398,9 @@ class TransactionsView(QWidget):
         add_table_shortcuts(self._table, on_delete=self._delete_selected, on_edit=self._edit_selected)
         layout.addWidget(self._table)
 
+        self._empty_lbl = make_empty_state("")
+        layout.addWidget(self._empty_lbl)
+
         # Action row
         btn_row = QHBoxLayout()
         edit_btn = QPushButton(tr("✏ Edit"))
@@ -471,6 +474,15 @@ class TransactionsView(QWidget):
         self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self._table.setSortingEnabled(True)
         self._count_lbl.setText(tr("{n} transactions").format(n=len(rows)))
+
+        # Empty state: distinguish "nothing yet" from "filters hid everything".
+        filtered = bool(keyword or cat_id or acct_id)
+        self._empty_lbl.setText(
+            tr("No transactions match your filters.") if filtered
+            else tr("No transactions yet. Click '+ Add Transaction' to start.")
+        )
+        self._empty_lbl.setVisible(not rows)
+        self._table.setVisible(bool(rows))
 
     def _clear_filters(self) -> None:
         self._search_edit.clear()

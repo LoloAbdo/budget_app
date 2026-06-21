@@ -18,7 +18,7 @@ from PyQt6.QtGui import QFont, QColor
 from database import DatabaseManager
 from views.i18n import tr
 from views.sortable import SortableItem, enable_sorting
-from views.widgets import add_table_shortcuts
+from views.widgets import add_table_shortcuts, make_empty_state
 
 ACCOUNT_TYPES = ["Checking", "Savings", "Credit Card", "Cash"]
 ACCOUNT_NAME_MAX = 50   # enforced in dialog; no hard DB limit
@@ -247,6 +247,9 @@ class AccountsView(QWidget):
         add_table_shortcuts(self._table, on_delete=self._delete_selected, on_edit=self._edit_selected)
         layout.addWidget(self._table)
 
+        self._empty_lbl = make_empty_state("")
+        layout.addWidget(self._empty_lbl)
+
         btn_row = QHBoxLayout()
         edit_btn = QPushButton(tr("✏ Edit"))
         edit_btn.setObjectName("secondary")
@@ -299,6 +302,14 @@ class AccountsView(QWidget):
         # Resize only the non-stretch columns to fit their content
         self._table.resizeColumnToContents(1)   # Type
         self._table.resizeColumnToContents(2)   # Balance
+
+        # Empty state: no accounts at all vs. filters hiding them all.
+        self._empty_lbl.setText(
+            tr("No accounts match your filters.") if all_accounts
+            else tr("No accounts yet. Click '+ Add Account' to start.")
+        )
+        self._empty_lbl.setVisible(not accounts)
+        self._table.setVisible(bool(accounts))
 
     def _apply_filters(self, accounts: list[dict]) -> list[dict]:
         """Client-side name search + account-type filter."""

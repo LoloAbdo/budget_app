@@ -155,6 +155,18 @@ _FR: dict[str, str] = {
     "✏ Edit": "✏ Modifier",
     "🗑 Delete": "🗑 Supprimer",
     "{n} transactions": "{n} transactions",
+    "No transactions match your filters.":
+        "Aucune transaction ne correspond à vos filtres.",
+    "No transactions yet. Click '+ Add Transaction' to start.":
+        "Aucune transaction pour l'instant. Cliquez sur « + Ajouter une transaction » pour commencer.",
+    "No accounts match your filters.":
+        "Aucun compte ne correspond à vos filtres.",
+    "No accounts yet. Click '+ Add Account' to start.":
+        "Aucun compte pour l'instant. Cliquez sur « + Ajouter un compte » pour commencer.",
+    "No recurring items match your filters.":
+        "Aucun élément récurrent ne correspond à vos filtres.",
+    "No recurring items yet. Click '+ Add Recurring' to start.":
+        "Aucun élément récurrent pour l'instant. Cliquez sur « + Ajouter un récurrent » pour commencer.",
     "Add Transaction": "Ajouter une transaction",
     "Edit Transaction": "Modifier la transaction",
     "e.g. Grocery run": "ex. Épicerie",

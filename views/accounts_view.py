@@ -18,6 +18,7 @@ from PyQt6.QtGui import QFont, QColor
 from database import DatabaseManager
 from views.i18n import tr
 from views.sortable import SortableItem, enable_sorting
+from views.widgets import add_table_shortcuts
 
 ACCOUNT_TYPES = ["Checking", "Savings", "Credit Card", "Cash"]
 ACCOUNT_NAME_MAX = 50   # enforced in dialog; no hard DB limit
@@ -243,6 +244,7 @@ class AccountsView(QWidget):
 
         self._table.doubleClicked.connect(self._edit_selected)
         enable_sorting(self._table, 0, Qt.SortOrder.AscendingOrder)
+        add_table_shortcuts(self._table, on_delete=self._delete_selected, on_edit=self._edit_selected)
         layout.addWidget(self._table)
 
         btn_row = QHBoxLayout()

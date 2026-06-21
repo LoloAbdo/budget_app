@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Keyboard shortcuts** on the data tables: press `Delete` to remove the
+  selected row and `Enter` to edit it (matching double-click), in Transactions,
+  Accounts, Recurring, and Markets (Markets supports `Delete` only). Shortcuts
+  fire only while the table is focused.
+
+### Changed
+- `.claude/settings.local.json` is now gitignored and untracked, so per-machine
+  Claude Code settings no longer land in commits and tags.
+
 ## [1.5.0] - 2026-06-20
 
 ### Added

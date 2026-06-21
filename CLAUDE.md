@@ -51,8 +51,8 @@ v1.4.0 (change password + pinned deps), v1.5.0 (sortable table columns).
 - Build artifacts (`build/`, `dist/`, `installer_output/`, `*.spec`) are gitignored — never commit the binaries; attach to Releases.
 - Never commit personal data: `data/`, `backups/`, `exports/` are gitignored.
 - `scripts/seed_sample_data.py` is **idempotent** — it skips if the demo user already has accounts (use `--reset` then `--seed` to re-seed). Keep console `print`s ASCII: the Windows cp1252 console crashes on emoji (`UnicodeEncodeError`). The seed script is not yet covered by tests.
-- `.claude/settings.local.json` is currently **tracked and not gitignored**, so local settings keep landing in commits/tags — pending cleanup (gitignore + `git rm --cached`).
-- `requirements.txt` uses `>=` (unpinned) — release builds aren't fully reproducible yet.
+- `.claude/settings.local.json` is gitignored and untracked (per-machine settings) — keep it that way so local config never lands in commits/tags.
+- `requirements.txt` is fully pinned (`==`) for reproducible release builds — bump deliberately, then re-run tests + a real build before tagging.
 
 ## Working style
 Commit/push only when asked. Each feature: explore → edit → verify (run tests / offscreen Qt checks / real builds) → report. PRs via `gh`; CI (`.github/workflows/ci.yml`) runs `pytest` on push/PR.

@@ -18,6 +18,7 @@ from PyQt6.QtGui import QColor, QFont
 from database import DatabaseManager
 from views.i18n import tr
 from views.sortable import SortableItem, SORT_ROLE, enable_sorting
+from views.widgets import add_table_shortcuts
 
 
 # ── Transaction dialog ─────────────────────────────────────────────────────────
@@ -394,6 +395,7 @@ class TransactionsView(QWidget):
         self._table.doubleClicked.connect(self._edit_selected)
         # Newest-first by default; every column is click-sortable.
         enable_sorting(self._table, 0, Qt.SortOrder.DescendingOrder)
+        add_table_shortcuts(self._table, on_delete=self._delete_selected, on_edit=self._edit_selected)
         layout.addWidget(self._table)
 
         # Action row

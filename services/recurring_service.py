@@ -90,3 +90,48 @@ class RecurringService:
             )
             posted += 1
         return posted
+
+    def forecast(self, user_id: int, months: int = 3) -> dict:
+        """Project total balance forward from recurring income/expenses.
+
+        Starts at the current combined balance of all accounts and walks every
+        non-transfer recurring entry forward, occurrence by occurrence, up to
+        *months* ahead. Transfers move money between the user's own accounts, so
+        they leave net worth unchanged and are skipped.
+
+        Returns a dict with:
+            start_balance — combined balance today
+            end_balance   — projected balance at the horizon
+            events        — chronological list of {date, name, amount, balance}
+            timeline      — [(date, balance), …] starting at today, for charting
+        """
+        today = date.today()
+        horizon = today + relativedelta(months=months)
+        start_balance = sum(a["current_balance"] for a in self._db.get_accounts(user_id))
+
+        occurrences: list[tuple[date, str, float]] = []
+        for rec in self._db.get_recurring(user_id):
+            if rec.get("to_account_id"):
+                continue  # transfers don't change net worth
+            due = date.fromisoformat(rec["next_due_date"])
+            while due <= horizon:
+                if due >= today:
+                    occurrences.append((due, rec["name"], rec["amount"]))
+                due = _next_date(due, rec["frequency"])
+
+        occurrences.sort(key=lambda o: o[0])
+
+        balance = start_balance
+        events: list[dict] = []
+        timeline: list[tuple[date, float]] = [(today, start_balance)]
+        for when, name, amount in occurrences:
+            balance += amount
+            events.append({"date": when, "name": name, "amount": amount, "balance": balance})
+            timeline.append((when, balance))
+
+        return {
+            "start_balance": start_balance,
+            "end_balance": balance,
+            "events": events,
+            "timeline": timeline,
+        }

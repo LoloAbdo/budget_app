@@ -24,6 +24,7 @@ from views.budget_view      import BudgetView
 from views.goals_view       import GoalsView
 from views.accounts_view    import AccountsView
 from views.reports_view     import ReportsView
+from views.forecast_view    import ForecastView
 from views.recurring_view   import RecurringView
 from views.savings_view     import SavingsView
 from views.markets_view     import MarketsView
@@ -42,10 +43,11 @@ NAV_ITEMS = [
     ("🎯", "Goals",          3),
     ("🏦", "Accounts",       4),
     ("📈", "Reports",        5),
-    ("🔄", "Recurring",      6),
-    ("🐷", "Savings",        7),
-    ("💹", "Markets",        8),
-    ("⚙️",  "Settings",      9),
+    ("🔮", "Forecast",       6),
+    ("🔄", "Recurring",      7),
+    ("🐷", "Savings",        8),
+    ("💹", "Markets",        9),
+    ("⚙️",  "Settings",      10),
 ]
 
 
@@ -123,6 +125,7 @@ class MainWindow(QMainWindow):
         self._goals_view        = GoalsView(self._db, self._user)
         self._accounts_view     = AccountsView(self._db, self._user)
         self._reports_view      = ReportsView(self._db, self._user)
+        self._forecast_view     = ForecastView(self._db, self._user)
         self._recurring_view    = RecurringView(self._db, self._user)
         self._savings_view      = SavingsView(self._db, self._user)
         self._markets_view      = MarketsView(self._db, self._user)
@@ -137,6 +140,7 @@ class MainWindow(QMainWindow):
             self._goals_view,
             self._accounts_view,
             self._reports_view,
+            self._forecast_view,
             self._recurring_view,
             self._savings_view,
             self._markets_view,
@@ -150,8 +154,10 @@ class MainWindow(QMainWindow):
         self._txn_view.transaction_changed.connect(self._reports_view.refresh)
         self._txn_view.transaction_changed.connect(self._accounts_view.refresh)
         self._txn_view.transaction_changed.connect(self._savings_view.refresh)
+        self._txn_view.transaction_changed.connect(self._forecast_view.refresh)
         self._accounts_view.accounts_changed.connect(self._dashboard_view.refresh)
         self._accounts_view.accounts_changed.connect(self._savings_view.refresh)
+        self._accounts_view.accounts_changed.connect(self._forecast_view.refresh)
         self._budget_view.budget_changed.connect(self._dashboard_view.refresh)
         self._settings_view.theme_changed.connect(self._on_theme_changed)
         self._settings_view.data_changed.connect(self._refresh_all)
@@ -210,6 +216,10 @@ class MainWindow(QMainWindow):
         self._stack.setCurrentIndex(idx)
         for i, btn in self._nav_buttons.items():
             btn.setChecked(i == idx)
+        # The forecast depends on recurring items, which emit no change signal,
+        # so recompute it whenever the user opens the panel.
+        if self._stack.widget(idx) is self._forecast_view:
+            self._forecast_view.refresh()
 
     def _restore_last_panel(self) -> None:
         """Reopen on the sidebar panel that was active when the app last closed."""
@@ -300,6 +310,7 @@ class MainWindow(QMainWindow):
         self._reports_view.refresh()
         self._recurring_view.refresh()
         self._savings_view.refresh()
+        self._forecast_view.refresh()
 
     def _sign_out(self) -> None:
         reply = QMessageBox.question(

@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Cash-flow forecast** — a new Forecast panel projects your combined account
+  balance forward (3 / 6 / 12 months) from recurring income and expenses, with
+  summary cards, a projected-balance chart, and a table of upcoming activity
+  that flags any projected overdraft. Built entirely on existing data (transfers
+  between your own accounts are excluded); logic in `RecurringService.forecast()`
+  with new tests. English/French localized.
 - **Export transactions** from the Transactions panel: a new ⤓ Export button
   saves the *currently filtered* list (date range, category, account, search) to
   CSV or Excel. English/French localized; covered by new tests.

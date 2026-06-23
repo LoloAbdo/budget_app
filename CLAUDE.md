@@ -34,7 +34,7 @@ v1.6.0 (table UX polish + persisted theme/window state).
 ## Architecture
 - `main.py` — entry point + data-path logic.
 - `database/schema.py` — `DatabaseManager` (all SQL, parameterized) + idempotent migrations run on every init (latest: v1.0.6 adds a per-user `theme` column; v1.0.5 adds performance indexes). Analytics helpers include `get_net_worth_history()` (dashboard net-worth trend, reconstructed by unwinding monthly flow — no balance-history table) and `get_budget_alerts()` (categories ≥90% of monthly budget).
-- `services/` — `auth`, `backup`, `import_export`, `recurring`, `market` (stocks/crypto), `update` (GitHub releases check).
+- `services/` — `auth`, `backup`, `import_export`, `recurring`, `market` (stocks/crypto), `update` (GitHub releases check). `RecurringService.forecast()` projects the combined balance forward from recurring income/expenses (powers the Forecast panel; transfers excluded since they don't change net worth).
 - `views/` — PyQt6 panels; `main_window.py` wires the sidebar + signals. `theme.py` holds QSS + chart colors. `i18n.py` is the translation layer.
 - `tests/` — pytest; `conftest.py` has shared fixtures (`db`, `user_id`, `account_id`, `savings_id`).
 - Docs: `USER_GUIDE.md` + `TECHNICAL.md` are bilingual (English first, French after) and `CHANGELOG.md` tracks releases. Keep them current when behavior or version changes.

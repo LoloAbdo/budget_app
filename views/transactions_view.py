@@ -10,12 +10,13 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog,
     QLineEdit, QComboBox, QDateEdit, QDoubleSpinBox, QTextEdit,
-    QFormLayout, QMessageBox, QFrame, QSizePolicy,
+    QFormLayout, QMessageBox, QFrame, QSizePolicy, QFileDialog,
 )
 from PyQt6.QtCore import Qt, QDate, pyqtSignal
 from PyQt6.QtGui import QColor, QFont
 
 from database import DatabaseManager
+from services.import_export_service import ImportExportService
 from views.i18n import tr
 from views.sortable import SortableItem, SORT_ROLE, enable_sorting
 from views.widgets import add_table_shortcuts, make_empty_state
@@ -414,6 +415,13 @@ class TransactionsView(QWidget):
         del_btn.clicked.connect(self._delete_selected)
         del_btn.setToolTip(tr("Delete selected (Del)"))
         btn_row.addWidget(del_btn)
+
+        export_btn = QPushButton(tr("⤓ Export"))
+        export_btn.setObjectName("secondary")
+        export_btn.clicked.connect(self._export)
+        export_btn.setToolTip(tr("Export the current filtered list to CSV or Excel"))
+        btn_row.addWidget(export_btn)
+
         btn_row.addStretch()
 
         self._count_lbl = QLabel("")
@@ -424,21 +432,19 @@ class TransactionsView(QWidget):
 
     # ── Data ──────────────────────────────────────────────────────────────────
 
-    def refresh(self) -> None:
-        keyword = self._search_edit.text().strip() or None
-        cat_id  = self._cat_filter.currentData()
-        acct_id = self._acct_filter.currentData()
-        start   = self._start_date.date().toString("yyyy-MM-dd")
-        end     = self._end_date.date().toString("yyyy-MM-dd")
+    def _current_filters(self) -> dict:
+        """The active filter toolbar state, as kwargs for get_transactions()."""
+        return {
+            "keyword":     self._search_edit.text().strip() or None,
+            "category_id": self._cat_filter.currentData(),
+            "account_id":  self._acct_filter.currentData(),
+            "start_date":  self._start_date.date().toString("yyyy-MM-dd"),
+            "end_date":    self._end_date.date().toString("yyyy-MM-dd"),
+        }
 
-        rows = self._db.get_transactions(
-            self._user["id"],
-            start_date=start,
-            end_date=end,
-            category_id=cat_id,
-            account_id=acct_id,
-            keyword=keyword,
-        )
+    def refresh(self) -> None:
+        filters = self._current_filters()
+        rows = self._db.get_transactions(self._user["id"], **filters)
         self._rows = rows
         # Disable sorting while we rebuild rows, then re-enable so the table
         # re-sorts once by the user's current column choice.
@@ -478,7 +484,7 @@ class TransactionsView(QWidget):
         self._count_lbl.setText(tr("{n} transactions").format(n=len(rows)))
 
         # Empty state: distinguish "nothing yet" from "filters hid everything".
-        filtered = bool(keyword or cat_id or acct_id)
+        filtered = bool(filters["keyword"] or filters["category_id"] or filters["account_id"])
         self._empty_lbl.setText(
             tr("No transactions match your filters.") if filtered
             else tr("No transactions yet. Click '+ Add Transaction' to start.")
@@ -494,6 +500,43 @@ class TransactionsView(QWidget):
         self._end_date.setDate(QDate.currentDate())
 
     # ── Actions ───────────────────────────────────────────────────────────────
+
+    def _export(self) -> None:
+        """Export the currently filtered transactions to CSV or Excel."""
+        if not self._rows:
+            QMessageBox.information(
+                self, tr("Export"), tr("There are no transactions to export.")
+            )
+            return
+
+        default_name = f"transactions_{QDate.currentDate().toString('yyyy-MM-dd')}.csv"
+        path, selected = QFileDialog.getSaveFileName(
+            self, tr("Export Transactions"), default_name,
+            "CSV Files (*.csv);;Excel Files (*.xlsx)",
+        )
+        if not path:
+            return
+
+        # Pick the format from the chosen filter, falling back to the extension.
+        is_excel = "xlsx" in selected.lower() or path.lower().endswith(".xlsx")
+        ie = ImportExportService(self._db)
+        try:
+            if is_excel:
+                if not path.lower().endswith(".xlsx"):
+                    path += ".xlsx"
+                count = ie.export_excel(self._user["id"], path, **self._current_filters())
+            else:
+                if not path.lower().endswith(".csv"):
+                    path += ".csv"
+                count = ie.export_csv(self._user["id"], path, **self._current_filters())
+        except Exception as exc:   # surface IO/permission errors instead of crashing
+            QMessageBox.critical(self, tr("Export Failed"), str(exc))
+            return
+
+        QMessageBox.information(
+            self, tr("Export"),
+            tr("Exported {n} transactions to:\n{path}").format(n=count, path=path),
+        )
 
     def _add_transfer(self) -> None:
         dlg = TransferDialog(self._db, self._user["id"], parent=self)

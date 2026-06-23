@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Export transactions** from the Transactions panel: a new ⤓ Export button
+  saves the *currently filtered* list (date range, category, account, search) to
+  CSV or Excel. English/French localized; covered by new tests.
+
 ## [1.6.0] - 2026-06-21
 
 ### Added

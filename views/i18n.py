@@ -172,6 +172,16 @@ _FR: dict[str, str] = {
     "Edit selected (Enter)": "Modifier la sélection (Entrée)",
     "Delete selected (Del)": "Supprimer la sélection (Suppr)",
     "Remove selected (Del)": "Retirer la sélection (Suppr)",
+    "⤓ Export": "⤓ Exporter",
+    "Export": "Exporter",
+    "Export Transactions": "Exporter les transactions",
+    "Export the current filtered list to CSV or Excel":
+        "Exporter la liste filtrée actuelle en CSV ou Excel",
+    "There are no transactions to export.":
+        "Il n'y a aucune transaction à exporter.",
+    "Export Failed": "Échec de l'exportation",
+    "Exported {n} transactions to:\n{path}":
+        "{n} transactions exportées vers :\n{path}",
     "Add Transaction": "Ajouter une transaction",
     "Edit Transaction": "Modifier la transaction",
     "e.g. Grocery run": "ex. Épicerie",

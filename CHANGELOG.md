@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-06-23
+
 ### Added
 - **Cash-flow forecast** — a new Forecast panel projects your combined account
   balance forward (3 / 6 / 12 months) from recurring income and expenses, with

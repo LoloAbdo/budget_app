@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Money no longer drifts by fractions of a cent.** Amounts are now rounded to
+  whole cents as they're stored, and every account-balance update is pinned with
+  SQL `ROUND(..., 2)`. This stops the small (<$1) discrepancies between an
+  account's balance and the sum of its transactions, which came from storing
+  money as binary floating-point — sub-cent values entering via CSV/Excel import
+  or interest deltas, plus tiny accumulation error in the running balance.
+  Applies going forward; existing balances re-pin to exact cents on their next
+  transaction. Covered by new tests.
+
 ## [1.7.0] - 2026-06-23
 
 ### Added

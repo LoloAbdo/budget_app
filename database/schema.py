@@ -12,6 +12,19 @@ from pathlib import Path
 from typing import Any, Optional
 from datetime import datetime
 
+
+def _money(value: Optional[float]) -> float:
+    """Round a monetary value to whole cents before it is stored.
+
+    Money is kept as SQLite REAL (binary float), which can't represent most
+    decimal cents exactly. Rounding every amount to 2 places as it's written —
+    and pinning the running balance with SQL ``ROUND(..., 2)`` on each update —
+    keeps stored data on exact cent boundaries, so summing the rows and the
+    account's running balance can't drift apart by fractions of a cent.
+    """
+    return round(value or 0.0, 2)
+
+
 # ── Schema DDL ───────────────────────────────────────────────────────────────
 
 SCHEMA_SQL = """
@@ -320,13 +333,13 @@ class DatabaseManager:
     def create_account(self, user_id: int, name: str, acct_type: str, balance: float = 0.0) -> int:
         return self._execute(
             "INSERT INTO accounts (user_id, account_name, account_type, current_balance) VALUES (?,?,?,?)",
-            (user_id, name, acct_type, balance),
+            (user_id, name, acct_type, _money(balance)),
         )
 
     def update_account(self, account_id: int, name: str, acct_type: str, balance: float) -> None:
         self._execute(
             "UPDATE accounts SET account_name=?, account_type=?, current_balance=? WHERE id=?",
-            (name, acct_type, balance, account_id),
+            (name, acct_type, _money(balance), account_id),
         )
 
     def delete_account(self, account_id: int) -> None:
@@ -334,8 +347,8 @@ class DatabaseManager:
 
     def update_account_balance(self, account_id: int, delta: float) -> None:
         self._execute(
-            "UPDATE accounts SET current_balance = current_balance + ? WHERE id=?",
-            (delta, account_id),
+            "UPDATE accounts SET current_balance = ROUND(current_balance + ?, 2) WHERE id=?",
+            (_money(delta), account_id),
         )
 
     # ── Categories ────────────────────────────────────────────────────────────
@@ -425,12 +438,13 @@ class DatabaseManager:
         recurring_id: Optional[int] = None,
     ) -> int:
         conn = self._conn()
+        amount = _money(amount)
         cur = conn.execute(
             "INSERT INTO transactions (account_id, category_id, date, description, amount, notes, recurring_id) VALUES (?,?,?,?,?,?,?)",
             (account_id, category_id, date, description, amount, notes, recurring_id),
         )
         conn.execute(
-            "UPDATE accounts SET current_balance = current_balance + ? WHERE id=?",
+            "UPDATE accounts SET current_balance = ROUND(current_balance + ?, 2) WHERE id=?",
             (amount, account_id),
         )
         conn.commit()
@@ -447,10 +461,11 @@ class DatabaseManager:
         notes: str,
     ) -> None:
         conn = self._conn()
+        amount = _money(amount)
         old = conn.execute("SELECT account_id, amount FROM transactions WHERE id=?", (txn_id,)).fetchone()
         if old:
             conn.execute(
-                "UPDATE accounts SET current_balance = current_balance + ? WHERE id=?",
+                "UPDATE accounts SET current_balance = ROUND(current_balance + ?, 2) WHERE id=?",
                 (-old["amount"], old["account_id"]),
             )
         conn.execute(
@@ -458,7 +473,7 @@ class DatabaseManager:
             (account_id, category_id, date, description, amount, notes, txn_id),
         )
         conn.execute(
-            "UPDATE accounts SET current_balance = current_balance + ? WHERE id=?",
+            "UPDATE accounts SET current_balance = ROUND(current_balance + ?, 2) WHERE id=?",
             (amount, account_id),
         )
         conn.commit()
@@ -468,7 +483,7 @@ class DatabaseManager:
         old = conn.execute("SELECT account_id, amount FROM transactions WHERE id=?", (txn_id,)).fetchone()
         if old:
             conn.execute(
-                "UPDATE accounts SET current_balance = current_balance + ? WHERE id=?",
+                "UPDATE accounts SET current_balance = ROUND(current_balance + ?, 2) WHERE id=?",
                 (-old["amount"], old["account_id"]),
             )
         conn.execute("DELETE FROM transactions WHERE id=?", (txn_id,))
@@ -491,6 +506,7 @@ class DatabaseManager:
         if amount <= 0:
             raise ValueError("Transfer amount must be greater than zero.")
         conn = self._conn()
+        amount = _money(amount)
         cur_from = conn.execute(
             "INSERT INTO transactions (account_id, date, description, amount, notes) VALUES (?,?,?,?,?)",
             (from_account_id, date, description, -amount, notes),
@@ -503,11 +519,11 @@ class DatabaseManager:
         to_id = cur_to.lastrowid
         conn.execute("UPDATE transactions SET transfer_id=? WHERE id=?", (to_id, from_id))
         conn.execute(
-            "UPDATE accounts SET current_balance = current_balance + ? WHERE id=?",
+            "UPDATE accounts SET current_balance = ROUND(current_balance + ?, 2) WHERE id=?",
             (-amount, from_account_id),
         )
         conn.execute(
-            "UPDATE accounts SET current_balance = current_balance + ? WHERE id=?",
+            "UPDATE accounts SET current_balance = ROUND(current_balance + ?, 2) WHERE id=?",
             (amount, to_account_id),
         )
         conn.commit()
@@ -537,7 +553,7 @@ class DatabaseManager:
             conn.execute("UPDATE transactions SET transfer_id=NULL WHERE id=?", (tid,))
         for acct_id, delta in reversals:
             conn.execute(
-                "UPDATE accounts SET current_balance = current_balance + ? WHERE id=?",
+                "UPDATE accounts SET current_balance = ROUND(current_balance + ?, 2) WHERE id=?",
                 (delta, acct_id),
             )
         for tid in ids_to_delete:

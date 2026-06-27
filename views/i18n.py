@@ -195,6 +195,12 @@ _FR: dict[str, str] = {
     "Export Failed": "Échec de l'exportation",
     "Exported {n} transactions to:\n{path}":
         "{n} transactions exportées vers :\n{path}",
+    "📝 Export Activity Log": "📝 Exporter le journal d'activité",
+    "Export Activity Log": "Exporter le journal d'activité",
+    "Export a CSV of every change made in the app":
+        "Exporter un CSV de chaque modification effectuée dans l'application",
+    "Exported {n} log entries to:\n{path}":
+        "{n} entrées du journal exportées vers :\n{path}",
     "Add Transaction": "Ajouter une transaction",
     "Edit Transaction": "Modifier la transaction",
     "e.g. Grocery run": "ex. Épicerie",

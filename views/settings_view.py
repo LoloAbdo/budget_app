@@ -4,6 +4,7 @@ Settings panel: theme toggle, categories, backup/restore, import.
 """
 
 from typing import Optional
+from datetime import datetime
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
@@ -380,6 +381,13 @@ class SettingsView(QWidget):
         bk_btn = QPushButton(tr("💾 Create Backup Now"))
         bk_btn.clicked.connect(self._create_backup)
         btn_row.addWidget(bk_btn)
+
+        log_btn = QPushButton(tr("📝 Export Activity Log"))
+        log_btn.setObjectName("secondary")
+        log_btn.setToolTip(tr("Export a CSV of every change made in the app"))
+        log_btn.clicked.connect(self._export_audit_log)
+        btn_row.addWidget(log_btn)
+
         btn_row.addStretch()
         layout.addLayout(btn_row)
 
@@ -402,6 +410,25 @@ class SettingsView(QWidget):
     def _create_backup(self) -> None:
         path = self._backup.create_backup("manual")
         QMessageBox.information(self, tr("Backup Created"), tr("Saved to:\n{path}").format(path=path))
+
+    def _export_audit_log(self) -> None:
+        default = f"activity_log_{datetime.now().strftime('%Y-%m-%d')}.csv"
+        path, _ = QFileDialog.getSaveFileName(
+            self, tr("Export Activity Log"), default, "CSV Files (*.csv)"
+        )
+        if not path:
+            return
+        if not path.lower().endswith(".csv"):
+            path += ".csv"
+        try:
+            count = self._ie.export_audit_log_csv(path)
+        except Exception as exc:
+            QMessageBox.critical(self, tr("Export Failed"), str(exc))
+            return
+        QMessageBox.information(
+            self, tr("Export"),
+            tr("Exported {n} log entries to:\n{path}").format(n=count, path=path),
+        )
         self._refresh_backup_list()
 
     def _restore_backup(self) -> None:

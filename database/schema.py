@@ -6,6 +6,7 @@ Uses parameterized queries throughout to prevent SQL injection.
 
 import sqlite3
 import os
+import json
 import hashlib
 import threading
 from pathlib import Path
@@ -112,6 +113,20 @@ CREATE TABLE IF NOT EXISTS watchlist (
     last_updated    TEXT,
     UNIQUE(user_id, symbol, asset_type)
 );
+
+-- Append-only audit trail. Every create/update/delete the app performs is
+-- recorded here for export. Intentionally NOT foreign-keyed to the rows it
+-- references, so the history survives even after the underlying row is deleted.
+CREATE TABLE IF NOT EXISTS audit_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp   TEXT    NOT NULL,
+    user_id     INTEGER,
+    entity      TEXT    NOT NULL,
+    entity_id   INTEGER,
+    action      TEXT    NOT NULL CHECK(action IN ('INSERT','UPDATE','DELETE')),
+    details     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(timestamp);
 """
 
 # ── Default seed data ─────────────────────────────────────────────────────────
@@ -296,13 +311,48 @@ class DatabaseManager:
         conn.commit()
         return cur.lastrowid  # type: ignore[return-value]
 
+    # ── Audit log ─────────────────────────────────────────────────────────────
+
+    def _log(self, action: str, entity: str, entity_id: Optional[int] = None,
+             details: Optional[dict] = None, user_id: Optional[int] = None) -> None:
+        """Record a create/update/delete in the audit_log table.
+
+        Best-effort: auditing must never break a real operation, so any failure
+        here is swallowed. ``details`` is stored as a compact JSON snapshot.
+        """
+        try:
+            conn = self._conn()
+            conn.execute(
+                "INSERT INTO audit_log (timestamp, user_id, entity, entity_id, action, details) "
+                "VALUES (?,?,?,?,?,?)",
+                (
+                    datetime.now().isoformat(timespec="seconds"),
+                    user_id, entity, entity_id, action,
+                    json.dumps(details, default=str) if details is not None else None,
+                ),
+            )
+            conn.commit()
+        except Exception:
+            pass
+
+    def get_audit_log(self, limit: Optional[int] = None) -> list[dict]:
+        """Return audit-log rows, newest first (all rows unless *limit* given)."""
+        sql = "SELECT * FROM audit_log ORDER BY id DESC"
+        params: tuple = ()
+        if limit is not None:
+            sql += " LIMIT ?"
+            params = (int(limit),)
+        return self._fetchall(sql, params)
+
     # ── Users ─────────────────────────────────────────────────────────────────
 
     def create_user(self, name: str, email: str, password_hash: str, currency: str = "CAD") -> int:
-        return self._execute(
+        uid = self._execute(
             "INSERT INTO users (name, email, password, currency) VALUES (?,?,?,?)",
             (name, email, password_hash, currency),
         )
+        self._log("INSERT", "user", uid, {"name": name, "email": email, "currency": currency}, user_id=uid)
+        return uid
 
     def get_user_by_email(self, email: str) -> Optional[dict]:
         return self._fetchone("SELECT * FROM users WHERE email=?", (email,))
@@ -312,15 +362,20 @@ class DatabaseManager:
 
     def update_user(self, user_id: int, name: str, currency: str) -> None:
         self._execute("UPDATE users SET name=?, currency=? WHERE id=?", (name, currency, user_id))
+        self._log("UPDATE", "user", user_id, {"name": name, "currency": currency}, user_id=user_id)
 
     def update_user_language(self, user_id: int, language: str) -> None:
         self._execute("UPDATE users SET language=? WHERE id=?", (language, user_id))
+        self._log("UPDATE", "user", user_id, {"language": language}, user_id=user_id)
 
     def update_user_theme(self, user_id: int, theme: str) -> None:
         self._execute("UPDATE users SET theme=? WHERE id=?", (theme, user_id))
+        self._log("UPDATE", "user", user_id, {"theme": theme}, user_id=user_id)
 
     def update_user_password(self, user_id: int, password_hash: str) -> None:
         self._execute("UPDATE users SET password=? WHERE id=?", (password_hash, user_id))
+        # Never log the hash itself — only that a password change happened.
+        self._log("UPDATE", "user", user_id, {"password": "changed"}, user_id=user_id)
 
     # ── Accounts ──────────────────────────────────────────────────────────────
 
@@ -331,19 +386,27 @@ class DatabaseManager:
         return self._fetchone("SELECT * FROM accounts WHERE id=?", (account_id,))
 
     def create_account(self, user_id: int, name: str, acct_type: str, balance: float = 0.0) -> int:
-        return self._execute(
+        aid = self._execute(
             "INSERT INTO accounts (user_id, account_name, account_type, current_balance) VALUES (?,?,?,?)",
             (user_id, name, acct_type, _money(balance)),
         )
+        self._log("INSERT", "account", aid,
+                  {"name": name, "type": acct_type, "balance": _money(balance)}, user_id=user_id)
+        return aid
 
     def update_account(self, account_id: int, name: str, acct_type: str, balance: float) -> None:
         self._execute(
             "UPDATE accounts SET account_name=?, account_type=?, current_balance=? WHERE id=?",
             (name, acct_type, _money(balance), account_id),
         )
+        self._log("UPDATE", "account", account_id,
+                  {"name": name, "type": acct_type, "balance": _money(balance)})
 
     def delete_account(self, account_id: int) -> None:
+        old = self.get_account(account_id)
         self._execute("DELETE FROM accounts WHERE id=?", (account_id,))
+        self._log("DELETE", "account", account_id,
+                  {"name": old["account_name"], "balance": old["current_balance"]} if old else None)
 
     def update_account_balance(self, account_id: int, delta: float) -> None:
         self._execute(
@@ -362,19 +425,24 @@ class DatabaseManager:
         return self._fetchone("SELECT * FROM categories WHERE id=?", (category_id,))
 
     def create_category(self, name: str, cat_type: str, color: str) -> int:
-        return self._execute(
+        cid = self._execute(
             "INSERT INTO categories (name, type, color) VALUES (?,?,?)",
             (name, cat_type, color),
         )
+        self._log("INSERT", "category", cid, {"name": name, "type": cat_type, "color": color})
+        return cid
 
     def update_category(self, category_id: int, name: str, cat_type: str, color: str) -> None:
         self._execute(
             "UPDATE categories SET name=?, type=?, color=? WHERE id=?",
             (name, cat_type, color, category_id),
         )
+        self._log("UPDATE", "category", category_id, {"name": name, "type": cat_type, "color": color})
 
     def delete_category(self, category_id: int) -> None:
+        old = self.get_category(category_id)
         self._execute("DELETE FROM categories WHERE id=?", (category_id,))
+        self._log("DELETE", "category", category_id, {"name": old["name"]} if old else None)
 
     # ── Transactions ──────────────────────────────────────────────────────────
 
@@ -448,6 +516,10 @@ class DatabaseManager:
             (amount, account_id),
         )
         conn.commit()
+        self._log("INSERT", "transaction", cur.lastrowid, {
+            "account_id": account_id, "category_id": category_id, "date": date,
+            "description": description, "amount": amount, "recurring_id": recurring_id,
+        })
         return cur.lastrowid
 
     def update_transaction(
@@ -477,10 +549,17 @@ class DatabaseManager:
             (amount, account_id),
         )
         conn.commit()
+        self._log("UPDATE", "transaction", txn_id, {
+            "account_id": account_id, "category_id": category_id, "date": date,
+            "description": description, "amount": amount,
+        })
 
     def delete_transaction(self, txn_id: int) -> None:
         conn = self._conn()
-        old = conn.execute("SELECT account_id, amount FROM transactions WHERE id=?", (txn_id,)).fetchone()
+        old = conn.execute(
+            "SELECT account_id, category_id, date, description, amount FROM transactions WHERE id=?",
+            (txn_id,),
+        ).fetchone()
         if old:
             conn.execute(
                 "UPDATE accounts SET current_balance = ROUND(current_balance + ?, 2) WHERE id=?",
@@ -488,6 +567,7 @@ class DatabaseManager:
             )
         conn.execute("DELETE FROM transactions WHERE id=?", (txn_id,))
         conn.commit()
+        self._log("DELETE", "transaction", txn_id, dict(old) if old else None)
 
     # ── Transfers ─────────────────────────────────────────────────────────────
 
@@ -527,6 +607,11 @@ class DatabaseManager:
             (amount, to_account_id),
         )
         conn.commit()
+        self._log("INSERT", "transfer", from_id, {
+            "from_account_id": from_account_id, "to_account_id": to_account_id,
+            "amount": amount, "date": date, "description": description,
+            "from_txn_id": from_id, "to_txn_id": to_id,
+        })
         return from_id, to_id
 
     def delete_transfer(self, txn_id: int) -> None:
@@ -559,6 +644,7 @@ class DatabaseManager:
         for tid in ids_to_delete:
             conn.execute("DELETE FROM transactions WHERE id=?", (tid,))
         conn.commit()
+        self._log("DELETE", "transfer", txn_id, {"deleted_txn_ids": ids_to_delete})
 
     # ── Budgets ───────────────────────────────────────────────────────────────
 
@@ -600,14 +686,19 @@ class DatabaseManager:
         return alerts
 
     def upsert_budget(self, user_id: int, category_id: int, month: int, year: int, amount: float) -> int:
-        return self._execute(
+        bid = self._execute(
             "INSERT INTO budgets (user_id, category_id, month, year, budget_amount) VALUES (?,?,?,?,?) "
             "ON CONFLICT(user_id, category_id, month, year) DO UPDATE SET budget_amount=excluded.budget_amount",
             (user_id, category_id, month, year, amount),
         )
+        self._log("UPDATE", "budget", bid, {
+            "category_id": category_id, "month": month, "year": year, "amount": amount,
+        }, user_id=user_id)
+        return bid
 
     def delete_budget(self, budget_id: int) -> None:
         self._execute("DELETE FROM budgets WHERE id=?", (budget_id,))
+        self._log("DELETE", "budget", budget_id)
 
     # ── Financial Goals ───────────────────────────────────────────────────────
 
@@ -615,19 +706,27 @@ class DatabaseManager:
         return self._fetchall("SELECT * FROM financial_goals WHERE user_id=? ORDER BY target_date", (user_id,))
 
     def create_goal(self, user_id: int, name: str, target: float, current: float, target_date: str) -> int:
-        return self._execute(
+        gid = self._execute(
             "INSERT INTO financial_goals (user_id, goal_name, target_amount, current_amount, target_date) VALUES (?,?,?,?,?)",
             (user_id, name, target, current, target_date),
         )
+        self._log("INSERT", "goal", gid, {
+            "name": name, "target": target, "current": current, "target_date": target_date,
+        }, user_id=user_id)
+        return gid
 
     def update_goal(self, goal_id: int, name: str, target: float, current: float, target_date: str) -> None:
         self._execute(
             "UPDATE financial_goals SET goal_name=?, target_amount=?, current_amount=?, target_date=? WHERE id=?",
             (name, target, current, target_date, goal_id),
         )
+        self._log("UPDATE", "goal", goal_id, {
+            "name": name, "target": target, "current": current, "target_date": target_date,
+        })
 
     def delete_goal(self, goal_id: int) -> None:
         self._execute("DELETE FROM financial_goals WHERE id=?", (goal_id,))
+        self._log("DELETE", "goal", goal_id)
 
     # ── Recurring Transactions ────────────────────────────────────────────────
 
@@ -655,10 +754,15 @@ class DatabaseManager:
         account_id: Optional[int] = None,
         to_account_id: Optional[int] = None,
     ) -> int:
-        return self._execute(
+        rid = self._execute(
             "INSERT INTO recurring_transactions (user_id, name, amount, frequency, next_due_date, category_id, account_id, to_account_id) VALUES (?,?,?,?,?,?,?,?)",
             (user_id, name, amount, frequency, next_due_date, category_id, account_id, to_account_id),
         )
+        self._log("INSERT", "recurring", rid, {
+            "name": name, "amount": amount, "frequency": frequency,
+            "next_due_date": next_due_date, "account_id": account_id, "to_account_id": to_account_id,
+        }, user_id=user_id)
+        return rid
 
     def update_recurring(
         self,
@@ -675,9 +779,14 @@ class DatabaseManager:
             "UPDATE recurring_transactions SET name=?, amount=?, frequency=?, next_due_date=?, category_id=?, account_id=?, to_account_id=? WHERE id=?",
             (name, amount, frequency, next_due_date, category_id, account_id, to_account_id, rec_id),
         )
+        self._log("UPDATE", "recurring", rec_id, {
+            "name": name, "amount": amount, "frequency": frequency,
+            "next_due_date": next_due_date, "account_id": account_id, "to_account_id": to_account_id,
+        })
 
     def delete_recurring(self, rec_id: int) -> None:
         self._execute("DELETE FROM recurring_transactions WHERE id=?", (rec_id,))
+        self._log("DELETE", "recurring", rec_id)
 
     # ── Reporting queries ─────────────────────────────────────────────────────
 
@@ -913,14 +1022,17 @@ class DatabaseManager:
         )
         if existing:
             return existing["id"]
-        return self._execute(
+        wid = self._execute(
             "INSERT INTO watchlist (user_id, symbol, asset_type, provider_id, display_name) "
             "VALUES (?,?,?,?,?)",
             (user_id, symbol, asset_type, provider_id, display_name),
         )
+        self._log("INSERT", "watchlist", wid, {"symbol": symbol, "asset_type": asset_type}, user_id=user_id)
+        return wid
 
     def remove_watch(self, watch_id: int) -> None:
         self._execute("DELETE FROM watchlist WHERE id=?", (watch_id,))
+        self._log("DELETE", "watchlist", watch_id)
 
     def update_watch_cache(
         self,

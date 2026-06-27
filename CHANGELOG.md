@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Activity log (audit trail).** Every create, update, and delete the app
+  performs — transactions, transfers, accounts, categories, budgets, goals,
+  recurring items, watchlist, and profile/settings changes — is recorded in a
+  new append-only `audit_log` table with a timestamp and a JSON snapshot.
+  Exportable to CSV from **Settings ▸ Backup & Restore ▸ Export Activity Log**.
+  Noisy internal side-effects (running-balance updates, market-price refreshes)
+  are intentionally not logged, and password hashes are never recorded — only
+  that a change occurred. No in-app viewer; export-only. New tests included.
+
 ### Fixed
 - **Money no longer drifts by fractions of a cent.** Amounts are now rounded to
   whole cents as they're stored, and every account-balance update is pinned with

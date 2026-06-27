@@ -18,6 +18,7 @@ class ImportExportService:
     """Reads/writes transaction data in CSV and Excel formats."""
 
     TRANSACTION_HEADERS = ["date", "description", "amount", "category", "account", "notes"]
+    AUDIT_HEADERS = ["timestamp", "action", "entity", "entity_id", "user_id", "details"]
 
     def __init__(self, db: DatabaseManager) -> None:
         self._db = db
@@ -54,6 +55,23 @@ class ImportExportService:
         } for r in rows]
         df = pd.DataFrame(data)
         df.to_excel(dest_path, index=False, engine="openpyxl")
+        return len(rows)
+
+    def export_audit_log_csv(self, dest_path: str) -> int:
+        """Export the full activity/audit log to CSV; returns the row count."""
+        rows = self._db.get_audit_log()
+        with open(dest_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=self.AUDIT_HEADERS, extrasaction="ignore")
+            writer.writeheader()
+            for r in rows:
+                writer.writerow({
+                    "timestamp": r["timestamp"],
+                    "action":    r["action"],
+                    "entity":    r["entity"],
+                    "entity_id": r["entity_id"],
+                    "user_id":   r["user_id"],
+                    "details":   r["details"] or "",
+                })
         return len(rows)
 
     # ── Import ────────────────────────────────────────────────────────────────

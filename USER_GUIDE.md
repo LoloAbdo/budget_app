@@ -194,8 +194,9 @@ Recurring rules are bills or income on a schedule — rent, salary, subscription
 
 1. **Recurring** → **+ Add Recurring**: enter **name**, **amount** (signed), **frequency** (Weekly, Bi-weekly, Monthly, Quarterly, Yearly), **next due date**, and optionally a **category** and **account**.
 2. Recurring **transfers** between accounts are also supported.
+3. To make a rule stop on its own, tick **Ends on** and pick an **end date**. Once the next occurrence would fall after that date, the rule stops posting. Leave it unticked to run indefinitely. The **Ends** column shows each rule's end date.
 
-**How it works:** every time you open the app, any rule whose due date is today or earlier is posted automatically, and its next due date advances. Missed periods are all caught up at once. Overdue rules appear highlighted in red.
+**How it works:** every time you open the app, any rule whose due date is today or earlier is posted automatically, and its next due date advances. Missed periods are all caught up at once. Overdue rules appear highlighted in red. A rule with an end date stops once its schedule passes that date.
 
 Deleting a rule does not remove transactions it already posted.
 
@@ -515,8 +516,9 @@ Les règles récurrentes sont des factures ou revenus planifiés — loyer, sala
 
 1. **Récurrent** → **+ Ajouter** : saisissez **nom**, **montant** (signé), **fréquence** (Hebdomadaire, Aux deux semaines, Mensuel, Trimestriel, Annuel), **prochaine échéance**, et éventuellement une **catégorie** et un **compte**.
 2. Les **virements** récurrents entre comptes sont aussi pris en charge.
+3. Pour qu'une règle s'arrête d'elle-même, cochez **Se termine le** et choisissez une **date de fin**. Dès que la prochaine occurrence dépasserait cette date, la règle cesse de publier. Laissez la case décochée pour qu'elle continue indéfiniment. La colonne **Fin** affiche la date de fin de chaque règle.
 
-**Fonctionnement :** à chaque ouverture de l'application, toute règle dont l'échéance est aujourd'hui ou passée est publiée automatiquement, et sa prochaine échéance avance. Les périodes manquées sont toutes rattrapées d'un coup. Les règles en retard apparaissent en rouge.
+**Fonctionnement :** à chaque ouverture de l'application, toute règle dont l'échéance est aujourd'hui ou passée est publiée automatiquement, et sa prochaine échéance avance. Les périodes manquées sont toutes rattrapées d'un coup. Les règles en retard apparaissent en rouge. Une règle avec une date de fin s'arrête dès que son échéancier dépasse cette date.
 
 Supprimer une règle ne supprime pas les transactions déjà publiées.
 

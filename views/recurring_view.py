@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog,
     QFormLayout, QLineEdit, QComboBox, QDateEdit, QDoubleSpinBox,
-    QMessageBox, QStackedWidget, QFrame,
+    QMessageBox, QStackedWidget, QFrame, QCheckBox,
 )
 from PyQt6.QtCore import Qt, QDate
 from PyQt6.QtGui import QColor
@@ -86,6 +86,20 @@ class RecurringDialog(QDialog):
         self._next_date.setCalendarPopup(True)
         self._next_date.setDisplayFormat("yyyy-MM-dd")
         form.addRow(tr("Next Due Date"), self._next_date)
+
+        # Optional end date — when enabled, the schedule stops after this date.
+        end_row = QHBoxLayout()
+        end_row.setSpacing(8)
+        self._end_check = QCheckBox(tr("Ends on"))
+        self._end_check.toggled.connect(self._on_end_toggled)
+        self._end_date = QDateEdit(QDate.currentDate().addYears(1))
+        self._end_date.setCalendarPopup(True)
+        self._end_date.setDisplayFormat("yyyy-MM-dd")
+        self._end_date.setEnabled(False)
+        end_row.addWidget(self._end_check)
+        end_row.addWidget(self._end_date)
+        end_row.addStretch()
+        form.addRow(tr("End Date"), end_row)
 
         # From / source account (used by both modes)
         self._acct_combo = QComboBox()
@@ -165,6 +179,9 @@ class RecurringDialog(QDialog):
         self._transfer_btn.setChecked(is_transfer)
         self._detail_stack.setCurrentIndex(1 if is_transfer else 0)
 
+    def _on_end_toggled(self, checked: bool) -> None:
+        self._end_date.setEnabled(checked)
+
     def _set_direction(self, direction: str) -> None:
         self._expense_btn.setChecked(direction == "Expense")
         self._income_btn.setChecked(direction == "Income")
@@ -179,6 +196,10 @@ class RecurringDialog(QDialog):
         if freq_idx >= 0:
             self._freq_combo.setCurrentIndex(freq_idx)
         self._next_date.setDate(QDate.fromString(r["next_due_date"], "yyyy-MM-dd"))
+
+        if r.get("end_date"):
+            self._end_check.setChecked(True)
+            self._end_date.setDate(QDate.fromString(r["end_date"], "yyyy-MM-dd"))
 
         # Select from account
         for i in range(self._acct_combo.count()):
@@ -215,6 +236,14 @@ class RecurringDialog(QDialog):
         next_due = self._next_date.date().toString("yyyy-MM-dd")
         acct_id  = self._acct_combo.currentData()
 
+        end_date = None
+        if self._end_check.isChecked():
+            end_date = self._end_date.date().toString("yyyy-MM-dd")
+            if end_date < next_due:
+                QMessageBox.warning(self, tr("Validation"),
+                                    tr("End date must be on or after the next due date."))
+                return
+
         if self._is_transfer():
             to_acct_id = self._to_acct_combo.currentData()
             if not acct_id or not to_acct_id:
@@ -235,12 +264,12 @@ class RecurringDialog(QDialog):
             if self._rec:
                 self._db.update_recurring(
                     self._rec["id"], name, amount, freq, next_due,
-                    cat_id, acct_id, to_acct_id
+                    cat_id, acct_id, to_acct_id, end_date
                 )
             else:
                 self._db.create_recurring(
                     self._user_id, name, amount, freq, next_due,
-                    cat_id, acct_id, to_acct_id
+                    cat_id, acct_id, to_acct_id, end_date
                 )
         except Exception as exc:
             QMessageBox.critical(self, tr("Error"), tr("Could not save recurring:\n{err}").format(err=exc))
@@ -250,7 +279,7 @@ class RecurringDialog(QDialog):
 
 class RecurringView(QWidget):
     # English keys; localized at build time via tr()
-    COLS = ["Name", "Amount", "Frequency", "Next Due", "Type", "From Account", "To / Category"]
+    COLS = ["Name", "Amount", "Frequency", "Next Due", "Type", "From Account", "To / Category", "Ends"]
 
     def __init__(self, db: DatabaseManager, user: dict, parent=None):
         super().__init__(parent)
@@ -326,6 +355,7 @@ class RecurringView(QWidget):
         self._table.setColumnWidth(4, 90)
         self._table.setColumnWidth(5, 140)
         self._table.setColumnWidth(6, 140)
+        self._table.setColumnWidth(7, 100)
         self._table.doubleClicked.connect(self._edit_selected)
         enable_sorting(self._table, 0, Qt.SortOrder.AscendingOrder)
         add_table_shortcuts(self._table, on_delete=self._delete_selected, on_edit=self._edit_selected)
@@ -399,6 +429,7 @@ class RecurringView(QWidget):
                 rec_type,
                 rec.get("account_name") or "—",
                 last_col,
+                rec.get("end_date") or "—",
             ]
             for c, text in enumerate(items):
                 item = SortableItem(text)

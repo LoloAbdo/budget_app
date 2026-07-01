@@ -43,6 +43,12 @@ class RecurringService:
             if due > today:
                 continue
 
+            # Honor an optional end date: once the next occurrence falls past it,
+            # the schedule is finished — stop posting (the row stays dormant).
+            end = rec.get("end_date")
+            if end and due > date.fromisoformat(end):
+                continue
+
             account_id: Optional[int] = rec.get("account_id")
             accounts = self._db.get_accounts(user_id)
             if not account_id and accounts:
@@ -86,7 +92,8 @@ class RecurringService:
                 str(new_due),
                 rec.get("category_id"),
                 account_id,
-                to_account_id,   # preserve transfer linkage across runs
+                to_account_id,        # preserve transfer linkage across runs
+                rec.get("end_date"),  # preserve the end date across runs
             )
             posted += 1
         return posted
@@ -113,8 +120,12 @@ class RecurringService:
         for rec in self._db.get_recurring(user_id):
             if rec.get("to_account_id"):
                 continue  # transfers don't change net worth
+            end = rec.get("end_date")
+            end_dt = date.fromisoformat(end) if end else None
             due = date.fromisoformat(rec["next_due_date"])
             while due <= horizon:
+                if end_dt and due > end_dt:
+                    break  # schedule has ended — no further occurrences
                 if due >= today:
                     occurrences.append((due, rec["name"], rec["amount"]))
                 due = _next_date(due, rec["frequency"])

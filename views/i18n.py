@@ -315,6 +315,11 @@ _FR: dict[str, str] = {
     "Frequency": "Fréquence",
     "Next Due": "Prochaine échéance",
     "Next Due Date": "Date de prochaine échéance",
+    "End Date": "Date de fin",
+    "Ends on": "Se termine le",
+    "Ends": "Fin",
+    "End date must be on or after the next due date.":
+        "La date de fin doit être égale ou postérieure à la date de prochaine échéance.",
     "To / Category": "Vers / Catégorie",
     "Direction": "Sens",
     "e.g. Weekly savings transfer": "ex. Virement d'épargne hebdomadaire",

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-06-30
+
+### Added
+- **End date for recurring transactions.** A recurring item (transaction or
+  transfer) can now have an optional end date. In the Add/Edit dialog, tick
+  **Ends on** and pick a date; once the schedule's next occurrence falls past
+  that date it stops generating transactions automatically. Items with no end
+  date keep running indefinitely, exactly as before. The recurring table shows
+  an **Ends** column, and the cash-flow forecast respects the end date too. The
+  `recurring_transactions` table gains a nullable `end_date` column (migration
+  v1.0.7). New tests included.
+
 ## [1.8.0] - 2026-06-27
 
 ### Added

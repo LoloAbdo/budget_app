@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS recurring_transactions (
     amount          REAL    NOT NULL,
     frequency       TEXT    NOT NULL CHECK(frequency IN ('Weekly','Bi-weekly','Monthly','Quarterly','Yearly')),
     next_due_date   TEXT    NOT NULL,
+    end_date        TEXT,
     category_id     INTEGER REFERENCES categories(id),
     account_id      INTEGER REFERENCES accounts(id),
     to_account_id   INTEGER REFERENCES accounts(id)
@@ -232,6 +233,14 @@ class DatabaseManager:
         if "to_account_id" not in rec_cols:
             conn.execute(
                 "ALTER TABLE recurring_transactions ADD COLUMN to_account_id INTEGER REFERENCES accounts(id)"
+            )
+            conn.commit()
+
+        # v1.0.7 — add optional end_date to recurring_transactions if missing.
+        # NULL means "no end date" (runs indefinitely), preserving prior behavior.
+        if "end_date" not in rec_cols:
+            conn.execute(
+                "ALTER TABLE recurring_transactions ADD COLUMN end_date TEXT"
             )
             conn.commit()
 
@@ -753,14 +762,16 @@ class DatabaseManager:
         category_id: Optional[int] = None,
         account_id: Optional[int] = None,
         to_account_id: Optional[int] = None,
+        end_date: Optional[str] = None,
     ) -> int:
         rid = self._execute(
-            "INSERT INTO recurring_transactions (user_id, name, amount, frequency, next_due_date, category_id, account_id, to_account_id) VALUES (?,?,?,?,?,?,?,?)",
-            (user_id, name, amount, frequency, next_due_date, category_id, account_id, to_account_id),
+            "INSERT INTO recurring_transactions (user_id, name, amount, frequency, next_due_date, end_date, category_id, account_id, to_account_id) VALUES (?,?,?,?,?,?,?,?,?)",
+            (user_id, name, amount, frequency, next_due_date, end_date, category_id, account_id, to_account_id),
         )
         self._log("INSERT", "recurring", rid, {
             "name": name, "amount": amount, "frequency": frequency,
-            "next_due_date": next_due_date, "account_id": account_id, "to_account_id": to_account_id,
+            "next_due_date": next_due_date, "end_date": end_date,
+            "account_id": account_id, "to_account_id": to_account_id,
         }, user_id=user_id)
         return rid
 
@@ -774,14 +785,16 @@ class DatabaseManager:
         category_id: Optional[int],
         account_id: Optional[int],
         to_account_id: Optional[int] = None,
+        end_date: Optional[str] = None,
     ) -> None:
         self._execute(
-            "UPDATE recurring_transactions SET name=?, amount=?, frequency=?, next_due_date=?, category_id=?, account_id=?, to_account_id=? WHERE id=?",
-            (name, amount, frequency, next_due_date, category_id, account_id, to_account_id, rec_id),
+            "UPDATE recurring_transactions SET name=?, amount=?, frequency=?, next_due_date=?, end_date=?, category_id=?, account_id=?, to_account_id=? WHERE id=?",
+            (name, amount, frequency, next_due_date, end_date, category_id, account_id, to_account_id, rec_id),
         )
         self._log("UPDATE", "recurring", rec_id, {
             "name": name, "amount": amount, "frequency": frequency,
-            "next_due_date": next_due_date, "account_id": account_id, "to_account_id": to_account_id,
+            "next_due_date": next_due_date, "end_date": end_date,
+            "account_id": account_id, "to_account_id": to_account_id,
         })
 
     def delete_recurring(self, rec_id: int) -> None:

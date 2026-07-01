@@ -39,6 +39,8 @@ class RecurringService:
         today = date.today()
         posted = 0
         for rec in self._db.get_recurring(user_id):
+            if not rec.get("is_active", 1):
+                continue  # paused rules don't post until resumed
             due = date.fromisoformat(rec["next_due_date"])
             if due > today:
                 continue
@@ -118,6 +120,8 @@ class RecurringService:
 
         occurrences: list[tuple[date, str, float]] = []
         for rec in self._db.get_recurring(user_id):
+            if not rec.get("is_active", 1):
+                continue  # paused rules are excluded from the projection
             if rec.get("to_account_id"):
                 continue  # transfers don't change net worth
             end = rec.get("end_date")

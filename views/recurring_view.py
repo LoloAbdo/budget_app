@@ -279,7 +279,7 @@ class RecurringDialog(QDialog):
 
 class RecurringView(QWidget):
     # English keys; localized at build time via tr()
-    COLS = ["Name", "Amount", "Frequency", "Next Due", "Type", "From Account", "To / Category", "Ends"]
+    COLS = ["Name", "Amount", "Frequency", "Next Due", "Type", "From Account", "To / Category", "Ends", "Status"]
 
     def __init__(self, db: DatabaseManager, user: dict, parent=None):
         super().__init__(parent)
@@ -356,6 +356,7 @@ class RecurringView(QWidget):
         self._table.setColumnWidth(5, 140)
         self._table.setColumnWidth(6, 140)
         self._table.setColumnWidth(7, 100)
+        self._table.setColumnWidth(8, 90)
         self._table.doubleClicked.connect(self._edit_selected)
         enable_sorting(self._table, 0, Qt.SortOrder.AscendingOrder)
         add_table_shortcuts(self._table, on_delete=self._delete_selected, on_edit=self._edit_selected)
@@ -370,6 +371,12 @@ class RecurringView(QWidget):
         edit_btn.clicked.connect(self._edit_selected)
         edit_btn.setToolTip(tr("Edit selected (Enter)"))
         btn_row.addWidget(edit_btn)
+
+        pause_btn = QPushButton(tr("⏯ Pause / Resume"))
+        pause_btn.setObjectName("secondary")
+        pause_btn.clicked.connect(self._toggle_active_selected)
+        pause_btn.setToolTip(tr("Pause or resume the selected rule"))
+        btn_row.addWidget(pause_btn)
 
         del_btn = QPushButton(tr("🗑 Delete"))
         del_btn.setObjectName("danger")
@@ -418,6 +425,7 @@ class RecurringView(QWidget):
         for r, rec in enumerate(recurrings):
             due         = rec["next_due_date"]
             is_transfer = bool(rec.get("to_account_id"))
+            is_active   = bool(rec.get("is_active", 1))
             rec_type    = tr(self._rec_type(rec))
             last_col    = rec.get("to_account_name") or "—" if is_transfer else (rec.get("category_name") or "—")
 
@@ -430,14 +438,18 @@ class RecurringView(QWidget):
                 rec.get("account_name") or "—",
                 last_col,
                 rec.get("end_date") or "—",
+                tr("Active") if is_active else tr("Paused"),
             ]
             for c, text in enumerate(items):
                 item = SortableItem(text)
                 item.setData(Qt.ItemDataRole.UserRole, rec["id"])
                 if c == 1:
                     item.setData(SORT_ROLE, abs(rec["amount"]))   # sort Amount numerically
-                # Overdue: red on date column
-                if c == 3 and due <= today:
+                # Paused rules read as dimmed/muted; the next-due date is moot.
+                if not is_active:
+                    item.setForeground(QColor("#9CA3AF") if c != 8 else QColor("#F59E0B"))
+                # Overdue (active only): red on date column
+                elif c == 3 and due <= today:
                     item.setForeground(QColor("#EF4444"))
                 # Transfers: purple tint on type column
                 elif c == 4 and is_transfer:
@@ -476,6 +488,21 @@ class RecurringView(QWidget):
             if dlg.exec() == QDialog.DialogCode.Accepted:
                 self.refresh()
                 self._table.selectRow(row)
+
+    def _toggle_active_selected(self) -> None:
+        row = self._table.currentRow()
+        if row < 0:
+            return
+        rec_id = self._table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        recs   = self._db.get_recurring(self._user["id"])
+        rec    = next((r for r in recs if r["id"] == rec_id), None)
+        if not rec:
+            return
+        self._db.set_recurring_active(rec_id, not bool(rec.get("is_active", 1)))
+        self.refresh()
+        new_row = min(row, self._table.rowCount() - 1)
+        if new_row >= 0:
+            self._table.selectRow(new_row)
 
     def _delete_selected(self) -> None:
         row = self._table.currentRow()

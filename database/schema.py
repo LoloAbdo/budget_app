@@ -11,7 +11,7 @@ import hashlib
 import threading
 from pathlib import Path
 from typing import Any, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def _money(value: Optional[float]) -> float:
@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS recurring_transactions (
     frequency       TEXT    NOT NULL CHECK(frequency IN ('Weekly','Bi-weekly','Monthly','Quarterly','Yearly')),
     next_due_date   TEXT    NOT NULL,
     end_date        TEXT,
+    is_active       INTEGER NOT NULL DEFAULT 1,
     category_id     INTEGER REFERENCES categories(id),
     account_id      INTEGER REFERENCES accounts(id),
     to_account_id   INTEGER REFERENCES accounts(id)
@@ -241,6 +242,14 @@ class DatabaseManager:
         if "end_date" not in rec_cols:
             conn.execute(
                 "ALTER TABLE recurring_transactions ADD COLUMN end_date TEXT"
+            )
+            conn.commit()
+
+        # v1.0.8 — add is_active flag to recurring_transactions if missing.
+        # 1 = active (default, prior behavior); 0 = paused (skipped when posting).
+        if "is_active" not in rec_cols:
+            conn.execute(
+                "ALTER TABLE recurring_transactions ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1"
             )
             conn.commit()
 
@@ -705,6 +714,32 @@ class DatabaseManager:
         }, user_id=user_id)
         return bid
 
+    def copy_budgets(
+        self, user_id: int, from_month: int, from_year: int,
+        to_month: int, to_year: int,
+    ) -> int:
+        """Copy budget lines from one month into another.
+
+        Only categories that don't already have a budget in the destination
+        month are added, so existing entries are never overwritten. Returns the
+        number of budgets actually created.
+        """
+        source = self.get_budgets(user_id, from_month, from_year)
+        if not source:
+            return 0
+        existing = {
+            b["category_id"] for b in self.get_budgets(user_id, to_month, to_year)
+        }
+        copied = 0
+        for b in source:
+            if b["category_id"] in existing:
+                continue
+            self.upsert_budget(
+                user_id, b["category_id"], to_month, to_year, b["budget_amount"]
+            )
+            copied += 1
+        return copied
+
     def delete_budget(self, budget_id: int) -> None:
         self._execute("DELETE FROM budgets WHERE id=?", (budget_id,))
         self._log("DELETE", "budget", budget_id)
@@ -796,6 +831,44 @@ class DatabaseManager:
             "next_due_date": next_due_date, "end_date": end_date,
             "account_id": account_id, "to_account_id": to_account_id,
         })
+
+    def set_recurring_active(self, rec_id: int, active: bool) -> None:
+        """Pause (active=False) or resume (active=True) a recurring rule.
+
+        A paused rule stays in the list but is skipped by ``process_due`` and the
+        forecast until it is resumed, so it stops generating transactions without
+        losing its history or settings.
+        """
+        self._execute(
+            "UPDATE recurring_transactions SET is_active=? WHERE id=?",
+            (1 if active else 0, rec_id),
+        )
+        self._log("UPDATE", "recurring", rec_id, {"is_active": 1 if active else 0})
+
+    def get_upcoming_recurring(self, user_id: int, within_days: int = 7) -> list[dict]:
+        """Active recurring rules due on or before ``today + within_days``.
+
+        Powers the dashboard's "upcoming bills" card. Overdue rules (due before
+        today, e.g. if they couldn't post) are included so they stay visible.
+        Rules whose next occurrence has passed their ``end_date`` are excluded.
+        Ordered soonest-due first.
+        """
+        horizon = (datetime.now().date() + timedelta(days=within_days)).isoformat()
+        return self._fetchall(
+            """SELECT r.*, c.name AS category_name,
+                      a.account_name,
+                      ta.account_name AS to_account_name
+               FROM recurring_transactions r
+               LEFT JOIN categories c ON r.category_id = c.id
+               LEFT JOIN accounts a  ON r.account_id = a.id
+               LEFT JOIN accounts ta ON r.to_account_id = ta.id
+               WHERE r.user_id = ?
+                 AND r.is_active = 1
+                 AND r.next_due_date <= ?
+                 AND (r.end_date IS NULL OR r.next_due_date <= r.end_date)
+               ORDER BY r.next_due_date, r.name""",
+            (user_id, horizon),
+        )
 
     def delete_recurring(self, rec_id: int) -> None:
         self._execute("DELETE FROM recurring_transactions WHERE id=?", (rec_id,))

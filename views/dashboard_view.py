@@ -70,6 +70,7 @@ class DashboardView(QWidget):
         monthly  = self._db.get_monthly_totals(self._user["id"], year)
         networth = self._db.get_net_worth_history(self._user["id"], 12)
         alerts   = self._db.get_budget_alerts(self._user["id"], month, year)
+        upcoming = self._db.get_upcoming_recurring(self._user["id"], 7)
         recent   = self._db.get_transactions(self._user["id"], limit=10)
 
         # ── Page header ───────────────────────────────────────────────────────
@@ -113,6 +114,10 @@ class DashboardView(QWidget):
         # ── Budget alerts ────────────────────────────────────────────────────────
         if alerts:
             self._main_layout.addWidget(self._build_budget_alerts(alerts))
+
+        # ── Upcoming bills ───────────────────────────────────────────────────────
+        if upcoming:
+            self._main_layout.addWidget(self._build_upcoming_bills(upcoming))
 
         # ── Charts row ─────────────────────────────────────────────────────────
         charts_row = QHBoxLayout()
@@ -161,6 +166,41 @@ class DashboardView(QWidget):
             row = QLabel(text)
             row.setStyleSheet(f"color: {color};")
             layout.addWidget(row)
+
+        return card
+
+    # ── Upcoming bills ───────────────────────────────────────────────────────
+
+    def _build_upcoming_bills(self, upcoming: list[dict]) -> QFrame:
+        """A card listing active recurring items due within the next 7 days."""
+        card = QFrame()
+        card.setObjectName("card")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(6)
+
+        lbl = QLabel("🔔 " + tr("Upcoming Bills (next 7 days)"))
+        lbl.setObjectName("subheading")
+        layout.addWidget(lbl)
+
+        today = datetime.now().date().isoformat()
+        for rec in upcoming:
+            due = rec["next_due_date"]
+            is_transfer = bool(rec.get("to_account_id"))
+            # Expenses read red, income/transfers neutral-green.
+            amount_color = "#EF4444" if (not is_transfer and rec["amount"] < 0) else "#10B981"
+            when = tr("overdue") if due < today else (tr("today") if due == today else due)
+
+            row = QHBoxLayout()
+            name_lbl = QLabel(f"{rec['name']}  ·  {when}")
+            if due <= today:
+                name_lbl.setStyleSheet("color: #F59E0B;")
+            row.addWidget(name_lbl)
+            row.addStretch()
+            amt_lbl = QLabel(f"{self._currency} {abs(rec['amount']):,.2f}")
+            amt_lbl.setStyleSheet(f"color: {amount_color};")
+            row.addWidget(amt_lbl)
+            layout.addLayout(row)
 
         return card
 

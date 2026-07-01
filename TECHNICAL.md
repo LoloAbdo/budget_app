@@ -135,7 +135,7 @@ Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, 
 - `categories` — **global** (no `user_id`); `type` ∈ {Income, Expense}. Includes a system **Interest** category used for savings/interest tracking.
 - `transactions` — signed `amount` (income +, expense −); `transfer_id` self-reference links the two legs of a transfer (excluded from income/expense aggregates).
 - `budgets` — `UNIQUE(user_id, category_id, month, year)`; set via UPSERT.
-- `recurring_transactions` — `frequency` ∈ {Weekly, Bi-weekly, Monthly, Quarterly, Yearly}; optional `to_account_id` for recurring transfers; optional `end_date` (NULL = no end) after which the rule stops posting.
+- `recurring_transactions` — `frequency` ∈ {Weekly, Bi-weekly, Monthly, Quarterly, Yearly}; optional `to_account_id` for recurring transfers; optional `end_date` (NULL = no end) after which the rule stops posting; `is_active` (1/0) to pause a rule without deleting it.
 - `watchlist` — markets symbols with cached last price/change/currency; `UNIQUE(user_id, symbol, asset_type)`.
 
 **Balance auto-update:** `create_transaction` → `balance += amount`; `update_transaction` → reverse old, apply new; `delete_transaction` → `balance −= amount`.
@@ -151,6 +151,7 @@ Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, 
 | v1.0.5 | Add performance indexes (see below) |
 | v1.0.6 | Add `users.theme` |
 | v1.0.7 | Add `recurring_transactions.end_date` (nullable; NULL = no end) |
+| v1.0.8 | Add `recurring_transactions.is_active` (1 = active, 0 = paused) |
 
 **Indexes (v1.0.5):** `transactions(account_id, date)`, `transactions(category_id)`, `transactions(transfer_id)`, `accounts(user_id)`, `recurring_transactions(user_id)`, `financial_goals(user_id)`. `budgets` and `watchlist` are already indexed by their UNIQUE constraints. Created with `CREATE INDEX IF NOT EXISTS`, so re-running init is safe.
 
@@ -164,7 +165,7 @@ Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, 
 |---|---|
 | **AuthService** | `register()` (validates name/email/password length, unique email), `login()`; bcrypt hashing with constant-time verify. |
 | **BackupService** | `create_backup(label)` writes `backups/budget_<timestamp>_<label>.db` and prunes to the 30 most recent; `list_backups()`, `restore_backup(path)`. |
-| **RecurringService** | `process_due(user_id)` posts every rule whose `next_due_date ≤ today`, advancing the date with `dateutil.relativedelta`; a `while` loop catches up multiple missed periods. Handles transfers (`to_account_id`) and stops posting once a rule's occurrence passes its optional `end_date` (also honored by `forecast()`). |
+| **RecurringService** | `process_due(user_id)` posts every rule whose `next_due_date ≤ today`, advancing the date with `dateutil.relativedelta`; a `while` loop catches up multiple missed periods. Handles transfers (`to_account_id`), skips paused rules (`is_active = 0`), and stops posting once a rule's occurrence passes its optional `end_date` (both also honored by `forecast()`). |
 | **ImportExportService** | CSV/Excel import (column map: `date, amount, description, category, account`; invalid rows skipped, returns counts) and CSV/multi-sheet Excel export. |
 | **market_service** | Module of functions (not a class): keyless quotes from CoinGecko (crypto) and Stooq/Yahoo (stocks), `get_fx_rate()` conversion to the user's currency, and `fetch_quotes()` which batches stock requests into one call. |
 | **update_service** | `check_for_update()` queries the GitHub "latest release" API and compares the tag to `version.__version__` via `is_newer()`. Notify-only — never installs. |
@@ -366,12 +367,12 @@ Requêtes paramétrées partout ; clés étrangères activées. Tables : `users`
 - `categories` — **globales** (pas de `user_id`) ; `type` ∈ {Income, Expense}. Inclut une catégorie système **Interest** pour le suivi des intérêts.
 - `transactions` — `amount` signé (revenu +, dépense −) ; `transfer_id` (auto-référence) lie les deux volets d'un virement (exclus des agrégats revenus/dépenses).
 - `budgets` — `UNIQUE(user_id, category_id, month, year)` ; définis par UPSERT.
-- `recurring_transactions` — `frequency` ∈ {Weekly, Bi-weekly, Monthly, Quarterly, Yearly} ; `to_account_id` optionnel pour les virements récurrents ; `end_date` optionnel (NULL = sans fin) après lequel la règle cesse de publier.
+- `recurring_transactions` — `frequency` ∈ {Weekly, Bi-weekly, Monthly, Quarterly, Yearly} ; `to_account_id` optionnel pour les virements récurrents ; `end_date` optionnel (NULL = sans fin) après lequel la règle cesse de publier ; `is_active` (1/0) pour mettre une règle en pause sans la supprimer.
 - `watchlist` — symboles de marchés avec dernier cours/variation/devise en cache ; `UNIQUE(user_id, symbol, asset_type)`.
 
 **Mise à jour automatique des soldes :** `create_transaction` → `solde += montant` ; `update_transaction` → annule l'ancien, applique le nouveau ; `delete_transaction` → `solde −= montant`.
 
-**Migrations** exécutées à chaque init via `_migrate()`, chacune protégée pour être idempotente : v1.0.1 (recréation de `budgets` avec `user_id`), v1.0.2 (`transactions.transfer_id`), v1.0.3 (`recurring_transactions.to_account_id`), v1.0.4 (`users.language`), v1.0.5 (index de performance), v1.0.6 (`users.theme`), v1.0.7 (`recurring_transactions.end_date`, NULL = sans fin).
+**Migrations** exécutées à chaque init via `_migrate()`, chacune protégée pour être idempotente : v1.0.1 (recréation de `budgets` avec `user_id`), v1.0.2 (`transactions.transfer_id`), v1.0.3 (`recurring_transactions.to_account_id`), v1.0.4 (`users.language`), v1.0.5 (index de performance), v1.0.6 (`users.theme`), v1.0.7 (`recurring_transactions.end_date`, NULL = sans fin), v1.0.8 (`recurring_transactions.is_active`, 1 = actif / 0 = en pause).
 
 **Index (v1.0.5) :** `transactions(account_id, date)`, `transactions(category_id)`, `transactions(transfer_id)`, `accounts(user_id)`, `recurring_transactions(user_id)`, `financial_goals(user_id)`. `budgets` et `watchlist` sont déjà indexés par leurs contraintes UNIQUE. Créés avec `CREATE INDEX IF NOT EXISTS`, donc ré-exécuter l'init est sans risque.
 
@@ -385,7 +386,7 @@ Requêtes paramétrées partout ; clés étrangères activées. Tables : `users`
 |---|---|
 | **AuthService** | `register()` (valide nom/courriel/longueur du mot de passe, courriel unique), `login()` ; hachage bcrypt avec vérification à temps constant. |
 | **BackupService** | `create_backup(label)` écrit `backups/budget_<horodatage>_<label>.db` et élague aux 30 plus récents ; `list_backups()`, `restore_backup(path)`. |
-| **RecurringService** | `process_due(user_id)` publie chaque règle dont `next_due_date ≤ aujourd'hui`, en avançant la date avec `dateutil.relativedelta` ; une boucle `while` rattrape les périodes manquées. Gère les virements (`to_account_id`) et cesse de publier dès qu'une occurrence dépasse la `end_date` optionnelle (également respectée par `forecast()`). |
+| **RecurringService** | `process_due(user_id)` publie chaque règle dont `next_due_date ≤ aujourd'hui`, en avançant la date avec `dateutil.relativedelta` ; une boucle `while` rattrape les périodes manquées. Gère les virements (`to_account_id`), ignore les règles en pause (`is_active = 0`) et cesse de publier dès qu'une occurrence dépasse la `end_date` optionnelle (les deux étant aussi respectées par `forecast()`). |
 | **ImportExportService** | Import CSV/Excel (colonnes : `date, amount, description, category, account` ; lignes invalides ignorées, renvoie les compteurs) et export CSV / Excel multi-feuilles. |
 | **market_service** | Module de fonctions (pas une classe) : cours sans clé depuis CoinGecko (crypto) et Stooq/Yahoo (actions), conversion `get_fx_rate()` vers la devise de l'utilisateur, et `fetch_quotes()` qui regroupe les requêtes d'actions en un seul appel. |
 | **update_service** | `check_for_update()` interroge l'API « latest release » de GitHub et compare le tag à `version.__version__` via `is_newer()`. Informatif seulement — n'installe jamais. |

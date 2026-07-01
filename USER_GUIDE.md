@@ -114,9 +114,13 @@ The Dashboard is your real-time financial snapshot for the current month.
 - **Income vs Expenses — Monthly** — bars for each month of the current year.
 - **Net Worth — Last 12 Months** *(new in 1.2.0)* — a line chart of your total net worth over the past year, so you can see whether you're trending up or down at a glance.
 
+**Upcoming Bills (next 7 days)** — a card listing active recurring items due soon (overdue ones stay visible), so nothing sneaks up on you. Paused recurring rules are not shown.
+
 **Recent Transactions** — your last 10 entries.
 
 The Dashboard refreshes automatically whenever you change a transaction, budget, or account.
+
+> **Activity panel:** the sidebar's **📝 Activity** panel shows a running, read-only log of every change you've made — created, updated, or deleted — with filters, search, and CSV export. It's a history you can scroll rather than something you edit.
 
 ---
 
@@ -153,6 +157,9 @@ Use a transfer when you move money between your own accounts (e.g. checking → 
 ### Editing / deleting
 Editing corrects the account balance automatically; deleting reverses it.
 
+### Duplicating
+Select a transaction and click **⧉ Duplicate** to open the Add dialog pre-filled with its details — handy for recording a similar purchase. Adjust anything you like and save it as a new entry. (Transfers can't be duplicated; use **⇄ Transfer** instead.)
+
 ### Filtering
 The toolbar lets you filter by **date range**, **category**, **account**, and **search keyword** (matches description and notes). Click **Clear** to reset.
 
@@ -175,6 +182,8 @@ Set a monthly spending limit per category and track it.
 
 Each bar also shows spent vs budgeted in numbers (e.g. `$320 / $400`). Budgets are per-month; re-setting the same category/month overwrites the amount.
 
+**Copy last month:** click **⧉ Copy Last Month** to bring the previous month's budget lines into the month you're viewing. Categories you've already budgeted this month are left untouched, so it's safe to run.
+
 ---
 
 ## 7. Goals
@@ -195,6 +204,7 @@ Recurring rules are bills or income on a schedule — rent, salary, subscription
 1. **Recurring** → **+ Add Recurring**: enter **name**, **amount** (signed), **frequency** (Weekly, Bi-weekly, Monthly, Quarterly, Yearly), **next due date**, and optionally a **category** and **account**.
 2. Recurring **transfers** between accounts are also supported.
 3. To make a rule stop on its own, tick **Ends on** and pick an **end date**. Once the next occurrence would fall after that date, the rule stops posting. Leave it unticked to run indefinitely. The **Ends** column shows each rule's end date.
+4. Select a rule and click **⏯ Pause / Resume** to temporarily stop it without deleting it. Paused rules show **Paused** in the **Status** column, don't post, and are left out of the forecast and the dashboard's upcoming bills until you resume them.
 
 **How it works:** every time you open the app, any rule whose due date is today or earlier is posted automatically, and its next due date advances. Missed periods are all caught up at once. Overdue rules appear highlighted in red. A rule with an end date stops once its schedule passes that date.
 
@@ -436,9 +446,13 @@ Le tableau de bord est votre aperçu financier en temps réel pour le mois en co
 - **Revenus vs Dépenses — Mensuel** — des barres pour chaque mois de l'année.
 - **Valeur nette — 12 derniers mois** *(nouveau dans la 1.2.0)* — une courbe de votre valeur nette totale sur l'année écoulée, pour voir d'un coup d'œil la tendance.
 
+**Factures à venir (7 prochains jours)** — une carte listant les éléments récurrents actifs à échéance proche (les retards restent visibles), pour ne rien manquer. Les règles récurrentes en pause n'y figurent pas.
+
 **Transactions récentes** — vos 10 dernières entrées.
 
 Le tableau de bord se met à jour automatiquement à chaque modification d'une transaction, d'un budget ou d'un compte.
+
+> **Panneau Activité :** le panneau **📝 Activité** de la barre latérale affiche un journal en lecture seule de chaque modification effectuée — création, mise à jour ou suppression — avec filtres, recherche et export CSV. C'est un historique à consulter, pas à modifier.
 
 ---
 
@@ -475,6 +489,9 @@ Utilisez un virement lorsque vous déplacez de l'argent entre vos propres compte
 ### Modifier / supprimer
 La modification corrige automatiquement le solde ; la suppression l'annule.
 
+### Dupliquer
+Sélectionnez une transaction et cliquez sur **⧉ Dupliquer** pour ouvrir la boîte d'ajout préremplie avec ses détails — pratique pour enregistrer un achat similaire. Ajustez ce que vous voulez et enregistrez-la comme nouvelle entrée. (Les virements ne peuvent pas être dupliqués ; utilisez plutôt **⇄ Virement**.)
+
 ### Filtrer
 La barre d'outils permet de filtrer par **plage de dates**, **catégorie**, **compte** et **mot-clé** (recherche dans la description et les notes). Cliquez sur **Effacer** pour réinitialiser.
 
@@ -497,6 +514,8 @@ Fixez une limite de dépense mensuelle par catégorie et suivez-la.
 
 Chaque barre affiche aussi le montant dépensé vs budgété (ex. `320 $ / 400 $`). Les budgets sont mensuels ; redéfinir la même catégorie/le même mois remplace le montant.
 
+**Copier le mois dernier :** cliquez sur **⧉ Copier le mois dernier** pour reprendre les budgets du mois précédent dans le mois affiché. Les catégories déjà budgétées ce mois-ci ne sont pas modifiées, donc l'opération est sans risque.
+
 ---
 
 ## 7. Objectifs
@@ -517,6 +536,7 @@ Les règles récurrentes sont des factures ou revenus planifiés — loyer, sala
 1. **Récurrent** → **+ Ajouter** : saisissez **nom**, **montant** (signé), **fréquence** (Hebdomadaire, Aux deux semaines, Mensuel, Trimestriel, Annuel), **prochaine échéance**, et éventuellement une **catégorie** et un **compte**.
 2. Les **virements** récurrents entre comptes sont aussi pris en charge.
 3. Pour qu'une règle s'arrête d'elle-même, cochez **Se termine le** et choisissez une **date de fin**. Dès que la prochaine occurrence dépasserait cette date, la règle cesse de publier. Laissez la case décochée pour qu'elle continue indéfiniment. La colonne **Fin** affiche la date de fin de chaque règle.
+4. Sélectionnez une règle et cliquez sur **⏯ Pause / Reprise** pour l'arrêter temporairement sans la supprimer. Les règles en pause affichent **En pause** dans la colonne **État**, ne publient rien et sont exclues de la prévision et des factures à venir du tableau de bord jusqu'à leur reprise.
 
 **Fonctionnement :** à chaque ouverture de l'application, toute règle dont l'échéance est aujourd'hui ou passée est publiée automatiquement, et sa prochaine échéance avance. Les périodes manquées sont toutes rattrapées d'un coup. Les règles en retard apparaissent en rouge. Une règle avec une date de fin s'arrête dès que son échéancier dépasse cette date.
 

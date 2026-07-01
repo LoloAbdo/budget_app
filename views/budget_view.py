@@ -140,6 +140,12 @@ class BudgetView(QWidget):
         self._year_spin.valueChanged.connect(self._on_period_change)
         head_row.addWidget(self._year_spin)
 
+        copy_btn = QPushButton(tr("⧉ Copy Last Month"))
+        copy_btn.setObjectName("secondary")
+        copy_btn.setToolTip(tr("Copy the previous month's budgets into this month"))
+        copy_btn.clicked.connect(self._copy_last_month)
+        head_row.addWidget(copy_btn)
+
         add_btn = QPushButton(tr("+ Add Budget"))
         add_btn.clicked.connect(self._add_budget)
         head_row.addWidget(add_btn)
@@ -205,6 +211,41 @@ class BudgetView(QWidget):
             self._content_layout.addWidget(bar_widget)
 
         self._content_layout.addStretch()
+
+    def _copy_last_month(self) -> None:
+        """Copy the previous month's budget lines into the selected month."""
+        prev_month = self._month - 1
+        prev_year = self._year
+        if prev_month == 0:
+            prev_month, prev_year = 12, self._year - 1
+        reply = QMessageBox.question(
+            self, tr("Copy Last Month"),
+            tr("Copy budgets from {month} {year} into the current month?\n"
+               "Existing budgets won't be changed.").format(
+                month=tr(MONTHS[prev_month - 1]), year=prev_year),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            copied = self._db.copy_budgets(
+                self._user["id"], prev_month, prev_year, self._month, self._year
+            )
+        except Exception as exc:
+            QMessageBox.critical(self, tr("Error"), tr("Could not copy budgets:\n{err}").format(err=exc))
+            return
+        if copied:
+            self.refresh()
+            self.budget_changed.emit()
+            QMessageBox.information(
+                self, tr("Copy Last Month"),
+                tr("Copied {n} budget(s).").format(n=copied),
+            )
+        else:
+            QMessageBox.information(
+                self, tr("Copy Last Month"),
+                tr("Nothing to copy — last month had no budgets, or they already exist."),
+            )
 
     def _add_budget(self) -> None:
         dlg = BudgetDialog(self._db, self._user["id"], self._month, self._year, parent=self)

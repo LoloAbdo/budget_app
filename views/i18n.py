@@ -144,6 +144,9 @@ _FR: dict[str, str] = {
     "Budget Alerts": "Alertes de budget",
     "Over budget": "Dépassé",
     "Near limit": "Proche de la limite",
+    "Upcoming Bills (next 7 days)": "Factures à venir (7 prochains jours)",
+    "overdue": "en retard",
+    "today": "aujourd'hui",
     "Recent Transactions": "Transactions récentes",
     "Expenses": "Dépenses",
 
@@ -224,6 +227,10 @@ _FR: dict[str, str] = {
     "Delete transfer '{desc}'?\nBoth legs of the transfer will be removed.":
         "Supprimer le virement « {desc} » ?\nLes deux écritures du virement seront supprimées.",
     "Could not delete:\n{err}": "Impossible de supprimer :\n{err}",
+    "⧉ Duplicate": "⧉ Dupliquer",
+    "Create a copy of the selected transaction": "Créer une copie de la transaction sélectionnée",
+    "Transfers cannot be duplicated.\nUse ⇄ Transfer to create a new one.":
+        "Les virements ne peuvent pas être dupliqués.\nUtilisez ⇄ Virement pour en créer un nouveau.",
 
     # ── Budgets ───────────────────────────────────────────────────────────
     "+ Add Budget": "+ Ajouter un budget",
@@ -239,6 +246,16 @@ _FR: dict[str, str] = {
         "Aucun budget défini pour ce mois.\nCliquez sur « + Ajouter un budget » pour commencer.",
     "Total Budgeted: {budgeted}  •  Spent: {spent}  •  Remaining: {remaining}":
         "Total budgété : {budgeted}  •  Dépensé : {spent}  •  Restant : {remaining}",
+    "⧉ Copy Last Month": "⧉ Copier le mois dernier",
+    "Copy the previous month's budgets into this month":
+        "Copier les budgets du mois précédent dans ce mois",
+    "Copy Last Month": "Copier le mois dernier",
+    "Copy budgets from {month} {year} into the current month?\nExisting budgets won't be changed.":
+        "Copier les budgets de {month} {year} dans le mois courant ?\nLes budgets existants ne seront pas modifiés.",
+    "Copied {n} budget(s).": "{n} budget(s) copié(s).",
+    "Nothing to copy — last month had no budgets, or they already exist.":
+        "Rien à copier — le mois dernier n'avait aucun budget, ou ils existent déjà.",
+    "Could not copy budgets:\n{err}": "Impossible de copier les budgets :\n{err}",
     "Over budget": "Dépassement",
     "Remaining": "Restant",
     "Edit budget": "Modifier le budget",
@@ -328,6 +345,40 @@ _FR: dict[str, str] = {
     "Could not save recurring:\n{err}": "Impossible d'enregistrer le récurrent :\n{err}",
     "Delete recurring '{name}'?\nThis will not delete transactions already posted.":
         "Supprimer le récurrent « {name} » ?\nLes transactions déjà enregistrées ne seront pas supprimées.",
+    "Status": "État",
+    "Active": "Actif",
+    "Paused": "En pause",
+    "⏯ Pause / Resume": "⏯ Pause / Reprise",
+    "Pause or resume the selected rule": "Mettre en pause ou reprendre la règle sélectionnée",
+
+    # ── Activity log ──────────────────────────────────────────────────────
+    "Activity": "Activité",
+    "Activity Log": "Journal d'activité",
+    "All Actions": "Toutes les actions",
+    "All Items": "Tous les éléments",
+    "Created": "Créé",
+    "Updated": "Modifié",
+    "Deleted": "Supprimé",
+    "When": "Quand",
+    "Action": "Action",
+    "Item": "Élément",
+    "ID": "ID",
+    "Details": "Détails",
+    "⟳ Refresh": "⟳ Actualiser",
+    "{n} entries": "{n} entrées",
+    "No activity matches your filters.": "Aucune activité ne correspond à vos filtres.",
+    "No activity recorded yet.": "Aucune activité enregistrée pour l'instant.",
+    "There is no activity to export.": "Aucune activité à exporter.",
+    "Exported {n} entries to:\n{path}": "{n} entrées exportées vers :\n{path}",
+    # Entity labels shown in the Activity "Item" column (capitalized forms).
+    "User": "Utilisateur",
+    "Account": "Compte",
+    "Category": "Catégorie",
+    "Transaction": "Transaction",
+    "Transfer": "Virement",
+    "Budget": "Budget",
+    "Goal": "Objectif",
+    "Watchlist": "Liste de suivi",
 
     # ── Savings ───────────────────────────────────────────────────────────
     # (the bare "Savings" account-type label is defined in the enum section above)

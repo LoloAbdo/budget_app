@@ -32,6 +32,7 @@ class TransactionDialog(QDialog):
         db: DatabaseManager,
         user_id: int,
         transaction: Optional[dict] = None,
+        prefill: Optional[dict] = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -45,8 +46,12 @@ class TransactionDialog(QDialog):
         self.setWindowTitle(tr("Edit Transaction") if transaction else tr("Add Transaction"))
         self.setMinimumWidth(420)
         self._build_ui()
+        # ``transaction`` = edit an existing row; ``prefill`` = pre-populate the
+        # fields but still save as a brand-new row (used by Duplicate).
         if transaction:
             self._populate(transaction)
+        elif prefill:
+            self._populate(prefill)
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -410,6 +415,12 @@ class TransactionsView(QWidget):
         edit_btn.setToolTip(tr("Edit selected (Enter)"))
         btn_row.addWidget(edit_btn)
 
+        dup_btn = QPushButton(tr("⧉ Duplicate"))
+        dup_btn.setObjectName("secondary")
+        dup_btn.clicked.connect(self._duplicate_selected)
+        dup_btn.setToolTip(tr("Create a copy of the selected transaction"))
+        btn_row.addWidget(dup_btn)
+
         del_btn = QPushButton(tr("🗑 Delete"))
         del_btn.setObjectName("danger")
         del_btn.clicked.connect(self._delete_selected)
@@ -568,6 +579,26 @@ class TransactionsView(QWidget):
                 self.refresh()
                 self._table.selectRow(row)
                 self.transaction_changed.emit()
+
+    def _duplicate_selected(self) -> None:
+        """Open the Add dialog pre-filled from the selected transaction."""
+        row = self._table.currentRow()
+        if row < 0:
+            return
+        txn_id = self._table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        txn = self._db.get_transaction(txn_id)
+        if not txn:
+            return
+        if txn.get("transfer_id") is not None:
+            QMessageBox.information(
+                self, tr("Transfer"),
+                tr("Transfers cannot be duplicated.\nUse ⇄ Transfer to create a new one."),
+            )
+            return
+        dlg = TransactionDialog(self._db, self._user["id"], prefill=txn, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self.refresh()
+            self.transaction_changed.emit()
 
     def _delete_selected(self) -> None:
         row = self._table.currentRow()

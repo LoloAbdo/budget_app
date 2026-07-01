@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-07-01
+
+### Added
+- **In-app Activity Log viewer.** The audit trail (previously export-only) now
+  has its own **Activity** panel: a read-only, filterable table of every
+  create/update/delete, with action and item filters, free-text search, and the
+  same CSV export as Settings.
+- **"Upcoming Bills" on the Dashboard.** A card lists active recurring items due
+  in the next 7 days (overdue items stay visible), so the schedule acts as a
+  reminder without opening the Recurring panel.
+- **Pause / resume recurring rules.** A rule can be paused (new `is_active`
+  flag, migration v1.0.8) so it stops posting — and is excluded from the
+  forecast and upcoming-bills — without deleting it or losing its settings. The
+  Recurring table shows a **Status** column; a Pause/Resume button toggles it.
+- **Copy last month's budgets.** A **Copy Last Month** button on the Budgets
+  panel copies the previous month's budget lines into the current month,
+  skipping any categories already budgeted.
+- **Duplicate a transaction.** A **Duplicate** button opens the Add dialog
+  pre-filled from the selected transaction (transfers excluded).
+
 ## [1.9.0] - 2026-06-30
 
 ### Added

@@ -28,6 +28,7 @@ from views.forecast_view    import ForecastView
 from views.recurring_view   import RecurringView
 from views.savings_view     import SavingsView
 from views.markets_view     import MarketsView
+from views.activity_view    import ActivityView
 from views.settings_view    import SettingsView
 from views.update_check     import UpdateCheckWorker
 from views.i18n             import tr, set_language
@@ -47,7 +48,8 @@ NAV_ITEMS = [
     ("🔄", "Recurring",      7),
     ("🐷", "Savings",        8),
     ("💹", "Markets",        9),
-    ("⚙️",  "Settings",      10),
+    ("📝", "Activity",       10),
+    ("⚙️",  "Settings",      11),
 ]
 
 
@@ -129,6 +131,7 @@ class MainWindow(QMainWindow):
         self._recurring_view    = RecurringView(self._db, self._user)
         self._savings_view      = SavingsView(self._db, self._user)
         self._markets_view      = MarketsView(self._db, self._user)
+        self._activity_view     = ActivityView(self._db, self._user)
         self._settings_view     = SettingsView(
             self._db, self._user, self._backup, self._theme
         )
@@ -144,6 +147,7 @@ class MainWindow(QMainWindow):
             self._recurring_view,
             self._savings_view,
             self._markets_view,
+            self._activity_view,
             self._settings_view,
         ]:
             self._stack.addWidget(view)
@@ -220,6 +224,10 @@ class MainWindow(QMainWindow):
         # so recompute it whenever the user opens the panel.
         if self._stack.widget(idx) is self._forecast_view:
             self._forecast_view.refresh()
+        # The activity log grows from every panel; reload it when opened so it's
+        # always current without needing a signal from each view.
+        elif self._stack.widget(idx) is self._activity_view:
+            self._activity_view.refresh()
 
     def _restore_last_panel(self) -> None:
         """Reopen on the sidebar panel that was active when the app last closed."""

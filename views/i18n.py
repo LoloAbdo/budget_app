@@ -455,6 +455,15 @@ _FR: dict[str, str] = {
     "Could not check for updates.": "Impossible de vérifier les mises à jour.",
     "Update available: {v} — see Settings ▸ About":
         "Mise à jour disponible : {v} — voir Paramètres ▸ À propos",
+    "⤓ Update now": "⤓ Mettre à jour maintenant",
+    "Update now": "Mettre à jour maintenant",
+    " (~{mb:.0f} MB)": " (~{mb:.0f} Mo)",
+    "This will download version {v}{size}, then close and reinstall Budget Manager automatically. Your data is not affected.\n\nContinue?":
+        "Ceci téléchargera la version {v}{size}, puis fermera et réinstallera Budget Manager automatiquement. Vos données ne sont pas affectées.\n\nContinuer ?",
+    "Downloading update…": "Téléchargement de la mise à jour…",
+    "Installing update…": "Installation de la mise à jour…",
+    "Download failed. Please try again.": "Échec du téléchargement. Veuillez réessayer.",
+    "Update failed": "Échec de la mise à jour",
     "Backup & Restore": "Sauvegarde et restauration",
     "Import Data": "Importer des données",
     "Theme:": "Thème :",

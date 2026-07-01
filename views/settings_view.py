@@ -6,11 +6,15 @@ Settings panel: theme toggle, categories, backup/restore, import.
 from typing import Optional
 from datetime import datetime
 
+import os
+import tempfile
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog,
     QFormLayout, QLineEdit, QComboBox, QFileDialog, QMessageBox,
-    QFrame, QTabWidget, QListWidget, QListWidgetItem,
+    QFrame, QTabWidget, QListWidget, QListWidgetItem, QProgressBar,
+    QApplication,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QThreadPool
 from PyQt6.QtGui import QColor, QFont
@@ -19,9 +23,10 @@ from database import DatabaseManager
 from services.auth_service import AuthService
 from services.backup_service import BackupService
 from services.import_export_service import ImportExportService
+from services.update_service import can_auto_update, launch_installer
 from views.i18n import tr, set_language, get_language, LANGUAGES
 from views.sortable import SortableItem, enable_sorting
-from views.update_check import UpdateCheckWorker
+from views.update_check import UpdateCheckWorker, UpdateDownloadWorker
 from version import __version__
 
 
@@ -521,6 +526,13 @@ class SettingsView(QWidget):
         self._update_btn.setMaximumWidth(220)
         self._update_btn.clicked.connect(self._check_for_updates)
         row.addWidget(self._update_btn)
+
+        # Hidden until a check finds an installable update on a packaged build.
+        self._update_now_btn = QPushButton(tr("⤓ Update now"))
+        self._update_now_btn.setMaximumWidth(220)
+        self._update_now_btn.setVisible(False)
+        self._update_now_btn.clicked.connect(self._update_now)
+        row.addWidget(self._update_now_btn)
         row.addStretch()
         layout.addLayout(row)
 
@@ -531,11 +543,21 @@ class SettingsView(QWidget):
         self._update_status.setWordWrap(True)
         layout.addWidget(self._update_status)
 
+        self._update_progress = QProgressBar()
+        self._update_progress.setVisible(False)
+        self._update_progress.setMaximumWidth(320)
+        layout.addWidget(self._update_progress)
+
+        # Latest UpdateInfo from the most recent check (installer URL/size, etc.).
+        self._update_info = None
+
         layout.addStretch()
         return w
 
     def _check_for_updates(self) -> None:
         self._update_btn.setEnabled(False)
+        self._update_now_btn.setVisible(False)
+        self._update_progress.setVisible(False)
         self._update_status.setText(tr("Checking…"))
         worker = UpdateCheckWorker(__version__)
         worker.signals.done.connect(self._on_update_checked)
@@ -543,12 +565,88 @@ class SettingsView(QWidget):
 
     def _on_update_checked(self, info) -> None:
         self._update_btn.setEnabled(True)
+        self._update_now_btn.setVisible(False)   # re-shown below only if installable
+        self._update_info = info
         if getattr(info, "available", False) and info.latest:
-            self._update_status.setText(
-                tr("Update available: {v}").format(v=info.latest)
-                + f'&nbsp;&nbsp;<a href="{info.url}">' + tr("Download") + "</a>"
-            )
+            # One-click update only for the installed build with a real asset;
+            # everything else falls back to the plain download link.
+            if can_auto_update() and getattr(info, "installer_url", None):
+                self._update_status.setText(
+                    tr("Update available: {v}").format(v=info.latest)
+                )
+                self._update_now_btn.setVisible(True)
+            else:
+                self._update_status.setText(
+                    tr("Update available: {v}").format(v=info.latest)
+                    + f'&nbsp;&nbsp;<a href="{info.url}">' + tr("Download") + "</a>"
+                )
         elif getattr(info, "error", ""):
             self._update_status.setText(tr("Could not check for updates."))
         else:
             self._update_status.setText(tr("You're on the latest version."))
+
+    # ── One-click update (download → silent install → relaunch) ──────────────
+
+    def _update_now(self) -> None:
+        info = self._update_info
+        if not info or not getattr(info, "installer_url", None):
+            return
+        size_mb = (info.installer_size / 1_048_576) if info.installer_size else 0
+        size_hint = tr(" (~{mb:.0f} MB)").format(mb=size_mb) if size_mb else ""
+        reply = QMessageBox.question(
+            self, tr("Update now"),
+            tr("This will download version {v}{size}, then close and reinstall "
+               "Budget Manager automatically. Your data is not affected.\n\n"
+               "Continue?").format(v=info.latest, size=size_hint),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        self._update_now_btn.setEnabled(False)
+        self._update_btn.setEnabled(False)
+        self._update_progress.setRange(0, 100)
+        self._update_progress.setValue(0)
+        self._update_progress.setVisible(True)
+        self._update_status.setText(tr("Downloading update…"))
+
+        dest = os.path.join(
+            tempfile.gettempdir(), f"BudgetManagerSetup_{info.latest}.exe"
+        )
+        worker = UpdateDownloadWorker(info.installer_url, dest)
+        worker.signals.progress.connect(self._on_download_progress)
+        worker.signals.done.connect(self._on_download_done)
+        worker.signals.error.connect(self._on_download_error)
+        QThreadPool.globalInstance().start(worker)
+
+    def _on_download_progress(self, done: int, total: int) -> None:
+        if total > 0:
+            self._update_progress.setRange(0, 100)
+            self._update_progress.setValue(int(done / total * 100))
+        else:
+            # Unknown length — show an indeterminate/busy bar.
+            self._update_progress.setRange(0, 0)
+
+    def _on_download_error(self, message: str) -> None:
+        self._update_progress.setVisible(False)
+        self._update_now_btn.setEnabled(True)
+        self._update_btn.setEnabled(True)
+        self._update_status.setText(tr("Download failed. Please try again."))
+        QMessageBox.critical(self, tr("Update failed"), message)
+
+    def _on_download_done(self, installer_path: str) -> None:
+        self._update_progress.setRange(0, 100)
+        self._update_progress.setValue(100)
+        self._update_status.setText(tr("Installing update…"))
+        try:
+            launch_installer(installer_path)
+        except Exception as exc:
+            self._on_download_error(str(exc))
+            return
+        # Close every window (persisting state via closeEvent), then quit so the
+        # installer can replace the files and relaunch the new version.
+        app = QApplication.instance()
+        if app is not None:
+            for w in app.topLevelWidgets():
+                w.close()
+            app.quit()

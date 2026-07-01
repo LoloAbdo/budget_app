@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-07-01
+
+### Added
+- **One-click auto-update (installed build).** When a newer release is found,
+  Settings ▸ About now offers **⤓ Update now**: it downloads the installer with
+  a progress bar, runs it silently, and closes the app so it upgrades in place
+  and relaunches on the new version — no manual download/reinstall. User data in
+  `%APPDATA%\BudgetManager` is untouched. Source runs and the portable one-file
+  exe keep the plain download link (auto-update is limited to the installed
+  build, which can safely replace itself). The installer's relaunch step now
+  runs on silent installs (`skipifsilent` removed from `installer.iss`).
+
 ## [1.10.0] - 2026-07-01
 
 ### Added

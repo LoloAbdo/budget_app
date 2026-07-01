@@ -26,14 +26,15 @@ Release manually** — just push the tag; manually pre-creating it is what stran
 binaries. After pushing a tag, the build takes ~5 min and the Release only appears at the
 very last step, so "release not found" right after tagging is normal — wait or `gh run watch`.
 
-Current version: **1.10.0**. Releases: v1.0.0 (portable only), v1.0.1 (+ installer),
+Current version: **1.11.0**. Releases: v1.0.0 (portable only), v1.0.1 (+ installer),
 v1.1.0 (DB indexes), v1.2.0 (net-worth chart), v1.3.0 (budget alerts),
 v1.4.0 (change password + pinned deps), v1.5.0 (sortable table columns),
 v1.6.0 (table UX polish + persisted theme/window state),
 v1.7.0 (cash-flow forecast + transaction export),
 v1.8.0 (money-rounding fix + activity log),
 v1.9.0 (end date for recurring transactions),
-v1.10.0 (activity log viewer, upcoming bills, pause/resume recurring, copy budgets, duplicate transaction).
+v1.10.0 (activity log viewer, upcoming bills, pause/resume recurring, copy budgets, duplicate transaction),
+v1.11.0 (one-click auto-update on the installed build).
 
 ## Architecture
 - `main.py` — entry point + data-path logic.
@@ -48,7 +49,7 @@ v1.10.0 (activity log viewer, upcoming bills, pause/resume recurring, copy budge
 - **Data location**: source run → `./data`; frozen `.exe` → `%APPDATA%\BudgetManager`. (One-file exe unpacks to a temp dir Windows wipes, so data must live in %APPDATA%.) Source and exe therefore use **separate** databases.
 - **Savings/interest**: editing a Savings account's balance records the unexplained delta as a signed "Interest" income transaction (auto-detect, with an opt-out checkbox). Summary in the Savings tab.
 - **Markets**: keyless data (CoinGecko crypto + Stooq/Yahoo stocks), converted to the user's currency. Auto-refresh defaults to **Off (manual)**; stock requests are batched into one call.
-- **Update check**: notify-only — compares `version.py` to the latest GitHub release and links the download; does not auto-install.
+- **Update check + auto-update**: compares `version.py` to the latest GitHub release. On the **installed** build (`update_service.can_auto_update()` — frozen and not a one-file exe), Settings ▸ About shows **⤓ Update now**, which downloads `BudgetManagerSetup.exe`, runs it silently (`/SILENT /CLOSEAPPLICATIONS /NORESTART`), and quits so the Inno installer upgrades in place and relaunches (its `[Run]` entry has no `skipifsilent`, which is what makes the silent relaunch work). Source runs and the **portable** one-file exe stay notify-only (download link). The updater is pure-Python/testable; the actual install+relaunch can only be verified on a real installed build.
 - **Preferences split**: per-user prefs that belong with the data (currency, `language`, `theme`) live in the `users` table; per-machine window state (size/position + last-open panel) lives in `QSettings` (org `BudgetApp` / app `Budget Manager`), saved in `MainWindow.closeEvent`. `--theme` overrides the saved theme for one run.
 
 ## Gotchas / lessons

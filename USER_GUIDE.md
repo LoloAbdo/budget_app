@@ -277,7 +277,9 @@ Settings has five tabs:
 - Import transactions from CSV or Excel. Your file should have columns: `date`, `amount`, `description`, `category`, `account`. Valid rows are imported and a summary reports how many were imported vs skipped.
 
 **About**
-- Shows the app version and lets you check for updates. The update check is **notify-only**: it compares your version to the latest GitHub release and links the download — it never installs anything automatically.
+- Shows the app version and lets you check for updates.
+- If you're running the **installed** version (via `BudgetManagerSetup.exe`) and a newer release is available, an **⤓ Update now** button appears. Clicking it downloads the update, shows a progress bar, then closes and reinstalls the app automatically, reopening on the new version. Your data (in `%APPDATA%\BudgetManager`) is never touched by an update.
+- If you run the **portable** single-file exe, or you're running from source, the check stays **notify-only** — it shows a **Download** link to the latest release instead, and you update by replacing the file yourself.
 
 ---
 
@@ -609,7 +611,9 @@ Les paramètres comportent cinq onglets :
 - Importez des transactions depuis CSV ou Excel. Votre fichier doit comporter les colonnes : `date`, `amount`, `description`, `category`, `account`. Les lignes valides sont importées et un résumé indique combien ont été importées vs ignorées.
 
 **À propos**
-- Affiche la version de l'application et permet de vérifier les mises à jour. La vérification est **informative seulement** : elle compare votre version à la dernière version GitHub et propose le téléchargement — elle n'installe jamais rien automatiquement.
+- Affiche la version de l'application et permet de vérifier les mises à jour.
+- Si vous utilisez la version **installée** (via `BudgetManagerSetup.exe`) et qu'une nouvelle version est disponible, un bouton **⤓ Mettre à jour maintenant** apparaît. En cliquant dessus, la mise à jour est téléchargée (avec une barre de progression), puis l'application se ferme et se réinstalle automatiquement, avant de rouvrir sur la nouvelle version. Vos données (dans `%APPDATA%\BudgetManager`) ne sont jamais touchées par une mise à jour.
+- Si vous utilisez l'exe **portable** (fichier unique) ou que vous lancez depuis les sources, la vérification reste **informative seulement** — elle affiche un lien **Télécharger** vers la dernière version, et vous mettez à jour en remplaçant le fichier vous-même.
 
 ---
 

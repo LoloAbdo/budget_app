@@ -31,7 +31,7 @@
 
 Budget Manager is a desktop personal-finance application for Windows (and runnable from source on any desktop OS). It uses a layered architecture: PyQt6 views on top, a service layer for business logic, and a single `DatabaseManager` that owns all SQL against an embedded SQLite database. Charts are rendered with Matplotlib; reports export to PDF/CSV/Excel.
 
-**Capabilities:** dashboard with spending, income-vs-expense, and 12-month net-worth charts; transaction CRUD with transfers, search, and filtering; monthly budgets; financial goals; multi-account management with auto-updated balances; a recurring-transaction/transfer engine; reports with export; savings/interest tracking; a keyless stocks-and-crypto markets watchlist; English/French localization; bcrypt auth; rolling automatic backups; and a notify-only GitHub update check.
+**Capabilities:** dashboard with spending, income-vs-expense, and 12-month net-worth charts; transaction CRUD with transfers, search, and filtering; monthly budgets; financial goals; multi-account management with auto-updated balances; a recurring-transaction/transfer engine; reports with export; savings/interest tracking; a keyless stocks-and-crypto markets watchlist; English/French localization; bcrypt auth; rolling automatic backups; and a GitHub update check with one-click auto-update on the installed build.
 
 ---
 
@@ -168,7 +168,7 @@ Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, 
 | **RecurringService** | `process_due(user_id)` posts every rule whose `next_due_date ≤ today`, advancing the date with `dateutil.relativedelta`; a `while` loop catches up multiple missed periods. Handles transfers (`to_account_id`), skips paused rules (`is_active = 0`), and stops posting once a rule's occurrence passes its optional `end_date` (both also honored by `forecast()`). |
 | **ImportExportService** | CSV/Excel import (column map: `date, amount, description, category, account`; invalid rows skipped, returns counts) and CSV/multi-sheet Excel export. |
 | **market_service** | Module of functions (not a class): keyless quotes from CoinGecko (crypto) and Stooq/Yahoo (stocks), `get_fx_rate()` conversion to the user's currency, and `fetch_quotes()` which batches stock requests into one call. |
-| **update_service** | `check_for_update()` queries the GitHub "latest release" API and compares the tag to `version.__version__` via `is_newer()`. Notify-only — never installs. |
+| **update_service** | `check_for_update()` queries the GitHub "latest release" API, compares the tag to `version.__version__` via `is_newer()`, and captures the installer asset's download URL. On the installed build (`can_auto_update()`), Settings ▸ About offers one-click update: `download_file()` fetches `BudgetManagerSetup.exe`, then `launch_installer()` runs it silently and the app quits so Inno upgrades in place and relaunches. Source/portable stay notify-only. |
 
 ---
 
@@ -389,7 +389,7 @@ Requêtes paramétrées partout ; clés étrangères activées. Tables : `users`
 | **RecurringService** | `process_due(user_id)` publie chaque règle dont `next_due_date ≤ aujourd'hui`, en avançant la date avec `dateutil.relativedelta` ; une boucle `while` rattrape les périodes manquées. Gère les virements (`to_account_id`), ignore les règles en pause (`is_active = 0`) et cesse de publier dès qu'une occurrence dépasse la `end_date` optionnelle (les deux étant aussi respectées par `forecast()`). |
 | **ImportExportService** | Import CSV/Excel (colonnes : `date, amount, description, category, account` ; lignes invalides ignorées, renvoie les compteurs) et export CSV / Excel multi-feuilles. |
 | **market_service** | Module de fonctions (pas une classe) : cours sans clé depuis CoinGecko (crypto) et Stooq/Yahoo (actions), conversion `get_fx_rate()` vers la devise de l'utilisateur, et `fetch_quotes()` qui regroupe les requêtes d'actions en un seul appel. |
-| **update_service** | `check_for_update()` interroge l'API « latest release » de GitHub et compare le tag à `version.__version__` via `is_newer()`. Informatif seulement — n'installe jamais. |
+| **update_service** | `check_for_update()` interroge l'API « latest release » de GitHub, compare le tag à `version.__version__` via `is_newer()` et récupère le lien de l'installateur. Sur la version installée (`can_auto_update()`), Paramètres ▸ À propos propose la mise à jour en un clic : `download_file()` télécharge `BudgetManagerSetup.exe`, puis `launch_installer()` le lance en mode silencieux et l'application se ferme pour qu'Inno mette à jour sur place et relance. Les versions source/portable restent informatives seulement. |
 
 ---
 

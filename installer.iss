@@ -51,5 +51,7 @@ Name: "{group}\{#MyAppName}";              Filename: "{app}\{#MyAppExeName}"
 Name: "{group}\Uninstall {#MyAppName}";    Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}";        Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
+; No skipifsilent: the in-app auto-updater runs this installer with /SILENT and
+; relies on this entry to relaunch the app once the new files are in place.
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall

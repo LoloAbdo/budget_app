@@ -197,7 +197,8 @@ class DashboardView(QWidget):
                 name_lbl.setStyleSheet("color: #F59E0B;")
             row.addWidget(name_lbl)
             row.addStretch()
-            amt_lbl = QLabel(f"{self._currency} {abs(rec['amount']):,.2f}")
+            rec_cur = rec.get("account_currency") or self._currency
+            amt_lbl = QLabel(f"{rec_cur} {abs(rec['amount']):,.2f}")
             amt_lbl.setStyleSheet(f"color: {amount_color};")
             row.addWidget(amt_lbl)
             layout.addLayout(row)
@@ -358,7 +359,7 @@ class DashboardView(QWidget):
                 txn["description"],
                 txn.get("category_name") or "—",
                 txn.get("account_name") or "—",
-                f"{self._currency} {txn['amount']:,.2f}",
+                f"{txn.get('account_currency') or self._currency} {txn['amount']:,.2f}",
             ]
             for col_idx, text in enumerate(items):
                 item = SortableItem(text)

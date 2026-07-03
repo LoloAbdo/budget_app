@@ -47,7 +47,19 @@ CREATE TABLE IF NOT EXISTS accounts (
     user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     account_name    TEXT    NOT NULL,
     account_type    TEXT    NOT NULL CHECK(account_type IN ('Checking','Savings','Credit Card','Cash')),
-    current_balance REAL    NOT NULL DEFAULT 0.0
+    current_balance REAL    NOT NULL DEFAULT 0.0,
+    currency        TEXT    NOT NULL DEFAULT 'CAD'
+);
+
+-- Cached exchange rates: 1 unit of `base` = `rate` units of `quote`.
+-- Refreshed from the keyless market providers; kept so conversion still works
+-- offline using the last known rate. Both directions are stored on update.
+CREATE TABLE IF NOT EXISTS fx_rates (
+    base    TEXT NOT NULL,
+    quote   TEXT NOT NULL,
+    rate    REAL NOT NULL,
+    updated TEXT NOT NULL,
+    PRIMARY KEY (base, quote)
 );
 
 CREATE TABLE IF NOT EXISTS categories (
@@ -268,6 +280,20 @@ class DatabaseManager:
             )
             conn.commit()
 
+        # v1.0.9 — per-account currency (multi-currency accounts). Existing
+        # accounts inherit their owner's home currency, so upgraded databases
+        # show exactly the same numbers as before the migration.
+        acct_cols = [r[1] for r in conn.execute("PRAGMA table_info(accounts)").fetchall()]
+        if "currency" not in acct_cols:
+            conn.execute(
+                "ALTER TABLE accounts ADD COLUMN currency TEXT NOT NULL DEFAULT 'CAD'"
+            )
+            conn.execute(
+                "UPDATE accounts SET currency = COALESCE("
+                "(SELECT u.currency FROM users u WHERE u.id = accounts.user_id), 'CAD')"
+            )
+            conn.commit()
+
         # v1.0.5 — performance indexes for the hot query paths.
         # The main transaction list joins transactions→accounts, filters by
         # user/date/category/account and sorts by date; without indexes every
@@ -395,6 +421,63 @@ class DatabaseManager:
         # Never log the hash itself — only that a password change happened.
         self._log("UPDATE", "user", user_id, {"password": "changed"}, user_id=user_id)
 
+    # ── FX rates / currency conversion ───────────────────────────────────────
+
+    # SQL fragment: multiplier that converts an amount in account `a`'s currency
+    # into the home currency bound to the adjacent `?` parameter. Falls back to
+    # 1.0 when no rate is cached — i.e. same currency, or FX never fetched yet.
+    _FX = ("COALESCE((SELECT fx.rate FROM fx_rates fx "
+           "WHERE fx.base = a.currency AND fx.quote = ?), 1.0)")
+
+    def get_home_currency(self, user_id: int) -> str:
+        user = self.get_user(user_id)
+        return (user or {}).get("currency") or "CAD"
+
+    def set_fx_rate(self, base: str, quote: str, rate: float) -> None:
+        """Cache an exchange rate (1 base = rate quote), plus its inverse so
+        conversion keeps working if the user's home currency ever changes."""
+        base, quote = base.upper(), quote.upper()
+        if base == quote or rate <= 0:
+            return
+        now = datetime.now().isoformat(timespec="seconds")
+        conn = self._conn()
+        for b, q, r in ((base, quote, rate), (quote, base, 1.0 / rate)):
+            conn.execute(
+                "INSERT INTO fx_rates (base, quote, rate, updated) VALUES (?,?,?,?) "
+                "ON CONFLICT(base, quote) DO UPDATE SET rate=excluded.rate, updated=excluded.updated",
+                (b, q, r, now),
+            )
+        conn.commit()
+
+    def get_cached_fx_rate(self, base: str, quote: str) -> Optional[dict]:
+        """Last cached rate row for base→quote, or None. Same currency → 1.0."""
+        base, quote = base.upper(), quote.upper()
+        if base == quote:
+            return {"base": base, "quote": quote, "rate": 1.0, "updated": None}
+        return self._fetchone(
+            "SELECT * FROM fx_rates WHERE base=? AND quote=?", (base, quote)
+        )
+
+    def get_fx_rates(self) -> list[dict]:
+        return self._fetchall("SELECT * FROM fx_rates ORDER BY base, quote")
+
+    def convert_amount(self, amount: float, from_currency: str, to_currency: str) -> float:
+        """Convert using the cached rate; 1:1 when no rate is known (graceful
+        offline fallback — totals stay usable, just unconverted)."""
+        row = self.get_cached_fx_rate(from_currency, to_currency)
+        rate = row["rate"] if row else 1.0
+        return round(amount * rate, 2)
+
+    def get_account_currencies(self, user_id: int) -> list[str]:
+        """Distinct currencies across the user's accounts."""
+        return [
+            r["currency"]
+            for r in self._fetchall(
+                "SELECT DISTINCT currency FROM accounts WHERE user_id=? ORDER BY currency",
+                (user_id,),
+            )
+        ]
+
     # ── Accounts ──────────────────────────────────────────────────────────────
 
     def get_accounts(self, user_id: int) -> list[dict]:
@@ -403,22 +486,33 @@ class DatabaseManager:
     def get_account(self, account_id: int) -> Optional[dict]:
         return self._fetchone("SELECT * FROM accounts WHERE id=?", (account_id,))
 
-    def create_account(self, user_id: int, name: str, acct_type: str, balance: float = 0.0) -> int:
+    def create_account(self, user_id: int, name: str, acct_type: str, balance: float = 0.0,
+                       currency: Optional[str] = None) -> int:
+        currency = (currency or self.get_home_currency(user_id)).upper()
         aid = self._execute(
-            "INSERT INTO accounts (user_id, account_name, account_type, current_balance) VALUES (?,?,?,?)",
-            (user_id, name, acct_type, _money(balance)),
+            "INSERT INTO accounts (user_id, account_name, account_type, current_balance, currency) VALUES (?,?,?,?,?)",
+            (user_id, name, acct_type, _money(balance), currency),
         )
         self._log("INSERT", "account", aid,
-                  {"name": name, "type": acct_type, "balance": _money(balance)}, user_id=user_id)
+                  {"name": name, "type": acct_type, "balance": _money(balance),
+                   "currency": currency}, user_id=user_id)
         return aid
 
-    def update_account(self, account_id: int, name: str, acct_type: str, balance: float) -> None:
+    def update_account(self, account_id: int, name: str, acct_type: str, balance: float,
+                       currency: Optional[str] = None) -> None:
+        """Update an account. ``currency`` relabels the account; the balance and
+        its transactions are NOT converted (they were always in that currency)."""
+        if currency is None:
+            old = self.get_account(account_id)
+            currency = (old or {}).get("currency") or "CAD"
+        currency = currency.upper()
         self._execute(
-            "UPDATE accounts SET account_name=?, account_type=?, current_balance=? WHERE id=?",
-            (name, acct_type, _money(balance), account_id),
+            "UPDATE accounts SET account_name=?, account_type=?, current_balance=?, currency=? WHERE id=?",
+            (name, acct_type, _money(balance), currency, account_id),
         )
         self._log("UPDATE", "account", account_id,
-                  {"name": name, "type": acct_type, "balance": _money(balance)})
+                  {"name": name, "type": acct_type, "balance": _money(balance),
+                   "currency": currency})
 
     def delete_account(self, account_id: int) -> None:
         old = self.get_account(account_id)
@@ -476,7 +570,7 @@ class DatabaseManager:
     ) -> list[dict]:
         sql = """
             SELECT t.*, c.name AS category_name, c.type AS category_type, c.color AS category_color,
-                   a.account_name, a.account_type
+                   a.account_name, a.account_type, a.currency AS account_currency
             FROM transactions t
             JOIN accounts a ON t.account_id = a.id
             LEFT JOIN categories c ON t.category_id = c.id
@@ -506,7 +600,8 @@ class DatabaseManager:
     def get_transaction(self, transaction_id: int) -> Optional[dict]:
         return self._fetchone(
             """SELECT t.*, c.name AS category_name, c.type AS category_type,
-                      a.account_name FROM transactions t
+                      a.account_name, a.currency AS account_currency
+               FROM transactions t
                JOIN accounts a ON t.account_id = a.id
                LEFT JOIN categories c ON t.category_id = c.id
                WHERE t.id=?""",
@@ -597,14 +692,24 @@ class DatabaseManager:
         date: str,
         description: str,
         notes: str = "",
+        to_amount: Optional[float] = None,
     ) -> tuple[int, int]:
-        """Create two linked transaction legs atomically. Returns (from_id, to_id)."""
+        """Create two linked transaction legs atomically. Returns (from_id, to_id).
+
+        ``amount`` is what leaves the source account, in its currency.
+        ``to_amount`` is what arrives in the destination account, in *its*
+        currency — used for cross-currency transfers. Defaults to ``amount``
+        (the same-currency case).
+        """
         if from_account_id == to_account_id:
             raise ValueError("Source and destination accounts must be different.")
         if amount <= 0:
             raise ValueError("Transfer amount must be greater than zero.")
+        if to_amount is not None and to_amount <= 0:
+            raise ValueError("Received amount must be greater than zero.")
         conn = self._conn()
         amount = _money(amount)
+        to_amount = _money(to_amount) if to_amount is not None else amount
         cur_from = conn.execute(
             "INSERT INTO transactions (account_id, date, description, amount, notes) VALUES (?,?,?,?,?)",
             (from_account_id, date, description, -amount, notes),
@@ -612,7 +717,7 @@ class DatabaseManager:
         from_id = cur_from.lastrowid
         cur_to = conn.execute(
             "INSERT INTO transactions (account_id, date, description, amount, notes, transfer_id) VALUES (?,?,?,?,?,?)",
-            (to_account_id, date, description, amount, notes, from_id),
+            (to_account_id, date, description, to_amount, notes, from_id),
         )
         to_id = cur_to.lastrowid
         conn.execute("UPDATE transactions SET transfer_id=? WHERE id=?", (to_id, from_id))
@@ -622,12 +727,13 @@ class DatabaseManager:
         )
         conn.execute(
             "UPDATE accounts SET current_balance = ROUND(current_balance + ?, 2) WHERE id=?",
-            (amount, to_account_id),
+            (to_amount, to_account_id),
         )
         conn.commit()
         self._log("INSERT", "transfer", from_id, {
             "from_account_id": from_account_id, "to_account_id": to_account_id,
-            "amount": amount, "date": date, "description": description,
+            "amount": amount, "to_amount": to_amount, "date": date,
+            "description": description,
             "from_txn_id": from_id, "to_txn_id": to_id,
         })
         return from_id, to_id
@@ -667,9 +773,13 @@ class DatabaseManager:
     # ── Budgets ───────────────────────────────────────────────────────────────
 
     def get_budgets(self, user_id: int, month: int, year: int) -> list[dict]:
+        # Spending is converted into the user's home currency per transaction,
+        # so budgets (kept in home currency) compare against a consistent total
+        # even when the money left accounts held in other currencies.
+        home = self.get_home_currency(user_id)
         return self._fetchall(
-            """SELECT b.*, c.name AS category_name, c.color,
-                      COALESCE((SELECT SUM(ABS(t.amount))
+            f"""SELECT b.*, c.name AS category_name, c.color,
+                      COALESCE((SELECT SUM(ABS(t.amount) * {self._FX})
                                 FROM transactions t
                                 JOIN accounts a ON t.account_id = a.id
                                 WHERE t.category_id = b.category_id
@@ -681,7 +791,7 @@ class DatabaseManager:
                FROM budgets b JOIN categories c ON b.category_id = c.id
                WHERE b.user_id=? AND b.month=? AND b.year=?
                ORDER BY c.name""",
-            (user_id, month, year, user_id, month, year),
+            (home, user_id, month, year, user_id, month, year),
         )
 
     def get_budget_alerts(
@@ -777,8 +887,9 @@ class DatabaseManager:
     def get_recurring(self, user_id: int) -> list[dict]:
         return self._fetchall(
             """SELECT r.*, c.name AS category_name,
-                      a.account_name,
-                      ta.account_name AS to_account_name
+                      a.account_name, a.currency AS account_currency,
+                      ta.account_name AS to_account_name,
+                      ta.currency AS to_account_currency
                FROM recurring_transactions r
                LEFT JOIN categories c ON r.category_id = c.id
                LEFT JOIN accounts a  ON r.account_id = a.id
@@ -856,7 +967,7 @@ class DatabaseManager:
         horizon = (datetime.now().date() + timedelta(days=within_days)).isoformat()
         return self._fetchall(
             """SELECT r.*, c.name AS category_name,
-                      a.account_name,
+                      a.account_name, a.currency AS account_currency,
                       ta.account_name AS to_account_name
                FROM recurring_transactions r
                LEFT JOIN categories c ON r.category_id = c.id
@@ -877,9 +988,10 @@ class DatabaseManager:
     # ── Reporting queries ─────────────────────────────────────────────────────
 
     def get_monthly_summary(self, user_id: int, month: int, year: int) -> dict:
-        """Return income, expenses, savings for a given month."""
-        sql = """
-            SELECT c.type, COALESCE(SUM(t.amount), 0) AS total
+        """Return income, expenses, savings for a given month (home currency)."""
+        home = self.get_home_currency(user_id)
+        sql = f"""
+            SELECT c.type, COALESCE(SUM(t.amount * {self._FX}), 0) AS total
             FROM transactions t
             JOIN accounts a ON t.account_id = a.id
             LEFT JOIN categories c ON t.category_id = c.id
@@ -889,7 +1001,7 @@ class DatabaseManager:
               AND strftime('%Y', t.date) = CAST(? AS TEXT)
             GROUP BY c.type
         """
-        rows = self._fetchall(sql, (user_id, month, year))
+        rows = self._fetchall(sql, (home, user_id, month, year))
         result = {"income": 0.0, "expenses": 0.0}
         for r in rows:
             if r["type"] == "Income":
@@ -901,8 +1013,9 @@ class DatabaseManager:
         return result
 
     def get_spending_by_category(self, user_id: int, month: int, year: int) -> list[dict]:
+        home = self.get_home_currency(user_id)
         return self._fetchall(
-            """SELECT c.name, c.color, ABS(SUM(t.amount)) AS total
+            f"""SELECT c.name, c.color, ABS(SUM(t.amount * {self._FX})) AS total
                FROM transactions t
                JOIN accounts a ON t.account_id = a.id
                JOIN categories c ON t.category_id = c.id
@@ -911,28 +1024,32 @@ class DatabaseManager:
                  AND strftime('%m', t.date) = printf('%02d', ?)
                  AND strftime('%Y', t.date) = CAST(? AS TEXT)
                GROUP BY c.id ORDER BY total DESC""",
-            (user_id, month, year),
+            (home, user_id, month, year),
         )
 
     def get_monthly_totals(self, user_id: int, year: int) -> list[dict]:
-        """12-month income/expense breakdown for a given year."""
+        """12-month income/expense breakdown for a given year (home currency)."""
+        home = self.get_home_currency(user_id)
         return self._fetchall(
-            """SELECT strftime('%m', t.date) AS month,
-                      SUM(CASE WHEN c.type='Income' THEN ABS(t.amount) ELSE 0 END) AS income,
-                      SUM(CASE WHEN c.type='Expense' THEN ABS(t.amount) ELSE 0 END) AS expenses
+            f"""SELECT strftime('%m', t.date) AS month,
+                      SUM(CASE WHEN c.type='Income' THEN ABS(t.amount * {self._FX}) ELSE 0 END) AS income,
+                      SUM(CASE WHEN c.type='Expense' THEN ABS(t.amount * {self._FX}) ELSE 0 END) AS expenses
                FROM transactions t
                JOIN accounts a ON t.account_id = a.id
                LEFT JOIN categories c ON t.category_id = c.id
                WHERE a.user_id=? AND t.transfer_id IS NULL
                AND strftime('%Y', t.date)=CAST(? AS TEXT)
                GROUP BY month ORDER BY month""",
-            (user_id, year),
+            (home, home, user_id, year),
         )
 
     def get_total_balance(self, user_id: int) -> float:
+        """Combined balance of every account, converted to the home currency."""
+        home = self.get_home_currency(user_id)
         row = self._fetchone(
-            "SELECT COALESCE(SUM(current_balance), 0) AS bal FROM accounts WHERE user_id=?",
-            (user_id,),
+            f"SELECT COALESCE(SUM(ROUND(a.current_balance * {self._FX}, 2)), 0) AS bal "
+            "FROM accounts a WHERE a.user_id=?",
+            (home, user_id),
         )
         return row["bal"] if row else 0.0
 
@@ -944,23 +1061,29 @@ class DatabaseManager:
         balance is the net worth as of today. Earlier points are reconstructed by
         unwinding each month's net transaction flow:
             end_of_month(M-1) = end_of_month(M) - flow(M)
-        Transfers net to zero across the two legs, so they don't affect the total.
+        Everything is expressed in the user's home currency: each flow converts
+        at the account's *current* cached rate (historical rates aren't stored,
+        so past points are an approximation for foreign-currency accounts).
+        Same-currency transfers net to zero across the two legs; cross-currency
+        legs cancel up to the drift between the transfer's rate and today's.
         Returns a chronological list of ``{"month": "YYYY-MM", "balance": float}``.
         """
         if months < 1:
             return []
 
-        # Net signed transaction flow per month (income +, expense -).
+        home = self.get_home_currency(user_id)
+
+        # Net signed transaction flow per month (income +, expense -), converted.
         flows = {
             r["ym"]: r["flow"]
             for r in self._fetchall(
-                """SELECT strftime('%Y-%m', t.date) AS ym,
-                          COALESCE(SUM(t.amount), 0) AS flow
+                f"""SELECT strftime('%Y-%m', t.date) AS ym,
+                          COALESCE(SUM(t.amount * {self._FX}), 0) AS flow
                    FROM transactions t
                    JOIN accounts a ON t.account_id = a.id
                    WHERE a.user_id = ?
                    GROUP BY ym""",
-                (user_id,),
+                (home, user_id),
             )
         }
 
@@ -1022,7 +1145,7 @@ class DatabaseManager:
         yr = f"{year:04d}"
         return self._fetchall(
             """
-            SELECT a.id, a.account_name, a.current_balance,
+            SELECT a.id, a.account_name, a.current_balance, a.currency,
                    COALESCE(SUM(CASE WHEN strftime('%Y-%m', t.date)=? THEN t.amount END), 0) AS interest_month,
                    COALESCE(SUM(CASE WHEN strftime('%Y',    t.date)=? THEN t.amount END), 0) AS interest_year,
                    COALESCE(SUM(t.amount), 0) AS interest_total
@@ -1037,13 +1160,14 @@ class DatabaseManager:
         )
 
     def get_interest_monthly(self, user_id: int, year: int) -> list[dict]:
-        """12-month interest totals (across all savings accounts) for a year."""
+        """12-month interest totals across all savings accounts (home currency)."""
         interest_id = self.get_interest_category_id()
         if interest_id is None:
             return []
+        home = self.get_home_currency(user_id)
         return self._fetchall(
-            """
-            SELECT strftime('%m', t.date) AS month, SUM(t.amount) AS interest
+            f"""
+            SELECT strftime('%m', t.date) AS month, SUM(t.amount * {self._FX}) AS interest
             FROM transactions t
             JOIN accounts a ON t.account_id = a.id
             WHERE a.user_id = ? AND a.account_type = 'Savings'
@@ -1051,7 +1175,7 @@ class DatabaseManager:
               AND strftime('%Y', t.date) = CAST(? AS TEXT)
             GROUP BY month ORDER BY month
             """,
-            (user_id, interest_id, year),
+            (home, user_id, interest_id, year),
         )
 
     def get_interest_entries(self, user_id: int, limit: int = 50) -> list[dict]:
@@ -1061,7 +1185,7 @@ class DatabaseManager:
             return []
         return self._fetchall(
             """
-            SELECT t.id, t.date, t.amount, a.account_name
+            SELECT t.id, t.date, t.amount, a.account_name, a.currency
             FROM transactions t
             JOIN accounts a ON t.account_id = a.id
             WHERE a.user_id = ? AND a.account_type = 'Savings'

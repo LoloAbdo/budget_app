@@ -127,13 +127,14 @@ app.exec()
 
 ## 5. Database Schema & Migrations
 
-Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, `categories`, `transactions`, `budgets`, `financial_goals`, `recurring_transactions`, `watchlist`.
+Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, `categories`, `transactions`, `budgets`, `financial_goals`, `recurring_transactions`, `watchlist`, `fx_rates`.
 
 **Key columns & relationships:**
-- `users` — bcrypt `password`, `currency` (default CAD), `language` (`'en'`/`'fr'`).
-- `accounts` — `account_type` ∈ {Checking, Savings, Credit Card, Cash}, `current_balance` (kept current on every transaction mutation).
+- `users` — bcrypt `password`, `currency` (the **home currency**, default CAD), `language` (`'en'`/`'fr'`).
+- `accounts` — `account_type` ∈ {Checking, Savings, Credit Card, Cash}, `current_balance` (kept current on every transaction mutation), `currency` (the account's own currency; transaction amounts live in it).
+- `fx_rates` — cached exchange rates (`base`, `quote`, `rate`, `updated`; PK `(base, quote)`). `set_fx_rate()` stores **both directions**. Aggregate queries convert per-account amounts into the home currency via the `DatabaseManager._FX` SQL fragment — `COALESCE((SELECT rate …), 1.0)` — so a missing rate degrades to 1:1 instead of failing. No rate history is kept: historical conversions use the current rate (documented approximation).
 - `categories` — **global** (no `user_id`); `type` ∈ {Income, Expense}. Includes a system **Interest** category used for savings/interest tracking.
-- `transactions` — signed `amount` (income +, expense −); `transfer_id` self-reference links the two legs of a transfer (excluded from income/expense aggregates).
+- `transactions` — signed `amount` (income +, expense −) in the **account's currency**; `transfer_id` self-reference links the two legs of a transfer (excluded from income/expense aggregates). Cross-currency transfers store a different amount per leg (`create_transfer(..., to_amount=)`).
 - `budgets` — `UNIQUE(user_id, category_id, month, year)`; set via UPSERT.
 - `recurring_transactions` — `frequency` ∈ {Weekly, Bi-weekly, Monthly, Quarterly, Yearly}; optional `to_account_id` for recurring transfers; optional `end_date` (NULL = no end) after which the rule stops posting; `is_active` (1/0) to pause a rule without deleting it.
 - `watchlist` — markets symbols with cached last price/change/currency; `UNIQUE(user_id, symbol, asset_type)`.
@@ -152,10 +153,11 @@ Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, 
 | v1.0.6 | Add `users.theme` |
 | v1.0.7 | Add `recurring_transactions.end_date` (nullable; NULL = no end) |
 | v1.0.8 | Add `recurring_transactions.is_active` (1 = active, 0 = paused) |
+| v1.0.9 | Add `accounts.currency`, **backfilled from the owner's `users.currency`** (upgrades are lossless — same numbers until a foreign-currency account exists); `fx_rates` table created by the base DDL |
 
 **Indexes (v1.0.5):** `transactions(account_id, date)`, `transactions(category_id)`, `transactions(transfer_id)`, `accounts(user_id)`, `recurring_transactions(user_id)`, `financial_goals(user_id)`. `budgets` and `watchlist` are already indexed by their UNIQUE constraints. Created with `CREATE INDEX IF NOT EXISTS`, so re-running init is safe.
 
-**Net-worth reconstruction:** `get_net_worth_history(user_id, months=12)` returns end-of-month totals without any balance-history table. Since balances already reflect all transactions, it starts from the current total and unwinds each month's net transaction flow: `end_of_month(M-1) = end_of_month(M) − flow(M)`. Transfers net to zero across their two legs and don't distort the total.
+**Net-worth reconstruction:** `get_net_worth_history(user_id, months=12)` returns end-of-month totals without any balance-history table. Since balances already reflect all transactions, it starts from the current total and unwinds each month's net transaction flow: `end_of_month(M-1) = end_of_month(M) − flow(M)`. Everything is in home currency (flows convert at the current cached rate). Same-currency transfers net to zero across their two legs; cross-currency legs cancel up to the drift between the transfer's rate and today's.
 
 ---
 
@@ -168,6 +170,7 @@ Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, 
 | **RecurringService** | `process_due(user_id)` posts every rule whose `next_due_date ≤ today`, advancing the date with `dateutil.relativedelta`; a `while` loop catches up multiple missed periods. Handles transfers (`to_account_id`), skips paused rules (`is_active = 0`), and stops posting once a rule's occurrence passes its optional `end_date` (both also honored by `forecast()`). |
 | **ImportExportService** | CSV/Excel import (column map: `date, amount, description, category, account`; invalid rows skipped, returns counts) and CSV/multi-sheet Excel export. |
 | **market_service** | Module of functions (not a class): keyless quotes from CoinGecko (crypto) and Stooq/Yahoo (stocks), `get_fx_rate()` conversion to the user's currency, and `fetch_quotes()` which batches stock requests into one call. |
+| **FxService** | Keeps the `fx_rates` cache fresh for multi-currency accounts: `required_pairs()` derives the (account currency → home) pairs, `needs_refresh()` checks staleness (>24 h), `refresh()` fetches via `market_service.get_fx_rate` and stores both directions. Failed fetches keep the previous cached value (offline-safe). Also exports `CURRENCIES`, the UI picker list. |
 | **update_service** | `check_for_update()` queries the GitHub "latest release" API, compares the tag to `version.__version__` via `is_newer()`, and captures the installer asset's download URL. On the installed build (`can_auto_update()`), Settings ▸ About offers one-click update: `download_file()` fetches `BudgetManagerSetup.exe`, then `launch_installer()` runs it silently and the app quits so Inno upgrades in place and relaunches. Source/portable stay notify-only. |
 
 ---
@@ -189,7 +192,8 @@ All views inherit `QWidget`, take `db` and `user` in `__init__`, expose `refresh
 | `recurring_view.RecurringView` | Recurring-rule CRUD; overdue rows highlighted. |
 | `savings_view.SavingsView` | Savings-account grouping; interest this month/year/all-time cards, interest-over-time chart, history table. |
 | `markets_view.MarketsView` | Watchlist; add/remove symbols; manual refresh (auto-refresh defaults to Off). |
-| `settings_view.SettingsView` | Tabs: Appearance (theme + language), Categories, Backup & Restore, Import Data, About (version + update check). Emits `theme_changed`, `language_changed`, `data_changed`. |
+| `settings_view.SettingsView` | Tabs: Appearance (theme + language), Currency (home currency + cached FX rates + manual refresh), Categories, Backup & Restore, Import Data, About (version + update check). Emits `theme_changed`, `language_changed`, `data_changed`. |
+| `fx_refresh.FxRefreshWorker` | `QRunnable` that runs `FxService.refresh()` off the UI thread; used by the Settings Currency tab and MainWindow's quiet startup refresh. |
 
 **Reusable widgets (`views/widgets.py`):** `SummaryCard`, `GoalProgressCard`, `BudgetBar` (green <70%, yellow <90%, red ≥90%).
 
@@ -362,21 +366,22 @@ Identique à la section anglaise [§4.5](#45-startup-sequence) : analyse des arg
 Requêtes paramétrées partout ; clés étrangères activées. Tables : `users`, `accounts`, `categories`, `transactions`, `budgets`, `financial_goals`, `recurring_transactions`, `watchlist`.
 
 **Colonnes et relations clés :**
-- `users` — `password` bcrypt, `currency` (CAD par défaut), `language` (`'en'`/`'fr'`).
-- `accounts` — `account_type` ∈ {Checking, Savings, Credit Card, Cash}, `current_balance` (tenu à jour à chaque mutation de transaction).
+- `users` — `password` bcrypt, `currency` (la **devise principale**, CAD par défaut), `language` (`'en'`/`'fr'`).
+- `accounts` — `account_type` ∈ {Checking, Savings, Credit Card, Cash}, `current_balance` (tenu à jour à chaque mutation de transaction), `currency` (la devise propre du compte ; les montants des transactions y vivent).
+- `fx_rates` — taux de change en cache (`base`, `quote`, `rate`, `updated` ; PK `(base, quote)`). `set_fx_rate()` stocke **les deux sens**. Les requêtes d'agrégation convertissent les montants par compte vers la devise principale via le fragment SQL `DatabaseManager._FX` — `COALESCE((SELECT rate …), 1.0)` — un taux manquant dégrade donc en 1:1 au lieu d'échouer. Aucun historique de taux : les conversions historiques utilisent le taux courant (approximation documentée).
 - `categories` — **globales** (pas de `user_id`) ; `type` ∈ {Income, Expense}. Inclut une catégorie système **Interest** pour le suivi des intérêts.
-- `transactions` — `amount` signé (revenu +, dépense −) ; `transfer_id` (auto-référence) lie les deux volets d'un virement (exclus des agrégats revenus/dépenses).
+- `transactions` — `amount` signé (revenu +, dépense −) **dans la devise du compte** ; `transfer_id` (auto-référence) lie les deux volets d'un virement (exclus des agrégats revenus/dépenses). Les virements inter-devises stockent un montant différent par volet (`create_transfer(..., to_amount=)`).
 - `budgets` — `UNIQUE(user_id, category_id, month, year)` ; définis par UPSERT.
 - `recurring_transactions` — `frequency` ∈ {Weekly, Bi-weekly, Monthly, Quarterly, Yearly} ; `to_account_id` optionnel pour les virements récurrents ; `end_date` optionnel (NULL = sans fin) après lequel la règle cesse de publier ; `is_active` (1/0) pour mettre une règle en pause sans la supprimer.
 - `watchlist` — symboles de marchés avec dernier cours/variation/devise en cache ; `UNIQUE(user_id, symbol, asset_type)`.
 
 **Mise à jour automatique des soldes :** `create_transaction` → `solde += montant` ; `update_transaction` → annule l'ancien, applique le nouveau ; `delete_transaction` → `solde −= montant`.
 
-**Migrations** exécutées à chaque init via `_migrate()`, chacune protégée pour être idempotente : v1.0.1 (recréation de `budgets` avec `user_id`), v1.0.2 (`transactions.transfer_id`), v1.0.3 (`recurring_transactions.to_account_id`), v1.0.4 (`users.language`), v1.0.5 (index de performance), v1.0.6 (`users.theme`), v1.0.7 (`recurring_transactions.end_date`, NULL = sans fin), v1.0.8 (`recurring_transactions.is_active`, 1 = actif / 0 = en pause).
+**Migrations** exécutées à chaque init via `_migrate()`, chacune protégée pour être idempotente : v1.0.1 (recréation de `budgets` avec `user_id`), v1.0.2 (`transactions.transfer_id`), v1.0.3 (`recurring_transactions.to_account_id`), v1.0.4 (`users.language`), v1.0.5 (index de performance), v1.0.6 (`users.theme`), v1.0.7 (`recurring_transactions.end_date`, NULL = sans fin), v1.0.8 (`recurring_transactions.is_active`, 1 = actif / 0 = en pause), v1.0.9 (`accounts.currency`, **rétro-rempli depuis la devise de l'utilisateur** — mise à niveau sans perte ; table `fx_rates` créée par le DDL de base).
 
 **Index (v1.0.5) :** `transactions(account_id, date)`, `transactions(category_id)`, `transactions(transfer_id)`, `accounts(user_id)`, `recurring_transactions(user_id)`, `financial_goals(user_id)`. `budgets` et `watchlist` sont déjà indexés par leurs contraintes UNIQUE. Créés avec `CREATE INDEX IF NOT EXISTS`, donc ré-exécuter l'init est sans risque.
 
-**Reconstruction de la valeur nette :** `get_net_worth_history(user_id, months=12)` renvoie les totaux de fin de mois sans table d'historique des soldes. Comme les soldes reflètent déjà toutes les transactions, on part du total actuel et on « déroule » le flux net de chaque mois : `fin_de_mois(M-1) = fin_de_mois(M) − flux(M)`. Les virements s'annulent sur leurs deux volets et ne faussent pas le total.
+**Reconstruction de la valeur nette :** `get_net_worth_history(user_id, months=12)` renvoie les totaux de fin de mois sans table d'historique des soldes. Comme les soldes reflètent déjà toutes les transactions, on part du total actuel et on « déroule » le flux net de chaque mois : `fin_de_mois(M-1) = fin_de_mois(M) − flux(M)`. Tout est en devise principale (les flux convertissent au taux en cache courant). Les virements en même devise s'annulent sur leurs deux volets ; les volets inter-devises s'annulent à la dérive près entre le taux du virement et celui du jour.
 
 ---
 
@@ -389,13 +394,14 @@ Requêtes paramétrées partout ; clés étrangères activées. Tables : `users`
 | **RecurringService** | `process_due(user_id)` publie chaque règle dont `next_due_date ≤ aujourd'hui`, en avançant la date avec `dateutil.relativedelta` ; une boucle `while` rattrape les périodes manquées. Gère les virements (`to_account_id`), ignore les règles en pause (`is_active = 0`) et cesse de publier dès qu'une occurrence dépasse la `end_date` optionnelle (les deux étant aussi respectées par `forecast()`). |
 | **ImportExportService** | Import CSV/Excel (colonnes : `date, amount, description, category, account` ; lignes invalides ignorées, renvoie les compteurs) et export CSV / Excel multi-feuilles. |
 | **market_service** | Module de fonctions (pas une classe) : cours sans clé depuis CoinGecko (crypto) et Stooq/Yahoo (actions), conversion `get_fx_rate()` vers la devise de l'utilisateur, et `fetch_quotes()` qui regroupe les requêtes d'actions en un seul appel. |
+| **FxService** | Tient à jour le cache `fx_rates` pour les comptes multi-devises : `required_pairs()` dérive les paires (devise du compte → principale), `needs_refresh()` vérifie l'ancienneté (>24 h), `refresh()` récupère via `market_service.get_fx_rate` et stocke les deux sens. Un échec de récupération conserve la valeur en cache (sûr hors ligne). Exporte aussi `CURRENCIES`, la liste du sélecteur. |
 | **update_service** | `check_for_update()` interroge l'API « latest release » de GitHub, compare le tag à `version.__version__` via `is_newer()` et récupère le lien de l'installateur. Sur la version installée (`can_auto_update()`), Paramètres ▸ À propos propose la mise à jour en un clic : `download_file()` télécharge `BudgetManagerSetup.exe`, puis `launch_installer()` le lance en mode silencieux et l'application se ferme pour qu'Inno mette à jour sur place et relance. Les versions source/portable restent informatives seulement. |
 
 ---
 
 ## 7. Couche de vues
 
-Toutes les vues héritent de `QWidget`, prennent `db` et `user` dans `__init__`, exposent `refresh()`, et n'importent jamais d'autres modules de vue. L'inventaire des 10 vues correspond à la section anglaise [§7](#7-views-layer) : Login, MainWindow (barre latérale `NAV_ITEMS` + `QStackedWidget`, raccourcis `Ctrl+1…0`, minuterie de sauvegarde), Dashboard (cartes + camembert, barres, **courbe de valeur nette**), Transactions (CRUD + virements + filtres), Budgets, Goals, Accounts, Reports, Recurring, Savings, Markets, Settings (Apparence, Catégories, Sauvegarde, Import, À propos).
+Toutes les vues héritent de `QWidget`, prennent `db` et `user` dans `__init__`, exposent `refresh()`, et n'importent jamais d'autres modules de vue. L'inventaire des 10 vues correspond à la section anglaise [§7](#7-views-layer) : Login, MainWindow (barre latérale `NAV_ITEMS` + `QStackedWidget`, raccourcis `Ctrl+1…0`, minuterie de sauvegarde), Dashboard (cartes + camembert, barres, **courbe de valeur nette**), Transactions (CRUD + virements + filtres), Budgets, Goals, Accounts, Reports, Recurring, Savings, Markets, Settings (Apparence, Devise — devise principale + taux FX en cache + actualisation manuelle —, Catégories, Sauvegarde, Import, À propos). `fx_refresh.FxRefreshWorker` (QRunnable) exécute `FxService.refresh()` hors du fil UI, pour l'onglet Devise et l'actualisation silencieuse au démarrage.
 
 **Widgets réutilisables (`views/widgets.py`) :** `SummaryCard`, `GoalProgressCard`, `BudgetBar` (vert <70 %, jaune <90 %, rouge ≥90 %).
 

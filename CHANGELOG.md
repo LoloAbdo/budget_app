@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-07-02
+
+### Added
+- **Multi-currency accounts.** Every account now has its own currency, chosen
+  when the account is created (and editable later — editing relabels; amounts
+  are never silently converted). Balances and transactions display in the
+  account's currency throughout the app.
+- **Home-currency conversion everywhere.** The dashboard totals, net-worth
+  trend, monthly income/expense charts, reports, budget spending, savings
+  summaries and the cash-flow forecast all convert foreign-currency amounts
+  into your home currency, so app-wide numbers stay meaningful. Mixed-currency
+  totals are marked with ≈.
+- **Exchange-rate cache with offline fallback.** Rates come from the same
+  keyless providers as the Markets panel (Stooq, Yahoo fallback) and are
+  cached in a new `fx_rates` table — both directions. The app refreshes stale
+  rates (>24 h) quietly in the background on launch and keeps working offline
+  with the last known rate (or 1:1 if a rate was never fetched). A new
+  **Settings ▸ Currency** tab shows the cached rates and offers a manual
+  refresh.
+- **Cross-currency transfers.** Transferring between accounts in different
+  currencies asks for the **Received Amount**, pre-estimated from the cached
+  rate and editable to match what the bank actually credited. Both legs keep
+  their own currency; deleting the transfer reverses both correctly. Recurring
+  transfers across currencies convert automatically at the cached rate on
+  posting day.
+- Transaction exports (CSV/Excel) gain a `currency` column; the PDF report
+  labels each transaction with its account currency.
+
+### Changed
+- **Why 2.0.0:** the database schema changes meaningfully (per-account
+  `currency` column — migration v1.0.9 — plus the new `fx_rates` table), and
+  every aggregate number in the app is now defined in terms of the home
+  currency. Existing databases upgrade automatically and losslessly: accounts
+  inherit their owner's home currency, so all numbers look exactly the same
+  until you opt into a foreign-currency account.
+
 ## [1.11.0] - 2026-07-01
 
 ### Added

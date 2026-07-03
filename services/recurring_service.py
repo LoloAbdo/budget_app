@@ -60,15 +60,24 @@ class RecurringService:
 
             to_account_id: Optional[int] = rec.get("to_account_id")
             if to_account_id:
-                # Recurring transfer — move money between both accounts (two legs)
+                # Recurring transfer — move money between both accounts (two legs).
+                # Across currencies, the received amount converts at the cached
+                # rate on posting day (1:1 if no rate is known yet).
+                amount = abs(rec["amount"])
+                from_cur = rec.get("account_currency")
+                to_cur = rec.get("to_account_currency")
+                to_amount = None
+                if from_cur and to_cur and from_cur != to_cur:
+                    to_amount = self._db.convert_amount(amount, from_cur, to_cur)
                 try:
                     self._db.create_transfer(
                         from_account_id=account_id,
                         to_account_id=to_account_id,
-                        amount=abs(rec["amount"]),
+                        amount=amount,
                         date=str(today),
                         description=rec["name"],
                         notes="Auto-generated from recurring",
+                        to_amount=to_amount,
                     )
                 except ValueError:
                     # Same source/dest or non-positive amount — skip without advancing
@@ -108,6 +117,10 @@ class RecurringService:
         *months* ahead. Transfers move money between the user's own accounts, so
         they leave net worth unchanged and are skipped.
 
+        All amounts are in the user's home currency: the starting balance comes
+        from get_total_balance (converted), and each recurring amount converts
+        from its account's currency at the current cached rate.
+
         Returns a dict with:
             start_balance — combined balance today
             end_balance   — projected balance at the horizon
@@ -116,7 +129,8 @@ class RecurringService:
         """
         today = date.today()
         horizon = today + relativedelta(months=months)
-        start_balance = sum(a["current_balance"] for a in self._db.get_accounts(user_id))
+        home = self._db.get_home_currency(user_id)
+        start_balance = self._db.get_total_balance(user_id)
 
         occurrences: list[tuple[date, str, float]] = []
         for rec in self._db.get_recurring(user_id):
@@ -124,6 +138,10 @@ class RecurringService:
                 continue  # paused rules are excluded from the projection
             if rec.get("to_account_id"):
                 continue  # transfers don't change net worth
+            amount = rec["amount"]
+            rec_cur = rec.get("account_currency")
+            if rec_cur and rec_cur != home:
+                amount = self._db.convert_amount(amount, rec_cur, home)
             end = rec.get("end_date")
             end_dt = date.fromisoformat(end) if end else None
             due = date.fromisoformat(rec["next_due_date"])
@@ -131,7 +149,7 @@ class RecurringService:
                 if end_dt and due > end_dt:
                     break  # schedule has ended — no further occurrences
                 if due >= today:
-                    occurrences.append((due, rec["name"], rec["amount"]))
+                    occurrences.append((due, rec["name"], amount))
                 due = _next_date(due, rec["frequency"])
 
         occurrences.sort(key=lambda o: o[0])

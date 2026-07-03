@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QFrame, QTabWidget, QListWidget, QListWidgetItem, QProgressBar,
     QApplication,
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QThreadPool
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot, QThreadPool
 from PyQt6.QtGui import QColor, QFont
 
 from database import DatabaseManager
@@ -153,6 +153,7 @@ class SettingsView(QWidget):
         layout.addWidget(tabs)
 
         tabs.addTab(self._build_appearance_tab(), tr("Appearance"))
+        tabs.addTab(self._build_currency_tab(),   tr("Currency"))
         tabs.addTab(self._build_security_tab(),   tr("Security"))
         tabs.addTab(self._build_categories_tab(), tr("Categories"))
         tabs.addTab(self._build_backup_tab(),     tr("Backup & Restore"))
@@ -216,6 +217,88 @@ class SettingsView(QWidget):
         code = self._lang_combo.currentData()
         if code != get_language():
             self.language_changed.emit(code)
+
+    # ── Currency ───────────────────────────────────────────────────────────────
+
+    def _build_currency_tab(self) -> QWidget:
+        w = QWidget()
+        layout = QVBoxLayout(w)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
+
+        home = self._db.get_home_currency(self._user["id"])
+        home_lbl = QLabel(tr("Home currency: {cur}").format(cur=home))
+        home_lbl.setObjectName("subheading")
+        layout.addWidget(home_lbl)
+
+        hint = QLabel(tr(
+            "Each account holds money in its own currency; dashboards, reports "
+            "and budgets convert everything into your home currency using the "
+            "rates below. Rates come from free public sources and are cached, "
+            "so the app keeps working offline with the last known rate."
+        ))
+        hint.setObjectName("muted")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        self._fx_table = QTableWidget()
+        self._fx_table.setColumnCount(3)
+        self._fx_table.setHorizontalHeaderLabels([tr("Pair"), tr("Rate"), tr("Updated")])
+        self._fx_table.setAlternatingRowColors(True)
+        self._fx_table.verticalHeader().setVisible(False)
+        self._fx_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        hdr = self._fx_table.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        layout.addWidget(self._fx_table)
+
+        btn_row = QHBoxLayout()
+        self._fx_refresh_btn = QPushButton(tr("⟳ Refresh Rates"))
+        self._fx_refresh_btn.setMaximumWidth(180)
+        self._fx_refresh_btn.clicked.connect(self._refresh_fx_rates)
+        btn_row.addWidget(self._fx_refresh_btn)
+        self._fx_status = QLabel("")
+        self._fx_status.setObjectName("muted")
+        btn_row.addWidget(self._fx_status)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+        self._reload_fx_table()
+        return w
+
+    def _reload_fx_table(self) -> None:
+        rates = self._db.get_fx_rates()
+        self._fx_table.setRowCount(len(rates))
+        for r, row in enumerate(rates):
+            self._fx_table.setItem(r, 0, QTableWidgetItem(f"1 {row['base']} → {row['quote']}"))
+            rate_item = QTableWidgetItem(f"{row['rate']:,.4f}")
+            rate_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self._fx_table.setItem(r, 1, rate_item)
+            self._fx_table.setItem(r, 2, QTableWidgetItem(row["updated"] or ""))
+        if not rates:
+            self._fx_status.setText(tr("No rates cached yet — add an account in another currency, then refresh."))
+
+    def _refresh_fx_rates(self) -> None:
+        from views.fx_refresh import FxRefreshWorker
+        self._fx_refresh_btn.setEnabled(False)
+        self._fx_status.setText(tr("Fetching latest rates…"))
+        worker = FxRefreshWorker(self._db, self._user["id"])
+        worker.signals.done.connect(self._on_fx_refreshed)
+        QThreadPool.globalInstance().start(worker)
+
+    @pyqtSlot(dict)
+    def _on_fx_refreshed(self, results: dict) -> None:
+        self._fx_refresh_btn.setEnabled(True)
+        self._reload_fx_table()
+        if not results:
+            self._fx_status.setText(tr("All accounts use your home currency — nothing to fetch."))
+        elif all(v is None for v in results.values()):
+            self._fx_status.setText(tr("Could not fetch rates (offline?). Using last cached values."))
+        else:
+            ok = sum(1 for v in results.values() if v)
+            self._fx_status.setText(tr("Updated {n} rate(s).").format(n=ok))
+            self.data_changed.emit()   # totals may shift — refresh the panels
 
     # ── Security ───────────────────────────────────────────────────────────────
 

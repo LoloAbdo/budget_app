@@ -123,7 +123,8 @@ class LoginView(QDialog):
 
         layout.addWidget(QLabel(tr("Currency")))
         self._reg_currency = QComboBox()
-        self._reg_currency.addItems(["CAD", "USD", "EUR", "GBP", "AUD", "JPY"])
+        from services.fx_service import CURRENCIES
+        self._reg_currency.addItems(CURRENCIES)
         layout.addWidget(self._reg_currency)
 
         btn = QPushButton(tr("Create Account"))

@@ -504,6 +504,36 @@ _FR: dict[str, str] = {
     "Import Errors": "Erreurs d'importation",
     "Imported {n} transactions.": "{n} transactions importées.",
     " {n} errors.": " {n} erreurs.",
+
+    # ── Multi-currency ────────────────────────────────────────────────────
+    "The balance and existing transactions are relabeled to {cur} — amounts are not converted.":
+        "Le solde et les transactions existantes sont ré-étiquetés en {cur} — les montants ne sont pas convertis.",
+    "Received Amount": "Montant reçu",
+    "Estimated at 1 {base} = {rate} {quote} — adjust to what you actually received.":
+        "Estimé à 1 {base} = {rate} {quote} — ajustez selon le montant réellement reçu.",
+    "No exchange rate cached yet — enter the amount received.":
+        "Aucun taux de change en cache — saisissez le montant reçu.",
+    "Home currency: {cur}": "Devise principale : {cur}",
+    "Each account holds money in its own currency; dashboards, reports "
+    "and budgets convert everything into your home currency using the "
+    "rates below. Rates come from free public sources and are cached, "
+    "so the app keeps working offline with the last known rate.":
+        "Chaque compte détient son argent dans sa propre devise ; le tableau de "
+        "bord, les rapports et les budgets convertissent tout dans votre devise "
+        "principale à l'aide des taux ci-dessous. Les taux proviennent de "
+        "sources publiques gratuites et sont mis en cache, l'application "
+        "fonctionne donc hors ligne avec le dernier taux connu.",
+    "Pair": "Paire",
+    "Rate": "Taux",
+    "⟳ Refresh Rates": "⟳ Actualiser les taux",
+    "No rates cached yet — add an account in another currency, then refresh.":
+        "Aucun taux en cache — ajoutez un compte dans une autre devise, puis actualisez.",
+    "Fetching latest rates…": "Récupération des derniers taux…",
+    "All accounts use your home currency — nothing to fetch.":
+        "Tous les comptes utilisent votre devise principale — rien à récupérer.",
+    "Could not fetch rates (offline?). Using last cached values.":
+        "Impossible de récupérer les taux (hors ligne ?). Dernières valeurs en cache utilisées.",
+    "Updated {n} rate(s).": "{n} taux mis à jour.",
 }
 
 

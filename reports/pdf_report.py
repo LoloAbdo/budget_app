@@ -162,7 +162,7 @@ class PDFReportGenerator:
                     txn["date"],
                     txn["description"][:35],
                     txn.get("category_name", "—"),
-                    f"{currency} {txn['amount']:,.2f}",
+                    f"{txn.get('account_currency') or currency} {txn['amount']:,.2f}",
                 ])
             tt = Table(txn_data, colWidths=[1.1*inch, 2.8*inch, 1.5*inch, 1.2*inch])
             tt.setStyle(TableStyle([

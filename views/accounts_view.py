@@ -16,6 +16,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QColor
 
 from database import DatabaseManager
+from services.fx_service import CURRENCIES
 from views.i18n import tr
 from views.sortable import SortableItem, enable_sorting
 from views.widgets import add_table_shortcuts, make_empty_state
@@ -39,6 +40,7 @@ class AccountDialog(QDialog):
         if account:
             self._populate(account)
         self._update_interest_ui()
+        self._update_currency_ui()
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -58,6 +60,23 @@ class AccountDialog(QDialog):
         for t in ACCOUNT_TYPES:
             self._type_combo.addItem(tr(t), t)
         form.addRow(tr("Account Type"), self._type_combo)
+
+        # Account currency — defaults to the user's home currency. Amounts in
+        # this account are kept in this currency; app-wide totals convert.
+        self._currency_combo = QComboBox()
+        currencies = list(CURRENCIES)
+        if self._currency and self._currency not in currencies:
+            currencies.insert(0, self._currency)
+        self._currency_combo.addItems(currencies)
+        if self._currency in currencies:
+            self._currency_combo.setCurrentText(self._currency)
+        self._currency_combo.currentTextChanged.connect(self._update_currency_ui)
+        form.addRow(tr("Currency"), self._currency_combo)
+
+        self._currency_hint = QLabel("")
+        self._currency_hint.setObjectName("muted")
+        self._currency_hint.setWordWrap(True)
+        form.addRow("", self._currency_hint)
 
         self._balance_spin = QDoubleSpinBox()
         self._balance_spin.setRange(-1_000_000, 1_000_000)
@@ -103,6 +122,17 @@ class AccountDialog(QDialog):
         n = len(text)
         self._char_lbl.setText(f"{n} / {ACCOUNT_NAME_MAX}")
 
+    def _update_currency_ui(self, *_args) -> None:
+        """Prefix the balance with the chosen currency; warn on relabels."""
+        cur = self._currency_combo.currentText()
+        self._balance_spin.setPrefix(f"{cur} ")
+        if self._account and cur != (self._account.get("currency") or self._currency):
+            self._currency_hint.setText(
+                tr("The balance and existing transactions are relabeled to {cur} — amounts are not converted.").format(cur=cur)
+            )
+        else:
+            self._currency_hint.setText("")
+
     def _interest_applicable(self) -> bool:
         """Interest auto-detect applies only when editing a Savings account."""
         return self._account is not None and self._type_combo.currentData() == "Savings"
@@ -116,7 +146,7 @@ class AccountDialog(QDialog):
             return
 
         delta = self._balance_spin.value() - self._orig_balance
-        cur = (self._currency + " ") if self._currency else ""
+        cur = self._currency_combo.currentText() + " "
         if abs(delta) < 0.005 or not self._interest_chk.isChecked():
             self._interest_hint.setText("")
         else:
@@ -132,6 +162,11 @@ class AccountDialog(QDialog):
         idx = ACCOUNT_TYPES.index(a["account_type"]) if a["account_type"] in ACCOUNT_TYPES else 0
         self._type_combo.setCurrentIndex(idx)
         self._balance_spin.setValue(a["current_balance"])
+        acct_cur = a.get("currency")
+        if acct_cur:
+            if self._currency_combo.findText(acct_cur) < 0:
+                self._currency_combo.insertItem(0, acct_cur)
+            self._currency_combo.setCurrentText(acct_cur)
 
     def _save(self) -> None:
         name = self._name_edit.text().strip()
@@ -140,6 +175,7 @@ class AccountDialog(QDialog):
             return
         acct_type = self._type_combo.currentData()
         balance   = self._balance_spin.value()
+        currency  = self._currency_combo.currentText()
         delta     = balance - self._orig_balance
         record_interest = (
             self._interest_applicable()
@@ -148,15 +184,15 @@ class AccountDialog(QDialog):
         )
         try:
             if not self._account:
-                self._db.create_account(self._user_id, name, acct_type, balance)
+                self._db.create_account(self._user_id, name, acct_type, balance, currency)
             elif record_interest:
                 # Keep the original balance, then post the difference as a signed
                 # interest/gain entry — which moves the balance to the new value.
-                self._db.update_account(self._account["id"], name, acct_type, self._orig_balance)
+                self._db.update_account(self._account["id"], name, acct_type, self._orig_balance, currency)
                 self._db.record_interest(self._account["id"], delta, date.today().isoformat())
             else:
                 # Plain edit / correction: set the balance directly.
-                self._db.update_account(self._account["id"], name, acct_type, balance)
+                self._db.update_account(self._account["id"], name, acct_type, balance, currency)
         except Exception as exc:
             QMessageBox.critical(
                 self, tr("Database Error"),
@@ -170,7 +206,7 @@ class AccountsView(QWidget):
     accounts_changed = pyqtSignal()
 
     # English keys; localized at build time via tr()
-    COLS = ["Name", "Type", "Balance"]
+    COLS = ["Name", "Type", "Currency", "Balance"]
 
     def __init__(self, db: DatabaseManager, user: dict, parent=None):
         super().__init__(parent)
@@ -240,7 +276,8 @@ class AccountsView(QWidget):
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)   # Name always fills spare space
         hdr.setMinimumSectionSize(60)
         self._table.setColumnWidth(1, 130)   # Type  — initial width; user can resize
-        self._table.setColumnWidth(2, 150)   # Balance
+        self._table.setColumnWidth(2, 90)    # Currency
+        self._table.setColumnWidth(3, 150)   # Balance
 
         self._table.doubleClicked.connect(self._edit_selected)
         enable_sorting(self._table, 0, Qt.SortOrder.AscendingOrder)
@@ -275,20 +312,29 @@ class AccountsView(QWidget):
         self._table.setSortingEnabled(False)
         self._table.setRowCount(len(accounts))
 
-        # Total reflects the visible rows; label notes when a filter is active
+        # Total reflects the visible rows; label notes when a filter is active.
+        # Foreign-currency balances convert at the cached rate; the ≈ marks the
+        # total as an estimate whenever more than one currency is involved.
         filtered = len(accounts) != len(all_accounts)
-        total = sum(a["current_balance"] for a in accounts)
-        label_key = "Total (filtered): {total}" if filtered else "Total across all accounts: {total}"
-        self._total_lbl.setText(
-            tr(label_key).format(total=f"{self._currency} {total:,.2f}")
+        total = sum(
+            self._db.convert_amount(
+                a["current_balance"], a.get("currency") or self._currency, self._currency
+            )
+            for a in accounts
         )
+        mixed = len({a.get("currency") or self._currency for a in accounts}) > 1
+        total_str = f"{'≈ ' if mixed else ''}{self._currency} {total:,.2f}"
+        label_key = "Total (filtered): {total}" if filtered else "Total across all accounts: {total}"
+        self._total_lbl.setText(tr(label_key).format(total=total_str))
 
         for r, a in enumerate(accounts):
             bal_color = "#10B981" if a["current_balance"] >= 0 else "#EF4444"
+            acct_cur = a.get("currency") or self._currency
             items = [
                 (a["account_name"], None, None),
                 (tr(a["account_type"]), None, None),
-                (f"{self._currency} {a['current_balance']:,.2f}", bal_color, a["current_balance"]),
+                (acct_cur, None, None),
+                (f"{acct_cur} {a['current_balance']:,.2f}", bal_color, a["current_balance"]),
             ]
             for c, (text, color, sort_key) in enumerate(items):
                 item = SortableItem(text, sort_key)
@@ -303,7 +349,8 @@ class AccountsView(QWidget):
 
         # Resize only the non-stretch columns to fit their content
         self._table.resizeColumnToContents(1)   # Type
-        self._table.resizeColumnToContents(2)   # Balance
+        self._table.resizeColumnToContents(2)   # Currency
+        self._table.resizeColumnToContents(3)   # Balance
 
         # Empty state: no accounts at all vs. filters hiding them all.
         self._empty_lbl.setText(

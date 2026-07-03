@@ -17,7 +17,7 @@ from database import DatabaseManager
 class ImportExportService:
     """Reads/writes transaction data in CSV and Excel formats."""
 
-    TRANSACTION_HEADERS = ["date", "description", "amount", "category", "account", "notes"]
+    TRANSACTION_HEADERS = ["date", "description", "amount", "currency", "category", "account", "notes"]
     AUDIT_HEADERS = ["timestamp", "action", "entity", "entity_id", "user_id", "details"]
 
     def __init__(self, db: DatabaseManager) -> None:
@@ -36,6 +36,7 @@ class ImportExportService:
                     "date": r["date"],
                     "description": r["description"],
                     "amount": r["amount"],
+                    "currency": r.get("account_currency", ""),
                     "category": r.get("category_name", ""),
                     "account": r.get("account_name", ""),
                     "notes": r.get("notes", ""),
@@ -49,6 +50,7 @@ class ImportExportService:
             "Date": r["date"],
             "Description": r["description"],
             "Amount": r["amount"],
+            "Currency": r.get("account_currency", ""),
             "Category": r.get("category_name", ""),
             "Account": r.get("account_name", ""),
             "Notes": r.get("notes", ""),

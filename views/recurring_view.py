@@ -431,7 +431,7 @@ class RecurringView(QWidget):
 
             items = [
                 rec["name"],
-                f"{self._currency} {abs(rec['amount']):,.2f}",
+                f"{rec.get('account_currency') or self._currency} {abs(rec['amount']):,.2f}",
                 tr(rec["frequency"]),
                 due,
                 rec_type,

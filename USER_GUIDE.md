@@ -130,8 +130,15 @@ Accounts represent where you store or owe money — checking, savings, credit ca
 
 ### Adding an account
 1. Go to **Accounts** → **+ Add Account**.
-2. Enter the **name**, **type** (Checking, Savings, Credit Card, Cash), and **current balance** (use a negative number for credit-card debt).
+2. Enter the **name**, **type** (Checking, Savings, Credit Card, Cash), **currency**, and **current balance** (use a negative number for credit-card debt).
 3. Click **Save**.
+
+### Multiple currencies
+Each account holds money in its own currency (it defaults to your home currency — the one you picked at signup). A US-dollar savings account keeps its balance and transactions in USD, while the dashboard, reports, budgets and forecast convert everything into your home currency using cached exchange rates, so app-wide totals stay meaningful. Totals that mix currencies are marked with **≈** because they depend on the current rate.
+
+Rates refresh automatically in the background (when older than a day) and can be refreshed manually in **Settings ▸ Currency**. Offline, the app keeps using the last known rate.
+
+> **Note:** changing an account's currency later only **relabels** it — amounts are not converted. Use it to fix a mistake, not to move money.
 
 ### Editing / deleting
 Double-click a row (or select it and click **Edit**) to change details. Deleting an account also deletes all of its transactions.
@@ -153,6 +160,8 @@ Every time money moves, you record it here.
 
 ### Transfers between accounts
 Use a transfer when you move money between your own accounts (e.g. checking → savings). A transfer creates two linked entries — money out of one account and into the other — and is excluded from income/expense totals so it doesn't distort your reports.
+
+If the two accounts use **different currencies**, a **Received Amount** field appears, pre-filled from the current exchange rate. Adjust it to match what your bank actually credited — each leg is stored in its own account's currency.
 
 ### Editing / deleting
 Editing corrects the account balance automatically; deleting reverses it.
@@ -260,11 +269,15 @@ Prices and daily change are converted to your currency. Stock requests are batch
 
 ## 12. Settings
 
-Settings has five tabs:
+Settings has these tabs:
 
 **Appearance**
 - **Theme** — switch between Dark and Light instantly.
 - **Language** — English or French. Pick a language and click **Apply Language**; the entire interface re-localizes.
+
+**Currency**
+- Shows your **home currency** and the cached exchange rates used to convert foreign-currency accounts in totals and charts.
+- **⟳ Refresh Rates** fetches the latest rates (they also refresh quietly in the background when older than a day). Offline, the last cached rate keeps being used.
 
 **Categories**
 - Add, edit, or delete income/expense categories (name + colour). The defaults cover most needs; deleting a category unlinks it from existing transactions.
@@ -464,8 +477,15 @@ Les comptes représentent où vous gardez ou devez de l'argent — chèque, épa
 
 ### Ajouter un compte
 1. **Comptes** → **+ Ajouter un compte**.
-2. Saisissez le **nom**, le **type** (Chèque, Épargne, Carte de crédit, Espèces) et le **solde actuel** (un nombre négatif pour une dette de carte de crédit).
+2. Saisissez le **nom**, le **type** (Chèque, Épargne, Carte de crédit, Espèces), la **devise** et le **solde actuel** (un nombre négatif pour une dette de carte de crédit).
 3. Cliquez sur **Enregistrer**.
+
+### Plusieurs devises
+Chaque compte détient son argent dans sa propre devise (par défaut, votre devise principale — celle choisie à l'inscription). Un compte d'épargne en dollars US garde son solde et ses transactions en USD, tandis que le tableau de bord, les rapports, les budgets et les prévisions convertissent tout dans votre devise principale à l'aide de taux de change en cache, pour que les totaux restent cohérents. Les totaux mélangeant plusieurs devises sont marqués **≈** car ils dépendent du taux courant.
+
+Les taux s'actualisent automatiquement en arrière-plan (au-delà d'un jour) et peuvent être actualisés manuellement dans **Paramètres ▸ Devise**. Hors ligne, l'application garde le dernier taux connu.
+
+> **Remarque :** changer la devise d'un compte plus tard ne fait que le **ré-étiqueter** — les montants ne sont pas convertis. Utilisez-le pour corriger une erreur, pas pour déplacer de l'argent.
 
 ### Modifier / supprimer
 Double-cliquez une ligne (ou sélectionnez-la puis **Modifier**) pour changer les détails. Supprimer un compte supprime aussi toutes ses transactions.
@@ -487,6 +507,8 @@ Chaque mouvement d'argent se note ici.
 
 ### Virements entre comptes
 Utilisez un virement lorsque vous déplacez de l'argent entre vos propres comptes (ex. chèque → épargne). Un virement crée deux entrées liées — une sortie d'un compte et une entrée dans l'autre — et est exclu des totaux de revenus/dépenses pour ne pas fausser vos rapports.
+
+Si les deux comptes utilisent des **devises différentes**, un champ **Montant reçu** apparaît, prérempli à partir du taux de change courant. Ajustez-le pour correspondre à ce que votre banque a réellement crédité — chaque jambe est enregistrée dans la devise de son compte.
 
 ### Modifier / supprimer
 La modification corrige automatiquement le solde ; la suppression l'annule.
@@ -594,11 +616,15 @@ Les cours et la variation quotidienne sont convertis dans votre devise. Les requ
 
 ## 12. Paramètres
 
-Les paramètres comportent cinq onglets :
+Les paramètres comportent ces onglets :
 
 **Apparence**
 - **Thème** — basculez instantanément entre sombre et clair.
 - **Langue** — anglais ou français. Choisissez une langue puis cliquez sur **Appliquer la langue** ; toute l'interface est traduite.
+
+**Devise**
+- Affiche votre **devise principale** et les taux de change en cache utilisés pour convertir les comptes en devises étrangères dans les totaux et graphiques.
+- **⟳ Actualiser les taux** récupère les derniers taux (ils s'actualisent aussi discrètement en arrière-plan au-delà d'un jour). Hors ligne, le dernier taux en cache reste utilisé.
 
 **Catégories**
 - Ajoutez, modifiez ou supprimez des catégories de revenus/dépenses (nom + couleur). Les valeurs par défaut couvrent l'essentiel ; supprimer une catégorie la dissocie des transactions existantes.

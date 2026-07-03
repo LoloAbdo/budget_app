@@ -96,9 +96,15 @@ class TransactionDialog(QDialog):
 
         self._account_combo = QComboBox()
         accounts = self._db.get_accounts(self._user_id)
+        self._account_currencies = {a["id"]: a.get("currency") or "" for a in accounts}
         for a in accounts:
-            self._account_combo.addItem(a["account_name"], a["id"])
+            cur = a.get("currency")
+            label = f"{a['account_name']}  ({cur})" if cur else a["account_name"]
+            self._account_combo.addItem(label, a["id"])
+        # The amount is entered in the selected account's currency.
+        self._account_combo.currentIndexChanged.connect(self._update_amount_prefix)
         form.addRow(tr("Account"), self._account_combo)
+        self._update_amount_prefix()
 
         self._category_combo = QComboBox()
         self._category_combo.addItem(tr("— None —"), None)
@@ -133,6 +139,11 @@ class TransactionDialog(QDialog):
         """Switch the Expense/Income toggle without triggering recursion."""
         self._expense_btn.setChecked(txn_type == "Expense")
         self._income_btn.setChecked(txn_type == "Income")
+
+    def _update_amount_prefix(self, *_args) -> None:
+        """Show the selected account's currency on the amount field."""
+        cur = self._account_currencies.get(self._account_combo.currentData())
+        self._amount_edit.setPrefix(f"{cur} " if cur else "$ ")
 
     def _on_category_changed(self, _index: int) -> None:
         """Auto-switch the type toggle to match the selected category."""
@@ -205,12 +216,15 @@ class TransactionDialog(QDialog):
 # ── Transfer dialog ────────────────────────────────────────────────────────────
 
 class TransferDialog(QDialog):
-    """Move money between two accounts."""
+    """Move money between two accounts, converting across currencies if needed."""
 
     def __init__(self, db: DatabaseManager, user_id: int, parent=None) -> None:
         super().__init__(parent)
         self._db = db
         self._user_id = user_id
+        # True while the received amount tracks the FX estimate; editing the
+        # field by hand pins it (e.g. to match the bank's actual conversion).
+        self._to_amount_auto = True
         self.setWindowTitle(tr("Transfer Between Accounts"))
         self.setMinimumWidth(400)
         self._build_ui()
@@ -224,29 +238,49 @@ class TransferDialog(QDialog):
         form.setSpacing(10)
 
         accounts = self._db.get_accounts(self._user_id)
+        self._currencies = {a["id"]: a.get("currency") or "" for a in accounts}
 
         self._from_combo = QComboBox()
         for a in accounts:
+            cur = a.get("currency") or ""
             self._from_combo.addItem(
-                f"{a['account_name']}  ({a['current_balance']:,.2f})", a["id"]
+                f"{a['account_name']}  ({cur} {a['current_balance']:,.2f})", a["id"]
             )
+        self._from_combo.currentIndexChanged.connect(self._update_currency_ui)
         form.addRow(tr("From Account"), self._from_combo)
 
         self._to_combo = QComboBox()
         for a in accounts:
+            cur = a.get("currency") or ""
             self._to_combo.addItem(
-                f"{a['account_name']}  ({a['current_balance']:,.2f})", a["id"]
+                f"{a['account_name']}  ({cur} {a['current_balance']:,.2f})", a["id"]
             )
         # Default destination to second account if available
         if self._to_combo.count() > 1:
             self._to_combo.setCurrentIndex(1)
+        self._to_combo.currentIndexChanged.connect(self._update_currency_ui)
         form.addRow(tr("To Account"), self._to_combo)
 
         self._amount_spin = QDoubleSpinBox()
         self._amount_spin.setRange(0.01, 1_000_000)
         self._amount_spin.setDecimals(2)
         self._amount_spin.setPrefix("$ ")
+        self._amount_spin.valueChanged.connect(self._sync_to_amount)
         form.addRow(tr("Amount"), self._amount_spin)
+
+        # Received amount — only shown for cross-currency transfers. Pre-filled
+        # from the cached FX rate, editable to match the real amount received.
+        self._to_amount_spin = QDoubleSpinBox()
+        self._to_amount_spin.setRange(0.01, 100_000_000)
+        self._to_amount_spin.setDecimals(2)
+        self._to_amount_spin.editingFinished.connect(self._pin_to_amount)
+        self._to_amount_row = QLabel(tr("Received Amount"))
+        form.addRow(self._to_amount_row, self._to_amount_spin)
+
+        self._rate_hint = QLabel("")
+        self._rate_hint.setObjectName("muted")
+        self._rate_hint.setWordWrap(True)
+        form.addRow("", self._rate_hint)
 
         self._date_edit = QDateEdit(QDate.currentDate())
         self._date_edit.setCalendarPopup(True)
@@ -274,6 +308,55 @@ class TransferDialog(QDialog):
         btn_row.addWidget(save_btn)
         layout.addLayout(btn_row)
 
+        self._update_currency_ui()
+
+    # ── Cross-currency helpers ────────────────────────────────────────────────
+
+    def _is_cross_currency(self) -> bool:
+        from_cur = self._currencies.get(self._from_combo.currentData())
+        to_cur   = self._currencies.get(self._to_combo.currentData())
+        return bool(from_cur and to_cur and from_cur != to_cur)
+
+    def _update_currency_ui(self, *_args) -> None:
+        """Show/hide the received-amount field as account currencies change."""
+        from_cur = self._currencies.get(self._from_combo.currentData()) or ""
+        to_cur   = self._currencies.get(self._to_combo.currentData()) or ""
+        cross = self._is_cross_currency()
+        self._amount_spin.setPrefix(f"{from_cur} " if from_cur else "$ ")
+        self._to_amount_spin.setPrefix(f"{to_cur} " if to_cur else "$ ")
+        self._to_amount_row.setVisible(cross)
+        self._to_amount_spin.setVisible(cross)
+        self._rate_hint.setVisible(cross)
+        if cross:
+            self._to_amount_auto = True   # re-estimate for the new pair
+            self._sync_to_amount()
+
+    def _sync_to_amount(self, *_args) -> None:
+        """Keep the received amount tracking the FX estimate until pinned."""
+        if not self._is_cross_currency() or not self._to_amount_auto:
+            return
+        from_cur = self._currencies[self._from_combo.currentData()]
+        to_cur   = self._currencies[self._to_combo.currentData()]
+        rate_row = self._db.get_cached_fx_rate(from_cur, to_cur)
+        estimate = self._db.convert_amount(self._amount_spin.value(), from_cur, to_cur)
+        self._to_amount_spin.blockSignals(True)
+        self._to_amount_spin.setValue(max(estimate, 0.01))
+        self._to_amount_spin.blockSignals(False)
+        if rate_row:
+            self._rate_hint.setText(
+                tr("Estimated at 1 {base} = {rate} {quote} — adjust to what you actually received.").format(
+                    base=from_cur, rate=f"{rate_row['rate']:,.4f}", quote=to_cur
+                )
+            )
+        else:
+            self._rate_hint.setText(
+                tr("No exchange rate cached yet — enter the amount received.")
+            )
+
+    def _pin_to_amount(self) -> None:
+        """User edited the received amount — stop auto-updating it."""
+        self._to_amount_auto = False
+
     def _save(self) -> None:
         from_id = self._from_combo.currentData()
         to_id   = self._to_combo.currentData()
@@ -287,8 +370,10 @@ class TransferDialog(QDialog):
         desc  = self._desc_edit.text().strip() or tr("Transfer")
         date  = self._date_edit.date().toString("yyyy-MM-dd")
         notes = self._notes_edit.text().strip()
+        to_amount = self._to_amount_spin.value() if self._is_cross_currency() else None
         try:
-            self._db.create_transfer(from_id, to_id, amount, date, desc, notes)
+            self._db.create_transfer(from_id, to_id, amount, date, desc, notes,
+                                     to_amount=to_amount)
         except Exception as exc:
             QMessageBox.critical(self, tr("Error"), tr("Could not create transfer:\n{err}").format(err=exc))
             return
@@ -469,7 +554,7 @@ class TransactionsView(QWidget):
                 txn["description"],
                 tr("[Transfer]") if is_transfer else (txn.get("category_name") or "—"),
                 txn.get("account_name") or "—",
-                f"{self._currency} {txn['amount']:,.2f}",
+                f"{txn.get('account_currency') or self._currency} {txn['amount']:,.2f}",
                 txn.get("notes") or "",
             ]
             for c_idx, text in enumerate(items):

@@ -113,18 +113,27 @@ class SavingsView(QWidget):
             self._body.addWidget(empty)
             return
 
-        total_balance = sum(s["current_balance"] for s in summary)
-        total_month   = sum(s["interest_month"] for s in summary)
-        total_year    = sum(s["interest_year"] for s in summary)
-        total_all     = sum(s["interest_total"] for s in summary)
+        # Totals are in home currency: per-account values convert at the cached
+        # FX rate. ≈ marks estimates when accounts span multiple currencies.
+        def _to_home(s: dict, key: str) -> float:
+            return self._db.convert_amount(
+                s[key], s.get("currency") or self._currency, self._currency
+            )
+
+        total_balance = sum(_to_home(s, "current_balance") for s in summary)
+        total_month   = sum(_to_home(s, "interest_month") for s in summary)
+        total_year    = sum(_to_home(s, "interest_year") for s in summary)
+        total_all     = sum(_to_home(s, "interest_total") for s in summary)
+        mixed = len({s.get("currency") or self._currency for s in summary}) > 1
+        mark = "≈ " if mixed else ""
 
         # ── Summary cards ────────────────────────────────────────────────────
         cards = QHBoxLayout()
         cards.setSpacing(14)
-        cards.addWidget(SummaryCard(tr("Total Savings"), self._money(total_balance), color="#6C63FF"))
-        cards.addWidget(SummaryCard(tr("Interest This Month"), self._money(total_month), color=self._sign_color(total_month)))
-        cards.addWidget(SummaryCard(tr("Interest This Year"), self._money(total_year), color=self._sign_color(total_year)))
-        cards.addWidget(SummaryCard(tr("Interest All-Time"), self._money(total_all), color=self._sign_color(total_all)))
+        cards.addWidget(SummaryCard(tr("Total Savings"), mark + self._money(total_balance), color="#6C63FF"))
+        cards.addWidget(SummaryCard(tr("Interest This Month"), mark + self._money(total_month), color=self._sign_color(total_month)))
+        cards.addWidget(SummaryCard(tr("Interest This Year"), mark + self._money(total_year), color=self._sign_color(total_year)))
+        cards.addWidget(SummaryCard(tr("Interest All-Time"), mark + self._money(total_all), color=self._sign_color(total_all)))
         self._body.addLayout(cards)
 
         # ── Per-account table ────────────────────────────────────────────────
@@ -155,12 +164,13 @@ class SavingsView(QWidget):
             hdr.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
 
         for r, s in enumerate(summary):
+            cur = s.get("currency") or self._currency
             values = [
                 (s["account_name"], None, None),
-                (self._money(s["current_balance"]), None, s["current_balance"]),
-                (self._money(s["interest_month"]), self._sign_color(s["interest_month"]), s["interest_month"]),
-                (self._money(s["interest_year"]),  self._sign_color(s["interest_year"]),  s["interest_year"]),
-                (self._money(s["interest_total"]), self._sign_color(s["interest_total"]), s["interest_total"]),
+                (self._money(s["current_balance"], cur), None, s["current_balance"]),
+                (self._money(s["interest_month"], cur), self._sign_color(s["interest_month"]), s["interest_month"]),
+                (self._money(s["interest_year"], cur),  self._sign_color(s["interest_year"]),  s["interest_year"]),
+                (self._money(s["interest_total"], cur), self._sign_color(s["interest_total"]), s["interest_total"]),
             ]
             for c, (text, color, sort_key) in enumerate(values):
                 item = SortableItem(text, sort_key)
@@ -230,7 +240,7 @@ class SavingsView(QWidget):
         for r, e in enumerate(entries):
             tbl.setItem(r, 0, SortableItem(e["date"]))
             tbl.setItem(r, 1, SortableItem(e["account_name"]))
-            amt = SortableItem(self._money(e["amount"]), e["amount"])
+            amt = SortableItem(self._money(e["amount"], e.get("currency")), e["amount"])
             amt.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             amt.setForeground(QColor(self._sign_color(e["amount"])))
             tbl.setItem(r, 2, amt)
@@ -241,8 +251,8 @@ class SavingsView(QWidget):
 
     # ── Helpers ─────────────────────────────────────────────────────────────────
 
-    def _money(self, value: float) -> str:
-        return f"{self._currency} {value:,.2f}"
+    def _money(self, value: float, currency: str | None = None) -> str:
+        return f"{currency or self._currency} {value:,.2f}"
 
     @staticmethod
     def _sign_color(value: float) -> str:

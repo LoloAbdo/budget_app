@@ -88,6 +88,9 @@ class MainWindow(QMainWindow):
         self._start_backup_timer()
         # Quiet, one-shot update check shortly after launch (non-blocking).
         QTimer.singleShot(2500, self._check_updates_quietly)
+        # Refresh FX rates in the background if any account uses a foreign
+        # currency and the cached rates are stale (>24h) or missing.
+        QTimer.singleShot(1500, self._refresh_fx_quietly)
 
     # ── Theme ─────────────────────────────────────────────────────────────────
 
@@ -276,6 +279,25 @@ class MainWindow(QMainWindow):
                 tr("Update available: {v} — see Settings ▸ About").format(v=info.latest),
                 10000,
             )
+
+    def _refresh_fx_quietly(self) -> None:
+        """Background FX refresh on launch — only when rates are actually needed."""
+        from services.fx_service import FxService
+        from views.fx_refresh import FxRefreshWorker
+        if not FxService(self._db).needs_refresh(self._user["id"]):
+            return
+        worker = FxRefreshWorker(self._db, self._user["id"])
+        worker.signals.done.connect(self._on_fx_refreshed)
+        QThreadPool.globalInstance().start(worker)
+
+    @pyqtSlot(dict)
+    def _on_fx_refreshed(self, results: dict) -> None:
+        # Converted totals may have moved — redraw the panels that show them.
+        if any(v for v in results.values()):
+            self._dashboard_view.refresh()
+            self._accounts_view.refresh()
+            self._forecast_view.refresh()
+            self._savings_view.refresh()
 
     def _start_backup_timer(self) -> None:
         """Auto-backup every 24 hours while the app is running."""

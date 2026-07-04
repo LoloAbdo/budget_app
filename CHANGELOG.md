@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-07-04
+
+### Added
+- **Password recovery codes.** Settings ▸ Security can now generate 8 one-time
+  recovery codes (shown once, with Copy / Save to file). A new **Forgot
+  password?** flow on the login screen accepts your e-mail, one unused code,
+  and a new password. Codes are stored as bcrypt hashes only, each works once,
+  regenerating replaces the old set, and the reset flow returns the same
+  generic error for a wrong e-mail or a wrong code so accounts can't be
+  probed. Fully offline — nothing is sent anywhere.
+
 ## [2.2.0] - 2026-07-04
 
 ### Added

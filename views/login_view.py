@@ -66,8 +66,9 @@ class LoginView(QDialog):
 
         self._stack.addWidget(self._build_login_page())   # index 0
         self._stack.addWidget(self._build_register_page()) # index 1
+        self._stack.addWidget(self._build_reset_page())    # index 2
 
-        # Toggle link
+        # Toggle link (login ↔ register; "back" from the reset page)
         self._toggle_btn = QPushButton(tr("Don't have an account? Register"))
         self._toggle_btn.setObjectName("secondary")
         self._toggle_btn.setAutoDefault(False)
@@ -97,6 +98,50 @@ class LoginView(QDialog):
         btn.clicked.connect(self._do_login)
         self._login_email.returnPressed.connect(self._do_login)
         self._login_pw.returnPressed.connect(self._do_login)
+        layout.addWidget(btn)
+
+        forgot = QPushButton(tr("Forgot password?"))
+        forgot.setObjectName("secondary")
+        forgot.setAutoDefault(False)
+        forgot.setCursor(Qt.CursorShape.PointingHandCursor)
+        forgot.clicked.connect(lambda: self._show_page(2))
+        layout.addWidget(forgot)
+
+        layout.addStretch()
+        return page
+
+    def _build_reset_page(self) -> QWidget:
+        """Reset a forgotten password with a one-time recovery code."""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setSpacing(10)
+
+        layout.addWidget(QLabel(tr("Email")))
+        self._reset_email = QLineEdit()
+        self._reset_email.setPlaceholderText("you@example.com")
+        layout.addWidget(self._reset_email)
+
+        layout.addWidget(QLabel(tr("Recovery code")))
+        self._reset_code = QLineEdit()
+        self._reset_code.setPlaceholderText("XXXX-XXXX-XXXX")
+        layout.addWidget(self._reset_code)
+
+        layout.addWidget(QLabel(tr("New Password")))
+        self._reset_pw = QLineEdit()
+        self._reset_pw.setEchoMode(QLineEdit.EchoMode.Password)
+        self._add_password_eye(self._reset_pw)
+        layout.addWidget(self._reset_pw)
+
+        layout.addWidget(QLabel(tr("Confirm New Password")))
+        self._reset_pw2 = QLineEdit()
+        self._reset_pw2.setEchoMode(QLineEdit.EchoMode.Password)
+        layout.addWidget(self._reset_pw2)
+
+        btn = QPushButton(tr("Reset Password"))
+        btn.setAutoDefault(False)
+        btn.clicked.connect(self._do_reset)
+        for field in (self._reset_email, self._reset_code, self._reset_pw, self._reset_pw2):
+            field.returnPressed.connect(self._do_reset)
         layout.addWidget(btn)
         layout.addStretch()
         return page
@@ -159,13 +204,18 @@ class LoginView(QDialog):
 
     # ── Slots ─────────────────────────────────────────────────────────────────
 
-    def _toggle_page(self) -> None:
-        if self._stack.currentIndex() == 0:
-            self._stack.setCurrentIndex(1)
+    def _show_page(self, index: int) -> None:
+        self._stack.setCurrentIndex(index)
+        if index == 0:
+            self._toggle_btn.setText(tr("Don't have an account? Register"))
+        elif index == 1:
             self._toggle_btn.setText(tr("Already have an account? Sign In"))
         else:
-            self._stack.setCurrentIndex(0)
-            self._toggle_btn.setText(tr("Don't have an account? Register"))
+            self._toggle_btn.setText(tr("Back to sign in"))
+
+    def _toggle_page(self) -> None:
+        # From login → register; from register or reset → back to login.
+        self._show_page(1 if self._stack.currentIndex() == 0 else 0)
 
     def _do_login(self) -> None:
         ok, user, msg = self._auth.login(
@@ -190,3 +240,27 @@ class LoginView(QDialog):
             self._toggle_page()
         else:
             QMessageBox.warning(self, tr("Registration Failed"), msg)
+
+    def _do_reset(self) -> None:
+        email = self._reset_email.text().strip()
+        code = self._reset_code.text()
+        new, confirm = self._reset_pw.text(), self._reset_pw2.text()
+
+        if not email or not code or not new or not confirm:
+            QMessageBox.warning(self, tr("Reset Password"), tr("All fields are required."))
+            return
+        if new != confirm:
+            QMessageBox.warning(self, tr("Reset Password"), tr("New passwords do not match."))
+            return
+
+        ok, msg = self._auth.reset_password_with_code(email, code, new)
+        if ok:
+            QMessageBox.information(
+                self, tr("Success"), tr(msg) + "\n" + tr("You can now sign in.")
+            )
+            for field in (self._reset_code, self._reset_pw, self._reset_pw2):
+                field.clear()
+            self._login_email.setText(email)
+            self._show_page(0)
+        else:
+            QMessageBox.warning(self, tr("Reset Password"), tr(msg))

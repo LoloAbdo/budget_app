@@ -127,7 +127,7 @@ app.exec()
 
 ## 5. Database Schema & Migrations
 
-Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, `categories`, `transactions`, `budgets`, `financial_goals`, `recurring_transactions`, `watchlist`, `fx_rates`.
+Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, `categories`, `transactions`, `budgets`, `financial_goals`, `recurring_transactions`, `watchlist`, `fx_rates`, `recovery_codes`.
 
 **Key columns & relationships:**
 - `users` — bcrypt `password`, `currency` (the **home currency**, default CAD), `language` (`'en'`/`'fr'`).
@@ -138,6 +138,7 @@ Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, 
 - `budgets` — `UNIQUE(user_id, category_id, month, year)`; set via UPSERT.
 - `recurring_transactions` — `frequency` ∈ {Weekly, Bi-weekly, Monthly, Quarterly, Yearly}; optional `to_account_id` for recurring transfers; optional `end_date` (NULL = no end) after which the rule stops posting; `is_active` (1/0) to pause a rule without deleting it.
 - `watchlist` — markets symbols with cached last price/change/currency; `UNIQUE(user_id, symbol, asset_type)`.
+- `recovery_codes` — one-time password-reset codes: `code_hash` (bcrypt of the normalized code — plaintext is never stored), `used_at` (NULL = still usable; kept after use so "codes remaining" and the reset history stay honest). Regenerating deletes the user's previous set.
 
 **Balance auto-update:** `create_transaction` → `balance += amount`; `update_transaction` → reverse old, apply new; `delete_transaction` → `balance −= amount`.
 
@@ -166,7 +167,7 @@ Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, 
 
 | Service | Highlights |
 |---|---|
-| **AuthService** | `register()` (validates name/email/password length, unique email), `login()`; bcrypt hashing with constant-time verify. |
+| **AuthService** | `register()` (validates name/email/password length, unique email), `login()`; bcrypt hashing with constant-time verify. Recovery codes: `generate_recovery_codes()` returns 8 one-time codes (`XXXX-XXXX-XXXX`, `secrets`-based, lookalike-free alphabet) and stores only bcrypt hashes; `reset_password_with_code()` burns the matched code and sets the new password, returning the **same generic error** for unknown e-mail, no codes, or wrong code (no account probing). Input is normalized (case/dashes/spaces ignored). |
 | **BackupService** | `create_backup(label)` writes `backups/budget_<timestamp>_<label>.db` and prunes to the 30 most recent; `list_backups()`, `restore_backup(path)`. |
 | **RecurringService** | `process_due(user_id)` posts every rule whose `next_due_date ≤ today`, advancing the date with `dateutil.relativedelta`; a `while` loop catches up multiple missed periods. Handles transfers (`to_account_id`), skips paused rules (`is_active = 0`), and stops posting once a rule's occurrence passes its optional `end_date` (both also honored by `forecast()`). |
 | **ImportExportService** | CSV/Excel import (column map: `date, amount, description, category, account`; invalid rows skipped, returns counts) and CSV/multi-sheet Excel export. |
@@ -230,6 +231,7 @@ Common `objectName` targets: `sidebar`, `navBtn` (`:checked` = active), `card`, 
 ## 10. Security
 
 - **Passwords:** bcrypt hashed; constant-time verify; never logged or stored in plaintext.
+- **Recovery codes:** one-time codes for forgotten-password resets; only bcrypt hashes stored, single-use (burned on success), generic error message regardless of failure cause so the flow can't probe which e-mails exist. Codes never appear in the audit log.
 - **SQL injection:** every statement uses `?` placeholders; no string interpolation of user input.
 - **Data isolation:** queries filter by `user_id` (directly or via `accounts.user_id`); a user only sees their own data.
 - **Backups:** written locally; `restore_backup` copies into place so a failure leaves the live DB intact.
@@ -375,7 +377,7 @@ Identique à la section anglaise [§4.5](#45-startup-sequence) : analyse des arg
 
 ## 5. Schéma de base de données et migrations
 
-Requêtes paramétrées partout ; clés étrangères activées. Tables : `users`, `accounts`, `categories`, `transactions`, `budgets`, `financial_goals`, `recurring_transactions`, `watchlist`.
+Requêtes paramétrées partout ; clés étrangères activées. Tables : `users`, `accounts`, `categories`, `transactions`, `budgets`, `financial_goals`, `recurring_transactions`, `watchlist`, `fx_rates`, `recovery_codes`.
 
 **Colonnes et relations clés :**
 - `users` — `password` bcrypt, `currency` (la **devise principale**, CAD par défaut), `language` (`'en'`/`'fr'`).
@@ -386,6 +388,7 @@ Requêtes paramétrées partout ; clés étrangères activées. Tables : `users`
 - `budgets` — `UNIQUE(user_id, category_id, month, year)` ; définis par UPSERT.
 - `recurring_transactions` — `frequency` ∈ {Weekly, Bi-weekly, Monthly, Quarterly, Yearly} ; `to_account_id` optionnel pour les virements récurrents ; `end_date` optionnel (NULL = sans fin) après lequel la règle cesse de publier ; `is_active` (1/0) pour mettre une règle en pause sans la supprimer.
 - `watchlist` — symboles de marchés avec dernier cours/variation/devise en cache ; `UNIQUE(user_id, symbol, asset_type)`.
+- `recovery_codes` — codes de réinitialisation à usage unique : `code_hash` (bcrypt du code normalisé — jamais de clair), `used_at` (NULL = encore utilisable ; conservé après usage pour que « codes restants » et l'historique restent fidèles). La régénération supprime l'ancien jeu de l'utilisateur.
 
 **Mise à jour automatique des soldes :** `create_transaction` → `solde += montant` ; `update_transaction` → annule l'ancien, applique le nouveau ; `delete_transaction` → `solde −= montant`.
 
@@ -401,7 +404,7 @@ Requêtes paramétrées partout ; clés étrangères activées. Tables : `users`
 
 | Service | Points clés |
 |---|---|
-| **AuthService** | `register()` (valide nom/courriel/longueur du mot de passe, courriel unique), `login()` ; hachage bcrypt avec vérification à temps constant. |
+| **AuthService** | `register()` (valide nom/courriel/longueur du mot de passe, courriel unique), `login()` ; hachage bcrypt avec vérification à temps constant. Codes de récupération : `generate_recovery_codes()` renvoie 8 codes à usage unique (`XXXX-XXXX-XXXX`, générés via `secrets`, alphabet sans caractères ambigus) et ne stocke que des hachages bcrypt ; `reset_password_with_code()` consomme le code correspondant et définit le nouveau mot de passe, avec le **même message d'erreur générique** pour courriel inconnu, absence de codes ou mauvais code (pas de sondage de comptes). La saisie est normalisée (casse/tirets/espaces ignorés). |
 | **BackupService** | `create_backup(label)` écrit `backups/budget_<horodatage>_<label>.db` et élague aux 30 plus récents ; `list_backups()`, `restore_backup(path)`. |
 | **RecurringService** | `process_due(user_id)` publie chaque règle dont `next_due_date ≤ aujourd'hui`, en avançant la date avec `dateutil.relativedelta` ; une boucle `while` rattrape les périodes manquées. Gère les virements (`to_account_id`), ignore les règles en pause (`is_active = 0`) et cesse de publier dès qu'une occurrence dépasse la `end_date` optionnelle (les deux étant aussi respectées par `forecast()`). |
 | **ImportExportService** | Import CSV/Excel (colonnes : `date, amount, description, category, account` ; lignes invalides ignorées, renvoie les compteurs) et export CSV / Excel multi-feuilles. |
@@ -440,6 +443,7 @@ Cibles `objectName` courantes : `sidebar`, `navBtn` (`:checked` = actif), `card`
 ## 10. Sécurité
 
 - **Mots de passe :** hachés avec bcrypt ; vérification à temps constant ; jamais journalisés ni stockés en clair.
+- **Codes de récupération :** codes à usage unique pour réinitialiser un mot de passe oublié ; seuls des hachages bcrypt sont stockés, usage unique (consommés en cas de succès), message d'erreur générique quelle que soit la cause de l'échec pour empêcher de sonder quels courriels existent. Les codes n'apparaissent jamais dans le journal d'activité.
 - **Injection SQL :** chaque instruction utilise des `?` ; aucune interpolation de chaîne d'entrée utilisateur.
 - **Isolation des données :** les requêtes filtrent par `user_id` (directement ou via `accounts.user_id`) ; un utilisateur ne voit que ses propres données.
 - **Sauvegardes :** écrites localement ; `restore_backup` copie en place pour qu'un échec laisse la base active intacte.

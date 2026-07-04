@@ -126,6 +126,11 @@ _FR: dict[str, str] = {
     "Login Failed": "Échec de la connexion",
     "Registration Failed": "Échec de l'inscription",
     "You can now sign in.": "Vous pouvez maintenant vous connecter.",
+    "Forgot password?": "Mot de passe oublié ?",
+    "Recovery code": "Code de récupération",
+    "Reset Password": "Réinitialiser le mot de passe",
+    "Back to sign in": "Retour à la connexion",
+    "Invalid e-mail or recovery code.": "Courriel ou code de récupération invalide.",
 
     # ── Dashboard ─────────────────────────────────────────────────────────
     "Good morning": "Bonjour",
@@ -444,6 +449,29 @@ _FR: dict[str, str] = {
     "New password must be different from the current one.":
         "Le nouveau mot de passe doit être différent de l'actuel.",
     "Password updated successfully.": "Mot de passe mis à jour avec succès.",
+    "Recovery Codes": "Codes de récupération",
+    "Recovery codes let you reset your password if you forget it. "
+    "Each code works once — store them somewhere safe.":
+        "Les codes de récupération vous permettent de réinitialiser votre mot de passe "
+        "si vous l'oubliez. Chaque code fonctionne une seule fois — conservez-les en lieu sûr.",
+    "You have {n} unused recovery code(s).":
+        "Vous avez {n} code(s) de récupération inutilisé(s).",
+    "No recovery codes yet — generate some and store them somewhere safe.":
+        "Aucun code de récupération pour l'instant — générez-en et conservez-les en lieu sûr.",
+    "Generate Recovery Codes": "Générer des codes de récupération",
+    "Generating new codes replaces your existing ones — old codes will stop working. Continue?":
+        "Générer de nouveaux codes remplace vos codes existants — "
+        "les anciens cesseront de fonctionner. Continuer ?",
+    "Your recovery codes": "Vos codes de récupération",
+    "Store these codes somewhere safe — they are shown only once. "
+    "Each code can be used once to reset your password.":
+        "Conservez ces codes en lieu sûr — ils ne sont affichés qu'une seule fois. "
+        "Chaque code peut être utilisé une fois pour réinitialiser votre mot de passe.",
+    "Copy": "Copier",
+    "Save to file…": "Enregistrer dans un fichier…",
+    "Copied to clipboard.": "Copié dans le presse-papiers.",
+    "Saved.": "Enregistré.",
+    "Close": "Fermer",
     "Account not found.": "Compte introuvable.",
     "About": "À propos",
     "Version {v}": "Version {v}",

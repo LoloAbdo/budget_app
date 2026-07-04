@@ -3,9 +3,19 @@ services/auth_service.py
 Handles password hashing (bcrypt) and user authentication.
 """
 
+import re
+import secrets
+
 import bcrypt
 from typing import Optional
 from database import DatabaseManager
+
+# Recovery-code format: 3 groups of 4, e.g. "K7PM-4Q2X-9RTF". The alphabet
+# drops lookalike characters (0/O, 1/I/L) so codes survive being hand-copied.
+RECOVERY_CODE_COUNT = 8
+_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+_CODE_GROUPS = 3
+_CODE_GROUP_LEN = 4
 
 
 class AuthService:
@@ -79,3 +89,67 @@ class AuthService:
 
         self._db.update_user_password(user_id, self.hash_password(new_password))
         return True, "Password updated successfully."
+
+    # ── Recovery codes ────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _new_recovery_code() -> str:
+        groups = (
+            "".join(secrets.choice(_CODE_ALPHABET) for _ in range(_CODE_GROUP_LEN))
+            for _ in range(_CODE_GROUPS)
+        )
+        return "-".join(groups)
+
+    @staticmethod
+    def _normalize_code(code: str) -> str:
+        """Canonical form used for hashing/checking: uppercase, alphanumerics only.
+
+        Users may type codes with or without dashes/spaces, in any case.
+        """
+        return re.sub(r"[^A-Z0-9]", "", (code or "").upper())
+
+    def generate_recovery_codes(self, user_id: int) -> list[str]:
+        """Create a fresh set of one-time recovery codes for *user_id*.
+
+        Replaces any existing codes (used or not). Returns the plaintext codes —
+        this is the only time they exist outside the caller's hands; the DB
+        stores bcrypt hashes of the normalized form.
+        """
+        codes = [self._new_recovery_code() for _ in range(RECOVERY_CODE_COUNT)]
+        hashes = [
+            bcrypt.hashpw(self._normalize_code(c).encode(), bcrypt.gensalt()).decode()
+            for c in codes
+        ]
+        self._db.replace_recovery_codes(user_id, hashes)
+        return codes
+
+    def recovery_codes_remaining(self, user_id: int) -> int:
+        return self._db.count_unused_recovery_codes(user_id)
+
+    def reset_password_with_code(
+        self, email: str, code: str, new_password: str
+    ) -> tuple[bool, str]:
+        """Reset a forgotten password using a one-time recovery code.
+
+        The failure message is deliberately identical for "unknown e-mail",
+        "no codes set up", and "wrong code" so the flow can't be used to probe
+        which e-mails have accounts.
+        """
+        if len(new_password) < 6:
+            return False, "New password must be at least 6 characters."
+
+        generic = "Invalid e-mail or recovery code."
+        user = self._db.get_user_by_email(email.strip())
+        if not user:
+            return False, generic
+
+        normalized = self._normalize_code(code)
+        if not normalized:
+            return False, generic
+
+        for row in self._db.get_unused_recovery_codes(user["id"]):
+            if bcrypt.checkpw(normalized.encode(), row["code_hash"].encode()):
+                self._db.mark_recovery_code_used(row["id"], user_id=user["id"])
+                self._db.update_user_password(user["id"], self.hash_password(new_password))
+                return True, "Password updated successfully."
+        return False, generic

@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog,
     QFormLayout, QLineEdit, QComboBox, QFileDialog, QMessageBox,
     QFrame, QTabWidget, QListWidget, QListWidgetItem, QProgressBar,
-    QApplication,
+    QApplication, QPlainTextEdit,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot, QThreadPool
 from PyQt6.QtGui import QColor, QFont
@@ -28,6 +28,70 @@ from views.i18n import tr, set_language, get_language, LANGUAGES
 from views.sortable import SortableItem, enable_sorting
 from views.update_check import UpdateCheckWorker, UpdateDownloadWorker
 from version import __version__
+
+
+# ── Recovery codes dialog ──────────────────────────────────────────────────────
+
+class RecoveryCodesDialog(QDialog):
+    """Shows freshly generated recovery codes — the only time they're visible."""
+
+    def __init__(self, codes: list[str], parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(tr("Your recovery codes"))
+        self.setMinimumWidth(380)
+        self._codes_text = "\n".join(codes)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+
+        warn = QLabel(tr(
+            "Store these codes somewhere safe — they are shown only once. "
+            "Each code can be used once to reset your password."
+        ))
+        warn.setWordWrap(True)
+        layout.addWidget(warn)
+
+        box = QPlainTextEdit(self._codes_text)
+        box.setReadOnly(True)
+        box.setMinimumHeight(170)
+        layout.addWidget(box)
+
+        btns = QHBoxLayout()
+        copy_btn = QPushButton(tr("Copy"))
+        copy_btn.clicked.connect(self._copy)
+        btns.addWidget(copy_btn)
+
+        save_btn = QPushButton(tr("Save to file…"))
+        save_btn.clicked.connect(self._save)
+        btns.addWidget(save_btn)
+
+        btns.addStretch()
+        close_btn = QPushButton(tr("Close"))
+        close_btn.clicked.connect(self.accept)
+        btns.addWidget(close_btn)
+        layout.addLayout(btns)
+
+        self._status = QLabel("")
+        self._status.setObjectName("muted")
+        layout.addWidget(self._status)
+
+    def _copy(self) -> None:
+        QApplication.clipboard().setText(self._codes_text)
+        self._status.setText(tr("Copied to clipboard."))
+
+    def _save(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self, tr("Save to file…"),
+            "budget-manager-recovery-codes.txt", "Text files (*.txt)",
+        )
+        if not path:
+            return
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(self._codes_text + "\n")
+            self._status.setText(tr("Saved."))
+        except OSError as exc:
+            QMessageBox.warning(self, tr("Recovery Codes"), str(exc))
 
 
 # ── Category dialog ────────────────────────────────────────────────────────────
@@ -406,8 +470,59 @@ class SettingsView(QWidget):
         self._pw_status.setWordWrap(True)
         layout.addWidget(self._pw_status)
 
+        divider = QFrame()
+        divider.setFrameShape(QFrame.Shape.HLine)
+        layout.addWidget(divider)
+
+        rc_title = QLabel(tr("Recovery Codes"))
+        rc_title.setObjectName("subheading")
+        layout.addWidget(rc_title)
+
+        rc_help = QLabel(tr(
+            "Recovery codes let you reset your password if you forget it. "
+            "Each code works once — store them somewhere safe."
+        ))
+        rc_help.setObjectName("muted")
+        rc_help.setWordWrap(True)
+        layout.addWidget(rc_help)
+
+        self._rc_status = QLabel("")
+        self._rc_status.setWordWrap(True)
+        layout.addWidget(self._rc_status)
+
+        rc_btn = QPushButton(tr("Generate Recovery Codes"))
+        rc_btn.setMaximumWidth(240)
+        rc_btn.clicked.connect(self._generate_recovery_codes)
+        layout.addWidget(rc_btn)
+
+        self._refresh_recovery_status()
+
         layout.addStretch()
         return w
+
+    def _refresh_recovery_status(self) -> None:
+        n = AuthService(self._db).recovery_codes_remaining(self._user["id"])
+        if n:
+            self._rc_status.setText(tr("You have {n} unused recovery code(s).").format(n=n))
+        else:
+            self._rc_status.setText(
+                tr("No recovery codes yet — generate some and store them somewhere safe.")
+            )
+
+    def _generate_recovery_codes(self) -> None:
+        auth = AuthService(self._db)
+        if auth.recovery_codes_remaining(self._user["id"]) > 0:
+            answer = QMessageBox.question(
+                self, tr("Recovery Codes"),
+                tr("Generating new codes replaces your existing ones — "
+                   "old codes will stop working. Continue?"),
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+
+        codes = auth.generate_recovery_codes(self._user["id"])
+        self._refresh_recovery_status()
+        RecoveryCodesDialog(codes, self).exec()
 
     def _change_password(self) -> None:
         current = self._current_pw.text()

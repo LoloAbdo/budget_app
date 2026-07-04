@@ -130,6 +130,18 @@ CREATE TABLE IF NOT EXISTS watchlist (
     UNIQUE(user_id, symbol, asset_type)
 );
 
+-- One-time password recovery codes (bcrypt hashes only — never plaintext).
+-- A used code keeps its row with used_at set, so "codes remaining" is honest
+-- and the audit trail of resets stays reconstructable.
+CREATE TABLE IF NOT EXISTS recovery_codes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code_hash   TEXT    NOT NULL,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+    used_at     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_recovery_user ON recovery_codes(user_id);
+
 -- Append-only audit trail. Every create/update/delete the app performs is
 -- recorded here for export. Intentionally NOT foreign-keyed to the rows it
 -- references, so the history survives even after the underlying row is deleted.
@@ -442,6 +454,43 @@ class DatabaseManager:
         self._execute("UPDATE users SET password=? WHERE id=?", (password_hash, user_id))
         # Never log the hash itself — only that a password change happened.
         self._log("UPDATE", "user", user_id, {"password": "changed"}, user_id=user_id)
+
+    # ── Recovery codes ────────────────────────────────────────────────────────
+
+    def replace_recovery_codes(self, user_id: int, code_hashes: list[str]) -> None:
+        """Replace the user's recovery codes with a fresh set (hashes only)."""
+        conn = self._conn()
+        now = datetime.now().isoformat(timespec="seconds")
+        conn.execute("DELETE FROM recovery_codes WHERE user_id=?", (user_id,))
+        conn.executemany(
+            "INSERT INTO recovery_codes (user_id, code_hash, created_at) VALUES (?,?,?)",
+            [(user_id, h, now) for h in code_hashes],
+        )
+        conn.commit()
+        # Like passwords, the hashes themselves are deliberately not logged.
+        self._log("UPDATE", "user", user_id,
+                  {"recovery_codes": f"regenerated ({len(code_hashes)})"}, user_id=user_id)
+
+    def get_unused_recovery_codes(self, user_id: int) -> list[dict]:
+        return self._fetchall(
+            "SELECT * FROM recovery_codes WHERE user_id=? AND used_at IS NULL",
+            (user_id,),
+        )
+
+    def count_unused_recovery_codes(self, user_id: int) -> int:
+        row = self._fetchone(
+            "SELECT COUNT(*) AS n FROM recovery_codes WHERE user_id=? AND used_at IS NULL",
+            (user_id,),
+        )
+        return int(row["n"]) if row else 0
+
+    def mark_recovery_code_used(self, code_id: int, user_id: Optional[int] = None) -> None:
+        self._execute(
+            "UPDATE recovery_codes SET used_at=? WHERE id=?",
+            (datetime.now().isoformat(timespec="seconds"), code_id),
+        )
+        self._log("UPDATE", "user", user_id,
+                  {"recovery_code": "used for password reset"}, user_id=user_id)
 
     # ── FX rates / currency conversion ───────────────────────────────────────
 

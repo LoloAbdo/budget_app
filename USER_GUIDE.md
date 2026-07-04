@@ -69,6 +69,8 @@ Then log in with:
 
 > Your password is encrypted with bcrypt and never stored in plain text.
 
+> **Tip:** right after your first sign-in, go to **Settings ▸ Security ▸ Generate Recovery Codes** and store the codes somewhere safe — they're the only way to reset a forgotten password.
+
 ---
 
 ## 2. Navigating the App
@@ -283,6 +285,10 @@ Settings has these tabs:
 - Shows your **home currency** and the cached exchange rates used to convert foreign-currency accounts in totals and charts.
 - **⟳ Refresh Rates** fetches the latest rates (they also refresh quietly in the background when older than a day). Offline, the last cached rate keeps being used.
 
+**Security**
+- **Change Password** — update your password after confirming the current one.
+- **Recovery Codes** — generate 8 one-time codes (e.g. `K7PM-4Q2X-9RTF`) that can each reset your password once if you forget it. They are shown **only once** — copy them or save them to a file and store them somewhere safe (not next to the computer!). Generating new codes invalidates the old set. Only scrambled fingerprints (bcrypt hashes) of the codes are stored, never the codes themselves.
+
 **Categories**
 - Add, edit, or delete income/expense categories (name + colour). The defaults cover most needs; deleting a category unlinks it from existing transactions.
 
@@ -347,7 +353,7 @@ Markets needs an internet connection and reaches public price sources. If a symb
 Edit the account and correct the balance. For a **Savings** account, untick the interest checkbox if the change isn't real interest. Reviewing an Excel/CSV export helps spot inconsistent entries.
 
 **I forgot my password.**
-There's no automated recovery. Back up `%APPDATA%\BudgetManager\data\budget.db`, then register a new account (or run `--reset` from source for a clean start).
+If you generated **recovery codes** (Settings ▸ Security), click **Forgot password?** on the login screen, then enter your email, one unused code, and a new password. Each code works once. If you never generated codes, there's no automated recovery: back up `%APPDATA%\BudgetManager\data\budget.db`, then register a new account (or run `--reset` from source for a clean start) — and generate recovery codes this time!
 
 **The app feels slow with lots of data.**
 Version 1.1.0+ added database indexes that keep the transaction list fast at personal-finance scale. If you still notice lag, filter the Transactions view to a narrower date range.
@@ -419,6 +425,8 @@ Puis connectez-vous avec :
 4. Cliquez sur **S'inscrire**, puis connectez-vous.
 
 > Votre mot de passe est chiffré avec bcrypt et n'est jamais stocké en clair.
+
+> **Conseil :** juste après votre première connexion, allez dans **Paramètres ▸ Sécurité ▸ Générer des codes de récupération** et conservez les codes en lieu sûr — c'est le seul moyen de réinitialiser un mot de passe oublié.
 
 ---
 
@@ -634,6 +642,10 @@ Les paramètres comportent ces onglets :
 - Affiche votre **devise principale** et les taux de change en cache utilisés pour convertir les comptes en devises étrangères dans les totaux et graphiques.
 - **⟳ Actualiser les taux** récupère les derniers taux (ils s'actualisent aussi discrètement en arrière-plan au-delà d'un jour). Hors ligne, le dernier taux en cache reste utilisé.
 
+**Sécurité**
+- **Changer le mot de passe** — mettez à jour votre mot de passe après avoir confirmé l'actuel.
+- **Codes de récupération** — générez 8 codes à usage unique (p. ex. `K7PM-4Q2X-9RTF`) pouvant chacun réinitialiser votre mot de passe une fois si vous l'oubliez. Ils ne sont affichés **qu'une seule fois** — copiez-les ou enregistrez-les dans un fichier et conservez-les en lieu sûr (pas à côté de l'ordinateur !). Générer de nouveaux codes invalide les anciens. Seules des empreintes brouillées (hachages bcrypt) des codes sont stockées, jamais les codes eux-mêmes.
+
 **Catégories**
 - Ajoutez, modifiez ou supprimez des catégories de revenus/dépenses (nom + couleur). Les valeurs par défaut couvrent l'essentiel ; supprimer une catégorie la dissocie des transactions existantes.
 
@@ -698,7 +710,7 @@ Marchés nécessite une connexion Internet et interroge des sources publiques. S
 Modifiez le compte et corrigez le solde. Pour un compte **Épargne**, décochez la case d'intérêt si le changement n'est pas un intérêt réel. Examiner un export Excel/CSV aide à repérer les entrées incohérentes.
 
 **J'ai oublié mon mot de passe.**
-Aucune récupération automatique n'existe. Sauvegardez `%APPDATA%\BudgetManager\data\budget.db`, puis créez un nouveau compte (ou exécutez `--reset` depuis le source pour repartir à neuf).
+Si vous avez généré des **codes de récupération** (Paramètres ▸ Sécurité), cliquez sur **Mot de passe oublié ?** sur l'écran de connexion, puis saisissez votre courriel, un code inutilisé et un nouveau mot de passe. Chaque code fonctionne une seule fois. Si vous n'avez jamais généré de codes, aucune récupération automatique n'existe : sauvegardez `%APPDATA%\BudgetManager\data\budget.db`, puis créez un nouveau compte (ou exécutez `--reset` depuis le source pour repartir à neuf) — et générez des codes de récupération cette fois-ci !
 
 **L'application est lente avec beaucoup de données.**
 La version 1.1.0+ a ajouté des index de base de données qui maintiennent la liste des transactions rapide à l'échelle des finances personnelles. Si vous constatez encore des ralentissements, filtrez la vue Transactions sur une plage de dates plus étroite.

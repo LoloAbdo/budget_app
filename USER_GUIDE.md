@@ -272,7 +272,7 @@ Prices and daily change are converted to your currency. Stock requests are batch
 Settings has these tabs:
 
 **Appearance**
-- **Theme** — switch between Dark and Light instantly.
+- **Theme** — pick from seven themes: **Dark**, **Light**, **Midnight** (pure black), **Ocean** (navy & cyan), **Forest** (deep green), **Sunset** (warm plum & orange), and **Sand** (warm light). Click **Apply Theme** to switch instantly — charts recolor to match, and your choice is remembered.
 - **Language** — English or French. Pick a language and click **Apply Language**; the entire interface re-localizes.
 
 **Currency**
@@ -619,7 +619,7 @@ Les cours et la variation quotidienne sont convertis dans votre devise. Les requ
 Les paramètres comportent ces onglets :
 
 **Apparence**
-- **Thème** — basculez instantanément entre sombre et clair.
+- **Thème** — choisissez parmi sept thèmes : **Sombre**, **Clair**, **Minuit** (noir pur), **Océan** (marine et cyan), **Forêt** (vert profond), **Coucher de soleil** (prune et orange chauds) et **Sable** (clair et chaleureux). Cliquez sur **Appliquer le thème** pour changer instantanément — les graphiques adoptent les couleurs assorties et votre choix est mémorisé.
 - **Langue** — anglais ou français. Choisissez une langue puis cliquez sur **Appliquer la langue** ; toute l'interface est traduite.
 
 **Devise**

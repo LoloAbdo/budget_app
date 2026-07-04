@@ -1,9 +1,12 @@
 """
 views/theme.py
-Centralised colour tokens and QSS stylesheets for light / dark modes.
+Centralised colour tokens and QSS stylesheets for all UI themes.
 
-Visual language: layered surfaces for depth, a violet→indigo gradient accent,
+Visual language: layered surfaces for depth, a two-stop gradient accent,
 real hover/pressed states, focus rings, and pill-style tabs.
+
+Adding a theme = adding a palette dict with the same keys as DARK and
+registering it in THEMES below; the QSS is generated from the palette.
 """
 
 from typing import Final
@@ -64,6 +67,142 @@ LIGHT: dict[str, str] = {
     "chart_fg":       "#1A1D2E",
     "chart_muted":    "#5C5F73",
     "chart_grid":     "#D9DDEC",
+}
+
+
+MIDNIGHT: dict[str, str] = {   # pure-black OLED variant of Dark
+    "bg":             "#000000",
+    "surface":        "#0C0C11",
+    "surface2":       "#16161E",
+    "surface3":       "#20202B",
+    "border":         "#26262F",
+    "accent":         "#7C5CFF",
+    "accent_a":       "#8B5CF6",
+    "accent_b":       "#6366F1",
+    "accent_hover_a": "#9B72FF",
+    "accent_hover_b": "#7C7DF7",
+    "accent_soft":    "#1B1830",
+    "text":           "#F2F2F8",
+    "text_muted":     "#84879A",
+    "success":        "#10B981",
+    "success_hover":  "#34D399",
+    "warning":        "#F59E0B",
+    "danger":         "#EF4444",
+    "danger_hover":   "#F26563",
+    "income":         "#10B981",
+    "expense":        "#EF4444",
+    "chart_bg":       "#0C0C11",
+    "chart_fg":       "#F2F2F8",
+    "chart_muted":    "#84879A",
+    "chart_grid":     "#26262F",
+}
+
+OCEAN: dict[str, str] = {      # deep navy with a cyan→azure accent
+    "bg":             "#071019",
+    "surface":        "#0D1B29",
+    "surface2":       "#132639",
+    "surface3":       "#1B3349",
+    "border":         "#213A52",
+    "accent":         "#0EA5E9",
+    "accent_a":       "#22D3EE",
+    "accent_b":       "#0EA5E9",
+    "accent_hover_a": "#4BDFF5",
+    "accent_hover_b": "#2FB7F2",
+    "accent_soft":    "#0E2A3C",
+    "text":           "#E6F1F8",
+    "text_muted":     "#7E97A8",
+    "success":        "#10B981",
+    "success_hover":  "#34D399",
+    "warning":        "#F59E0B",
+    "danger":         "#EF4444",
+    "danger_hover":   "#F26563",
+    "income":         "#10B981",
+    "expense":        "#EF4444",
+    "chart_bg":       "#0D1B29",
+    "chart_fg":       "#E6F1F8",
+    "chart_muted":    "#7E97A8",
+    "chart_grid":     "#213A52",
+}
+
+FOREST: dict[str, str] = {     # dark green with a fresh leaf accent
+    "bg":             "#0A120D",
+    "surface":        "#111D16",
+    "surface2":       "#18281F",
+    "surface3":       "#213529",
+    "border":         "#284031",
+    "accent":         "#22C55E",
+    "accent_a":       "#4ADE80",
+    "accent_b":       "#16A34A",
+    "accent_hover_a": "#6BE89A",
+    "accent_hover_b": "#1FBF5B",
+    "accent_soft":    "#15301F",
+    "text":           "#E9F4EC",
+    "text_muted":     "#88A190",
+    "success":        "#34D399",
+    "success_hover":  "#6EE7B7",
+    "warning":        "#F59E0B",
+    "danger":         "#EF4444",
+    "danger_hover":   "#F26563",
+    "income":         "#34D399",
+    "expense":        "#F87171",
+    "chart_bg":       "#111D16",
+    "chart_fg":       "#E9F4EC",
+    "chart_muted":    "#88A190",
+    "chart_grid":     "#284031",
+}
+
+SUNSET: dict[str, str] = {     # warm plum dusk with a rose→amber accent
+    "bg":             "#160D14",
+    "surface":        "#20141E",
+    "surface2":       "#2B1C28",
+    "surface3":       "#372532",
+    "border":         "#3E2B39",
+    "accent":         "#F97316",
+    "accent_a":       "#FB7185",
+    "accent_b":       "#F97316",
+    "accent_hover_a": "#FC8D9D",
+    "accent_hover_b": "#FB8A3C",
+    "accent_soft":    "#33202B",
+    "text":           "#F7EDF1",
+    "text_muted":     "#A78E9C",
+    "success":        "#10B981",
+    "success_hover":  "#34D399",
+    "warning":        "#FBBF24",
+    "danger":         "#EF4444",
+    "danger_hover":   "#F26563",
+    "income":         "#10B981",
+    "expense":        "#EF4444",
+    "chart_bg":       "#20141E",
+    "chart_fg":       "#F7EDF1",
+    "chart_muted":    "#A78E9C",
+    "chart_grid":     "#3E2B39",
+}
+
+SAND: dict[str, str] = {       # warm paper-like light theme with a bronze accent
+    "bg":             "#F7F3EC",
+    "surface":        "#FFFFFF",
+    "surface2":       "#F0E9DD",
+    "surface3":       "#E5DCCB",
+    "border":         "#DDD2BE",
+    "accent":         "#B45309",
+    "accent_a":       "#D97706",
+    "accent_b":       "#B45309",
+    "accent_hover_a": "#B96505",
+    "accent_hover_b": "#92400E",
+    "accent_soft":    "#F6E8D2",
+    "text":           "#2A2118",
+    "text_muted":     "#7A6E5C",
+    "success":        "#059669",
+    "success_hover":  "#047857",
+    "warning":        "#B45309",
+    "danger":         "#DC2626",
+    "danger_hover":   "#B91C1C",
+    "income":         "#059669",
+    "expense":        "#DC2626",
+    "chart_bg":       "#FFFFFF",
+    "chart_fg":       "#2A2118",
+    "chart_muted":    "#7A6E5C",
+    "chart_grid":     "#DDD2BE",
 }
 
 
@@ -427,15 +566,46 @@ QToolTip {{
 """
 
 
-DARK_QSS: Final[str]  = _qss(DARK)
-LIGHT_QSS: Final[str] = _qss(LIGHT)
+# ── Theme registry ────────────────────────────────────────────────────────────
+# key (stored in users.theme) → (English display label, palette).
+# Labels are tr()'d by the Settings combo, so keep them in the i18n table.
+
+THEMES: dict[str, tuple[str, dict[str, str]]] = {
+    "dark":     ("Dark",     DARK),
+    "light":    ("Light",    LIGHT),
+    "midnight": ("Midnight", MIDNIGHT),
+    "ocean":    ("Ocean",    OCEAN),
+    "forest":   ("Forest",   FOREST),
+    "sunset":   ("Sunset",   SUNSET),
+    "sand":     ("Sand",     SAND),
+}
+
+_PALETTES: dict[str, dict[str, str]] = {k: p for k, (_, p) in THEMES.items()}
+_QSS_CACHE: dict[str, str] = {}
+
+
+def theme_qss(name: str) -> str:
+    """Return the generated stylesheet for a theme (unknown names → dark)."""
+    key = name if name in _PALETTES else "dark"
+    if key not in _QSS_CACHE:
+        _QSS_CACHE[key] = _qss(_PALETTES[key])
+    return _QSS_CACHE[key]
+
+
+def available_themes() -> list[tuple[str, str]]:
+    """(key, English label) pairs for building theme pickers."""
+    return [(key, label) for key, (label, _) in THEMES.items()]
+
+
+# Kept for callers that predate the registry (e.g. the login screen).
+DARK_QSS: Final[str]  = theme_qss("dark")
+LIGHT_QSS: Final[str] = theme_qss("light")
 
 
 # ── Chart theming ───────────────────────────────────────────────────────────────
 # Matplotlib charts can't read QSS, so views ask theme.chart_colors() for the
 # palette that matches the active mode.
 
-_PALETTES: dict[str, dict[str, str]] = {"dark": DARK, "light": LIGHT}
 _active_theme = "dark"
 
 

@@ -26,7 +26,7 @@ Release manually** — just push the tag; manually pre-creating it is what stran
 binaries. After pushing a tag, the build takes ~5 min and the Release only appears at the
 very last step, so "release not found" right after tagging is normal — wait or `gh run watch`.
 
-Current version: **2.0.0**. Releases: v1.0.0 (portable only), v1.0.1 (+ installer),
+Current version: **2.1.0**. Releases: v1.0.0 (portable only), v1.0.1 (+ installer),
 v1.1.0 (DB indexes), v1.2.0 (net-worth chart), v1.3.0 (budget alerts),
 v1.4.0 (change password + pinned deps), v1.5.0 (sortable table columns),
 v1.6.0 (table UX polish + persisted theme/window state),
@@ -35,7 +35,8 @@ v1.8.0 (money-rounding fix + activity log),
 v1.9.0 (end date for recurring transactions),
 v1.10.0 (activity log viewer, upcoming bills, pause/resume recurring, copy budgets, duplicate transaction),
 v1.11.0 (one-click auto-update on the installed build),
-v2.0.0 (multi-currency accounts + home-currency conversion).
+v2.0.0 (multi-currency accounts + home-currency conversion),
+v2.1.0 (7-theme registry: dark/light/midnight/ocean/forest/sunset/sand).
 
 ## Architecture
 - `main.py` — entry point + data-path logic.

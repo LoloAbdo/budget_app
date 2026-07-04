@@ -60,7 +60,8 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Budget Manager")
     p.add_argument("--seed",  action="store_true", help="Seed sample data before launching")
     p.add_argument("--reset", action="store_true", help="Delete the database and start fresh")
-    p.add_argument("--theme", choices=["dark", "light"], default=None,
+    from views.theme import THEMES
+    p.add_argument("--theme", choices=list(THEMES), default=None,
                    help="UI theme (overrides the saved preference for this run)")
     return p.parse_args()
 

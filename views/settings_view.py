@@ -120,7 +120,7 @@ class CategoryDialog(QDialog):
 # ── Settings view ──────────────────────────────────────────────────────────────
 
 class SettingsView(QWidget):
-    theme_changed    = pyqtSignal(str)  # "dark" or "light"
+    theme_changed    = pyqtSignal(str)  # a theme key from views.theme.THEMES
     data_changed     = pyqtSignal()
     language_changed = pyqtSignal(str)  # "en" or "fr"
 
@@ -172,9 +172,10 @@ class SettingsView(QWidget):
         row = QHBoxLayout()
         row.addWidget(QLabel(tr("Theme:")))
         self._theme_combo = QComboBox()
-        # Display localized label, store the English value ("dark"/"light")
-        self._theme_combo.addItem(tr("Dark"), "dark")
-        self._theme_combo.addItem(tr("Light"), "light")
+        # Display localized label, store the theme key used in the DB
+        from views.theme import available_themes
+        for key, label in available_themes():
+            self._theme_combo.addItem(tr(label), key)
         theme_idx = self._theme_combo.findData(self._theme)
         if theme_idx >= 0:
             self._theme_combo.setCurrentIndex(theme_idx)

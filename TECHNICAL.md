@@ -209,7 +209,7 @@ All views inherit `QWidget`, take `db` and `user` in `__init__`, expose `refresh
 
 ## 9. Theme System
 
-`views/theme.py` defines `DARK_QSS` and `LIGHT_QSS`. Runtime switching reapplies the stylesheet at the root and clears child stylesheets to force repaint. `chart_colors()` returns a theme-aware palette (`bg`, `fg`, `muted`, `grid`, `income`, `expense`, `accent`) so Matplotlib figures match the active theme — the net-worth line uses `accent`.
+`views/theme.py` is registry-based: `THEMES` maps a stored key → (English label, palette dict), currently **dark, light, midnight, ocean, forest, sunset, sand**. The QSS is *generated* from the palette by `_qss()`, so adding a theme = adding one palette dict with the same token set (enforced by `tests/test_themes.py`) and registering it. `theme_qss(key)` returns the (cached) stylesheet, falling back to dark for unknown keys; `available_themes()` feeds the Settings combo (labels go through `tr()`); `--theme` accepts any registry key. Runtime switching reapplies the stylesheet at the root and clears child stylesheets to force repaint. `chart_colors()` returns a theme-aware palette (`bg`, `fg`, `muted`, `grid`, `income`, `expense`, `accent`) so Matplotlib figures match the active theme — the net-worth line uses `accent`.
 
 Common `objectName` targets: `sidebar`, `navBtn` (`:checked` = active), `card`, `heading`, `subheading`, `muted`, `danger`, `secondary`.
 
@@ -417,7 +417,7 @@ Les **listes déroulantes qui écrivent en base** affichent du texte localisé m
 
 ## 9. Système de thème
 
-`views/theme.py` définit `DARK_QSS` et `LIGHT_QSS`. Le changement à l'exécution réapplique la feuille de style à la racine et efface les feuilles enfants pour forcer le redessin. `chart_colors()` renvoie une palette adaptée au thème (`bg`, `fg`, `muted`, `grid`, `income`, `expense`, `accent`) afin que les figures Matplotlib correspondent au thème — la courbe de valeur nette utilise `accent`.
+`views/theme.py` repose sur un registre : `THEMES` associe une clé stockée → (libellé anglais, palette), actuellement **dark, light, midnight, ocean, forest, sunset, sand**. La QSS est *générée* depuis la palette par `_qss()` — ajouter un thème = ajouter un dict de palette avec le même jeu de jetons (vérifié par `tests/test_themes.py`) et l'enregistrer. `theme_qss(clé)` renvoie la feuille de style (en cache) avec repli sur `dark` pour les clés inconnues ; `available_themes()` alimente la liste des Paramètres (libellés passés par `tr()`) ; `--theme` accepte toute clé du registre. Le changement à l'exécution réapplique la feuille de style à la racine et efface les feuilles enfants pour forcer le redessin. `chart_colors()` renvoie une palette adaptée au thème (`bg`, `fg`, `muted`, `grid`, `income`, `expense`, `accent`) afin que les figures Matplotlib correspondent au thème — la courbe de valeur nette utilise `accent`.
 
 Cibles `objectName` courantes : `sidebar`, `navBtn` (`:checked` = actif), `card`, `heading`, `subheading`, `muted`, `danger`, `secondary`.
 

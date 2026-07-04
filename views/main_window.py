@@ -17,7 +17,7 @@ from PyQt6.QtGui import QFont, QIcon, QKeySequence, QShortcut
 from database import DatabaseManager
 from services.backup_service import BackupService
 from services.recurring_service import RecurringService
-from views.theme import DARK_QSS, LIGHT_QSS, set_active_theme
+from views.theme import theme_qss, set_active_theme
 from views.dashboard_view   import DashboardView
 from views.transactions_view import TransactionsView
 from views.budget_view      import BudgetView
@@ -97,8 +97,7 @@ class MainWindow(QMainWindow):
     def _apply_theme(self, theme: str) -> None:
         self._theme = theme
         set_active_theme(theme)          # keep chart colours in sync with the UI
-        qss = DARK_QSS if theme == "dark" else LIGHT_QSS
-        self.setStyleSheet(qss)
+        self.setStyleSheet(theme_qss(theme))
         # Propagate to any already-created child widgets
         for child in self.findChildren(QWidget):
             child.setStyleSheet("")   # force re-paint from parent

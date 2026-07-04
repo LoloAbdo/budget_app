@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-07-04
+
+### Added
+- **Five new UI themes.** Alongside Dark and Light: **Midnight** (pure-black
+  OLED), **Ocean** (deep navy, cyan accent), **Forest** (dark green),
+  **Sunset** (warm plum, rose→amber accent) and **Sand** (warm paper-like
+  light theme, bronze accent). Pick one in Settings ▸ Appearance; charts
+  recolor to match, the choice is saved per user, and `--theme <name>` still
+  overrides it for a single run. The theme engine is now registry-based
+  (`views/theme.py THEMES`) — a new theme is one palette dict, and every
+  palette is checked for completeness by tests.
+
 ## [2.0.0] - 2026-07-02
 
 ### Added

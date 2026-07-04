@@ -26,7 +26,7 @@ Release manually** — just push the tag; manually pre-creating it is what stran
 binaries. After pushing a tag, the build takes ~5 min and the Release only appears at the
 very last step, so "release not found" right after tagging is normal — wait or `gh run watch`.
 
-Current version: **2.1.0**. Releases: v1.0.0 (portable only), v1.0.1 (+ installer),
+Current version: **2.2.0**. Releases: v1.0.0 (portable only), v1.0.1 (+ installer),
 v1.1.0 (DB indexes), v1.2.0 (net-worth chart), v1.3.0 (budget alerts),
 v1.4.0 (change password + pinned deps), v1.5.0 (sortable table columns),
 v1.6.0 (table UX polish + persisted theme/window state),
@@ -36,13 +36,15 @@ v1.9.0 (end date for recurring transactions),
 v1.10.0 (activity log viewer, upcoming bills, pause/resume recurring, copy budgets, duplicate transaction),
 v1.11.0 (one-click auto-update on the installed build),
 v2.0.0 (multi-currency accounts + home-currency conversion),
-v2.1.0 (7-theme registry: dark/light/midnight/ocean/forest/sunset/sand).
+v2.1.0 (7-theme registry: dark/light/midnight/ocean/forest/sunset/sand),
+v2.2.0 (style overhaul: app icon, dark title bar, chart/table polish, deltas, empty states, toasts, bundled Inter font, font scale, custom accent).
 
 ## Architecture
 - `main.py` — entry point + data-path logic.
-- `database/schema.py` — `DatabaseManager` (all SQL, parameterized) + idempotent migrations run on every init (latest: v1.0.9 adds a per-account `currency` column backfilled from the owner's home currency plus the `fx_rates` cache table; v1.0.8 adds an `is_active` flag to recurring_transactions; v1.0.7 adds a nullable `end_date`; v1.0.6 adds a per-user `theme` column; v1.0.5 adds performance indexes). Every mutating method calls `_log()` to append an entry to the `audit_log` table (append-only activity trail, exported via `ImportExportService.export_audit_log_csv`); internal side-effects (balance updates, watch-cache refreshes) and password hashes are deliberately not logged. Money is rounded to cents on write via `_money()`, and balance updates use SQL `ROUND(...,2)`. Analytics helpers include `get_net_worth_history()` (dashboard net-worth trend, reconstructed by unwinding monthly flow — no balance-history table) and `get_budget_alerts()` (categories ≥90% of monthly budget).
+- `database/schema.py` — `DatabaseManager` (all SQL, parameterized) + idempotent migrations run on every init (latest: v1.0.10 adds per-user `font_scale` + `accent`; v1.0.9 adds a per-account `currency` column backfilled from the owner's home currency plus the `fx_rates` cache table; v1.0.8 adds an `is_active` flag to recurring_transactions; v1.0.7 adds a nullable `end_date`; v1.0.6 adds a per-user `theme` column; v1.0.5 adds performance indexes). Every mutating method calls `_log()` to append an entry to the `audit_log` table (append-only activity trail, exported via `ImportExportService.export_audit_log_csv`); internal side-effects (balance updates, watch-cache refreshes) and password hashes are deliberately not logged. Money is rounded to cents on write via `_money()`, and balance updates use SQL `ROUND(...,2)`. Analytics helpers include `get_net_worth_history()` (dashboard net-worth trend, reconstructed by unwinding monthly flow — no balance-history table) and `get_budget_alerts()` (categories ≥90% of monthly budget).
 - `services/` — `auth`, `backup`, `import_export`, `recurring`, `market` (stocks/crypto), `update` (GitHub releases check), `fx` (exchange-rate cache refresh; also exports the `CURRENCIES` picker list). `RecurringService.forecast()` projects the combined balance forward from recurring income/expenses in the home currency (powers the Forecast panel; transfers excluded since they don't change net worth).
-- `views/` — PyQt6 panels; `main_window.py` wires the sidebar + signals. `theme.py` holds QSS + chart colors. `i18n.py` is the translation layer. `activity_view.py` is a read-only in-app viewer for the `audit_log`.
+- `views/` — PyQt6 panels; `main_window.py` wires the sidebar + signals. `theme.py` holds QSS + chart colors. `i18n.py` is the translation layer. `activity_view.py` is a read-only in-app viewer for the `audit_log`. `winutil.py` darkens native Windows title bars to match dark themes (app-wide event filter installed in `main.py`).
+- `assets/icon.ico` — the app icon (committed; regenerate with `scripts/make_icon.py` only to change the design). Referenced by `main.py`, both build scripts + `release.yml` (`--icon`, `--add-data "assets;assets"`), and `installer.iss` — keep all four in sync.
 - `tests/` — pytest; `conftest.py` has shared fixtures (`db`, `user_id`, `account_id`, `savings_id`).
 - Docs: `USER_GUIDE.md` + `TECHNICAL.md` are bilingual (English first, French after) and `CHANGELOG.md` tracks releases. Keep them current when behavior or version changes.
 
@@ -53,7 +55,8 @@ v2.1.0 (7-theme registry: dark/light/midnight/ocean/forest/sunset/sand).
 - **Savings/interest**: editing a Savings account's balance records the unexplained delta as a signed "Interest" income transaction (auto-detect, with an opt-out checkbox). Summary in the Savings tab.
 - **Markets**: keyless data (CoinGecko crypto + Stooq/Yahoo stocks), converted to the user's currency. Auto-refresh defaults to **Off (manual)**; stock requests are batched into one call.
 - **Update check + auto-update**: compares `version.py` to the latest GitHub release. On the **installed** build (`update_service.can_auto_update()` — frozen and not a one-file exe), Settings ▸ About shows **⤓ Update now**, which downloads `BudgetManagerSetup.exe`, runs it silently (`/SILENT /CLOSEAPPLICATIONS /NORESTART`), and quits so the Inno installer upgrades in place and relaunches (its `[Run]` entry has no `skipifsilent`, which is what makes the silent relaunch work). Source runs and the **portable** one-file exe stay notify-only (download link). The updater is pure-Python/testable; the actual install+relaunch can only be verified on a real installed build.
-- **Preferences split**: per-user prefs that belong with the data (currency, `language`, `theme`) live in the `users` table; per-machine window state (size/position + last-open panel) lives in `QSettings` (org `BudgetApp` / app `Budget Manager`), saved in `MainWindow.closeEvent`. `--theme` overrides the saved theme for one run.
+- **Preferences split**: per-user prefs that belong with the data (currency, `language`, `theme`, `font_scale`, `accent` — the last two added by migration v1.0.10) live in the `users` table; per-machine window state (size/position + last-open panel) lives in `QSettings` (org `BudgetApp` / app `Budget Manager`), saved in `MainWindow.closeEvent`. `--theme` overrides the saved theme for one run.
+- **Fonts & personalization**: the app bundles Inter (`assets/fonts/`, OFL license file included — keep it) loaded by `views/fonts.py`; `ui_font()` is the only sanctioned way to create QFonts in code (family + user scale + tabular numerals). Font-scale changes rebuild the UI like a language change; a custom accent overrides every theme's accent tokens via `theme.effective_palette()` (QSS cache keys on theme+scale+accent). Bundling Inter also fixed offscreen screenshot text rendering in headless checks.
 
 ## Gotchas / lessons
 - `DatabaseManager._local` is **per-instance** (not a class attr) — required so the test suite's many DB instances don't share a connection.

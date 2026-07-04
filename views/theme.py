@@ -211,17 +211,47 @@ def _grad(c1: str, c2: str) -> str:
     return f"qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {c1}, stop:1 {c2})"
 
 
-def _qss(p: dict[str, str]) -> str:
-    """Build a QSS stylesheet from a palette dict *p*."""
+# ── Color math (for deriving accent variants from one chosen color) ───────────
+
+def _hex_to_rgb(h: str) -> tuple[int, int, int]:
+    h = h.lstrip("#")
+    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+
+
+def _rgb_to_hex(rgb: tuple[int, int, int]) -> str:
+    return "#{:02X}{:02X}{:02X}".format(*(max(0, min(255, c)) for c in rgb))
+
+
+def _mix(c1: str, c2: str, t: float) -> str:
+    """Blend two hex colors: t=0 -> c1, t=1 -> c2."""
+    a, b = _hex_to_rgb(c1), _hex_to_rgb(c2)
+    return _rgb_to_hex(tuple(round(x + (y - x) * t) for x, y in zip(a, b)))
+
+
+def _lighten(c: str, t: float) -> str:
+    return _mix(c, "#FFFFFF", t)
+
+
+def _darken(c: str, t: float) -> str:
+    return _mix(c, "#000000", t)
+
+
+def _qss(p: dict[str, str], scale: float = 1.0) -> str:
+    """Build a QSS stylesheet from a palette dict *p* at a given font scale."""
     accent_grad       = _grad(p["accent_a"], p["accent_b"])
     accent_grad_hover = _grad(p["accent_hover_a"], p["accent_hover_b"])
+
+    def fs(px: int) -> int:
+        """Font size scaled by the user's preference."""
+        return max(1, round(px * scale))
+
     return f"""
 /* ── Global ── */
 QWidget {{
     background-color: {p['bg']};
     color: {p['text']};
-    font-family: "Segoe UI", "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
-    font-size: 13px;
+    font-family: "Inter", "Segoe UI", "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+    font-size: {fs(13)}px;
 }}
 
 QMainWindow, QDialog {{
@@ -248,7 +278,7 @@ QPushButton#navBtn {{
     border-radius: 10px;
     padding: 11px 16px;
     text-align: left;
-    font-size: 13px;
+    font-size: {fs(13)}px;
     font-weight: 500;
 }}
 QPushButton#navBtn:hover {{
@@ -269,7 +299,7 @@ QPushButton {{
     border: none;
     border-radius: 10px;
     padding: 9px 20px;
-    font-size: 13px;
+    font-size: {fs(13)}px;
     font-weight: 600;
 }}
 QPushButton:hover {{
@@ -430,6 +460,9 @@ QTableWidget::item {{
     padding: 8px 12px;
     border: none;
 }}
+QTableWidget::item:hover {{
+    background-color: {p['surface3']};
+}}
 QTableWidget::item:selected {{
     background-color: {p['accent_soft']};
     color: {p['text']};
@@ -441,7 +474,7 @@ QHeaderView::section {{
     border-bottom: 2px solid {p['border']};
     padding: 10px 12px;
     font-weight: 700;
-    font-size: 11px;
+    font-size: {fs(11)}px;
 }}
 QTableCornerButton::section {{
     background-color: {p['surface']};
@@ -483,28 +516,28 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{ background: 
 /* ── Labels ── */
 QLabel {{ background: transparent; }}
 QLabel#heading {{
-    font-size: 24px;
+    font-size: {fs(24)}px;
     font-weight: 800;
     color: {p['text']};
 }}
 QLabel#subheading {{
-    font-size: 16px;
+    font-size: {fs(16)}px;
     font-weight: 700;
     color: {p['text']};
 }}
 QLabel#muted {{
     color: {p['text_muted']};
-    font-size: 12px;
+    font-size: {fs(12)}px;
 }}
 QLabel#amount_income {{
     color: {p['income']};
     font-weight: 700;
-    font-size: 15px;
+    font-size: {fs(15)}px;
 }}
 QLabel#amount_expense {{
     color: {p['expense']};
     font-weight: 700;
-    font-size: 15px;
+    font-size: {fs(15)}px;
 }}
 
 /* ── Tabs (pill style) ── */
@@ -581,20 +614,72 @@ THEMES: dict[str, tuple[str, dict[str, str]]] = {
 }
 
 _PALETTES: dict[str, dict[str, str]] = {k: p for k, (_, p) in THEMES.items()}
-_QSS_CACHE: dict[str, str] = {}
+_QSS_CACHE: dict[tuple, str] = {}
+
+# User personalization applied on top of the chosen theme.
+_custom_accent: str | None = None   # hex like "#FF8800", or None = theme default
+_font_scale: float = 1.0
+
+
+def set_accent(color: str | None) -> None:
+    """Override every theme's accent with one chosen color (None = default)."""
+    global _custom_accent
+    _custom_accent = color.upper() if color else None
+
+
+def get_accent() -> str | None:
+    return _custom_accent
+
+
+def set_font_scale(scale: float) -> None:
+    global _font_scale
+    _font_scale = min(max(float(scale or 1.0), 0.9), 1.25)
+
+
+def effective_palette(name: str) -> dict[str, str]:
+    """The theme palette with the custom accent (if any) blended in.
+
+    All accent variants derive from the one chosen color: a lighter/darker
+    pair for the gradient, brighter hovers, and a soft fill mixed into the
+    theme's surface so selections stay subtle on any background.
+    """
+    key = name if name in _PALETTES else "dark"
+    p = _PALETTES[key]
+    if not _custom_accent:
+        return p
+    c = _custom_accent
+    return {
+        **p,
+        "accent":         c,
+        "accent_a":       _lighten(c, 0.15),
+        "accent_b":       _darken(c, 0.12),
+        "accent_hover_a": _lighten(c, 0.30),
+        "accent_hover_b": _lighten(c, 0.05),
+        "accent_soft":    _mix(p["surface"], c, 0.22),
+    }
 
 
 def theme_qss(name: str) -> str:
-    """Return the generated stylesheet for a theme (unknown names → dark)."""
+    """Stylesheet for a theme at the current font scale and accent
+    (unknown theme names → dark)."""
     key = name if name in _PALETTES else "dark"
-    if key not in _QSS_CACHE:
-        _QSS_CACHE[key] = _qss(_PALETTES[key])
-    return _QSS_CACHE[key]
+    cache_key = (key, _font_scale, _custom_accent)
+    if cache_key not in _QSS_CACHE:
+        _QSS_CACHE[cache_key] = _qss(effective_palette(key), _font_scale)
+    return _QSS_CACHE[cache_key]
 
 
 def available_themes() -> list[tuple[str, str]]:
     """(key, English label) pairs for building theme pickers."""
     return [(key, label) for key, (label, _) in THEMES.items()]
+
+
+def is_dark_theme(name: str) -> bool:
+    """True if the theme's background is dark (drives the OS title-bar mode)."""
+    bg = _PALETTES.get(name, DARK)["bg"].lstrip("#")
+    r, g, b = (int(bg[i:i + 2], 16) for i in (0, 2, 4))
+    # Perceived luminance (ITU-R BT.601); < 128 of 255 reads as dark.
+    return (0.299 * r + 0.587 * g + 0.114 * b) < 128
 
 
 # Kept for callers that predate the registry (e.g. the login screen).
@@ -617,7 +702,7 @@ def set_active_theme(name: str) -> None:
 
 def chart_colors() -> dict[str, str]:
     """Return chart colours (bg/fg/muted/grid/income/expense/accent) for the active theme."""
-    p = _PALETTES[_active_theme]
+    p = effective_palette(_active_theme)
     return {
         "bg":      p["chart_bg"],
         "fg":      p["chart_fg"],

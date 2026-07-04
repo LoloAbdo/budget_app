@@ -19,6 +19,7 @@ from database import DatabaseManager
 from services.fx_service import CURRENCIES
 from views.i18n import tr
 from views.sortable import SortableItem, enable_sorting
+from views.toast import show_toast
 from views.widgets import add_table_shortcuts, make_empty_state
 
 ACCOUNT_TYPES = ["Checking", "Savings", "Credit Card", "Cash"]
@@ -284,7 +285,10 @@ class AccountsView(QWidget):
         add_table_shortcuts(self._table, on_delete=self._delete_selected, on_edit=self._edit_selected)
         layout.addWidget(self._table)
 
-        self._empty_lbl = make_empty_state("")
+        self._empty_lbl = make_empty_state(
+            "", icon="🏦",
+            action_text=tr("+ Add Account"), on_action=self._add_account,
+        )
         layout.addWidget(self._empty_lbl)
 
         btn_row = QHBoxLayout()
@@ -357,6 +361,8 @@ class AccountsView(QWidget):
             tr("No accounts match your filters.") if all_accounts
             else tr("No accounts yet. Click '+ Add Account' to start.")
         )
+        # The CTA only makes sense when there's truly nothing (not filtered out).
+        self._empty_lbl.set_action_visible(not all_accounts)
         self._empty_lbl.setVisible(not accounts)
         self._table.setVisible(bool(accounts))
 
@@ -382,6 +388,7 @@ class AccountsView(QWidget):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self.refresh()
             self.accounts_changed.emit()
+            show_toast(self, tr("Account created"))
 
     def _edit_selected(self) -> None:
         row = self._table.currentRow()
@@ -396,6 +403,7 @@ class AccountsView(QWidget):
                 # Restore selection so a second edit/delete works without re-clicking
                 self._table.selectRow(row)
                 self.accounts_changed.emit()
+                show_toast(self, tr("Account updated"))
 
     def _delete_selected(self) -> None:
         row = self._table.currentRow()
@@ -416,3 +424,4 @@ class AccountsView(QWidget):
             if new_row >= 0:
                 self._table.selectRow(new_row)
             self.accounts_changed.emit()
+            show_toast(self, tr("Account deleted"))

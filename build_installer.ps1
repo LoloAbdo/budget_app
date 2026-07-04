@@ -33,6 +33,8 @@ if (-not $SkipBuild) {
     python -m pip install --upgrade pyinstaller
     pyinstaller --noconfirm --onedir --windowed `
         --name BudgetManager `
+        --icon assets\icon.ico `
+        --add-data "assets;assets" `
         --collect-all matplotlib `
         main.py
 }

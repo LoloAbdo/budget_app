@@ -17,6 +17,8 @@ $mode = if ($OneDir) { "--onedir" } else { "--onefile" }
 
 pyinstaller --noconfirm $mode --windowed `
     --name BudgetManager `
+    --icon assets\icon.ico `
+    --add-data "assets;assets" `
     --collect-all matplotlib `
     main.py
 

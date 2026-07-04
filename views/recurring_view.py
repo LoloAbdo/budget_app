@@ -362,7 +362,10 @@ class RecurringView(QWidget):
         add_table_shortcuts(self._table, on_delete=self._delete_selected, on_edit=self._edit_selected)
         layout.addWidget(self._table)
 
-        self._empty_lbl = make_empty_state("")
+        self._empty_lbl = make_empty_state(
+            "", icon="🔄",
+            action_text=tr("+ Add Recurring"), on_action=self._add_recurring,
+        )
         layout.addWidget(self._empty_lbl)
 
         btn_row = QHBoxLayout()

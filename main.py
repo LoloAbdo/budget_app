@@ -56,6 +56,12 @@ DB_PATH    = str(DATA_DIR / "budget.db")
 BACKUP_DIR = str(APP_ROOT / "backups")
 
 
+def _asset_path(name: str) -> str:
+    """Bundled asset path — next to the source, or in the PyInstaller unpack dir."""
+    base = Path(getattr(sys, "_MEIPASS", ROOT))
+    return str(base / "assets" / name)
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Budget Manager")
     p.add_argument("--seed",  action="store_true", help="Seed sample data before launching")
@@ -89,10 +95,31 @@ def main() -> int:
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
+    # Give the process its own taskbar identity on Windows, so the app icon
+    # (not Python's) shows in the taskbar when running from source.
+    if sys.platform == "win32":
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "BudgetApp.BudgetManager"
+        )
+
     app = QApplication(sys.argv)
     app.setApplicationName("Budget Manager")
     app.setOrganizationName("BudgetApp")
+    # Load the bundled UI font (Inter) before any stylesheet references it.
+    from views.fonts import load_fonts
+    load_fonts(Path(_asset_path("")))
     app.setStyleSheet(DARK_QSS)
+    icon_path = _asset_path("icon.ico")
+    if Path(icon_path).exists():
+        app.setWindowIcon(QIcon(icon_path))
+
+    # Keep native title bars in step with the theme (dark for the login screen,
+    # then MainWindow updates the mode whenever the user switches themes).
+    from views.winutil import TitleBarFilter
+    title_filter = TitleBarFilter()
+    app.installEventFilter(title_filter)
+    app._title_filter = title_filter  # keep reference alive
 
     # ── Services ───────────────────────────────────────────────────────────────
     db     = DatabaseManager(DB_PATH)
@@ -115,8 +142,12 @@ def main() -> int:
 
     user = user_holder[0]
 
-    # ── Apply the user's saved language before building the UI ─────────────────
+    # ── Apply the user's saved language + personalization before building ─────
     set_language(user.get("language", "en"))
+    from views import fonts, theme
+    fonts.set_scale(user.get("font_scale") or 1.0)
+    theme.set_font_scale(user.get("font_scale") or 1.0)
+    theme.set_accent(user.get("accent"))
 
     # ── Main window ────────────────────────────────────────────────────────────
     # Saved per-user theme wins; an explicit --theme flag overrides it for this run.

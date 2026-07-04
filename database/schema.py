@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS users (
     password    TEXT    NOT NULL,
     currency    TEXT    NOT NULL DEFAULT 'CAD',
     language    TEXT    NOT NULL DEFAULT 'en',
+    font_scale  REAL    NOT NULL DEFAULT 1.0,
+    accent      TEXT,
     created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -280,6 +282,17 @@ class DatabaseManager:
             )
             conn.commit()
 
+        # v1.0.10 — personalization: font scale (0.9–1.25, default 1.0) and an
+        # optional custom accent color (NULL = the theme's own accent).
+        if "font_scale" not in user_cols:
+            conn.execute(
+                "ALTER TABLE users ADD COLUMN font_scale REAL NOT NULL DEFAULT 1.0"
+            )
+            conn.commit()
+        if "accent" not in user_cols:
+            conn.execute("ALTER TABLE users ADD COLUMN accent TEXT")
+            conn.commit()
+
         # v1.0.9 — per-account currency (multi-currency accounts). Existing
         # accounts inherit their owner's home currency, so upgraded databases
         # show exactly the same numbers as before the migration.
@@ -415,6 +428,15 @@ class DatabaseManager:
     def update_user_theme(self, user_id: int, theme: str) -> None:
         self._execute("UPDATE users SET theme=? WHERE id=?", (theme, user_id))
         self._log("UPDATE", "user", user_id, {"theme": theme}, user_id=user_id)
+
+    def update_user_font_scale(self, user_id: int, scale: float) -> None:
+        self._execute("UPDATE users SET font_scale=? WHERE id=?", (scale, user_id))
+        self._log("UPDATE", "user", user_id, {"font_scale": scale}, user_id=user_id)
+
+    def update_user_accent(self, user_id: int, accent: Optional[str]) -> None:
+        """Set (or clear, with None) the user's custom accent color."""
+        self._execute("UPDATE users SET accent=? WHERE id=?", (accent, user_id))
+        self._log("UPDATE", "user", user_id, {"accent": accent}, user_id=user_id)
 
     def update_user_password(self, user_id: int, password_hash: str) -> None:
         self._execute("UPDATE users SET password=? WHERE id=?", (password_hash, user_id))

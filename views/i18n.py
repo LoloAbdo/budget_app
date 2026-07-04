@@ -539,6 +539,28 @@ _FR: dict[str, str] = {
     "Could not fetch rates (offline?). Using last cached values.":
         "Impossible de récupérer les taux (hors ligne ?). Dernières valeurs en cache utilisées.",
     "Updated {n} rate(s).": "{n} taux mis à jour.",
+
+    # ── Dashboard deltas / toasts ─────────────────────────────────────────
+    "vs last month": "vs mois dernier",
+    "Transaction added": "Transaction ajoutée",
+    "Transaction updated": "Transaction modifiée",
+    "Transaction deleted": "Transaction supprimée",
+    "Transfer created": "Virement créé",
+    "Transfer deleted": "Virement supprimé",
+    "Account created": "Compte créé",
+    "Account updated": "Compte modifié",
+    "Account deleted": "Compte supprimé",
+    "Exchange rates updated": "Taux de change mis à jour",
+
+    # ── Personalization (font size + accent) ──────────────────────────────
+    "Font size:": "Taille du texte :",
+    "Applies immediately to the whole app.": "S'applique immédiatement à toute l'application.",
+    "Accent color:": "Couleur d'accent :",
+    "Reset": "Réinitialiser",
+    "Recolors buttons, highlights and charts in every theme.":
+        "Recolore les boutons, surbrillances et graphiques dans tous les thèmes.",
+    "Theme default": "Défaut du thème",
+    "Pick an accent color": "Choisir une couleur d'accent",
 }
 
 

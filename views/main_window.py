@@ -17,7 +17,9 @@ from PyQt6.QtGui import QFont, QIcon, QKeySequence, QShortcut
 from database import DatabaseManager
 from services.backup_service import BackupService
 from services.recurring_service import RecurringService
-from views.theme import theme_qss, set_active_theme
+from views.theme import theme_qss, set_active_theme, is_dark_theme
+from views.fonts import ui_font
+from views.winutil import apply_title_bar, set_dark_mode
 from views.dashboard_view   import DashboardView
 from views.transactions_view import TransactionsView
 from views.budget_view      import BudgetView
@@ -97,6 +99,10 @@ class MainWindow(QMainWindow):
     def _apply_theme(self, theme: str) -> None:
         self._theme = theme
         set_active_theme(theme)          # keep chart colours in sync with the UI
+        # Native title bars (this window + future dialogs) follow the theme.
+        dark = is_dark_theme(theme)
+        set_dark_mode(dark)
+        apply_title_bar(self, dark)
         self.setStyleSheet(theme_qss(theme))
         # Propagate to any already-created child widgets
         for child in self.findChildren(QWidget):
@@ -168,6 +174,8 @@ class MainWindow(QMainWindow):
         self._settings_view.theme_changed.connect(self._on_theme_changed)
         self._settings_view.data_changed.connect(self._refresh_all)
         self._settings_view.language_changed.connect(self._on_language_changed)
+        self._settings_view.font_scale_changed.connect(self._on_font_scale_changed)
+        self._settings_view.accent_changed.connect(self._on_accent_changed)
 
         # Activate dashboard
         self._switch_to(0)
@@ -183,7 +191,7 @@ class MainWindow(QMainWindow):
 
         # App logo
         logo = QLabel(tr("💰 Budget"))
-        logo.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        logo.setFont(ui_font(16, QFont.Weight.Bold))
         logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         logo.setContentsMargins(0, 0, 0, 16)
         layout.addWidget(logo)
@@ -259,9 +267,8 @@ class MainWindow(QMainWindow):
     def _process_recurring(self) -> None:
         count = self._recurring_svc.process_due(self._user["id"])
         if count > 0:
-            self.statusBar().showMessage(
-                tr("✓ Posted {n} recurring transaction(s)").format(n=count), 4000
-            )
+            from views.toast import show_toast
+            show_toast(self, tr("✓ Posted {n} recurring transaction(s)").format(n=count))
 
     # ── Auto-backup timer ──────────────────────────────────────────────────────
 
@@ -291,12 +298,15 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(dict)
     def _on_fx_refreshed(self, results: dict) -> None:
-        # Converted totals may have moved — redraw the panels that show them.
+        # Converted totals may have moved — redraw the panels that show them,
+        # and say so: silently shifting numbers erode trust.
         if any(v for v in results.values()):
             self._dashboard_view.refresh()
             self._accounts_view.refresh()
             self._forecast_view.refresh()
             self._savings_view.refresh()
+            from views.toast import show_toast
+            show_toast(self, tr("Exchange rates updated"), kind="info")
 
     def _start_backup_timer(self) -> None:
         """Auto-backup every 24 hours while the app is running."""
@@ -332,6 +342,36 @@ class MainWindow(QMainWindow):
         self._apply_theme(self._theme)
         self._switch_to(current_idx)
 
+    @pyqtSlot(float)
+    def _on_font_scale_changed(self, scale: float) -> None:
+        """Persist the new font scale and rebuild the UI at the new size."""
+        from views import fonts, theme
+        self._db.update_user_font_scale(self._user["id"], scale)
+        self._user["font_scale"] = scale
+        fonts.set_scale(scale)
+        theme.set_font_scale(scale)
+        # Same pattern as a language change: rebuild everything in place so
+        # both QSS sizes and code-created QFonts pick up the scale.
+        current_idx = self._stack.currentIndex() if hasattr(self, "_stack") else 0
+        self._build_ui()
+        self._apply_theme(self._theme)
+        self._switch_to(current_idx)
+
+    @pyqtSlot(str)
+    def _on_accent_changed(self, accent: str) -> None:
+        """Persist and apply a custom accent color ('' resets to the theme's)."""
+        from views.theme import set_accent
+        value = accent or None
+        self._db.update_user_accent(self._user["id"], value)
+        self._user["accent"] = value
+        set_accent(value)
+        self._apply_theme(self._theme)
+        self._settings_view._refresh_accent_button()
+        # Charts draw the accent (net-worth/forecast lines) — redraw them.
+        for view in (self._dashboard_view, self._reports_view,
+                     self._savings_view, self._forecast_view):
+            view.refresh()
+
     def _refresh_all(self) -> None:
         self._dashboard_view.refresh()
         self._txn_view.refresh()
@@ -360,8 +400,13 @@ class MainWindow(QMainWindow):
 
 
 def _reopen_main(db, user, backup, theme):
-    """Re-create the main window after sign-out."""
-    win = MainWindow(db, user, backup, theme)
+    """Re-create the main window after sign-out, with the new user's prefs."""
+    from views import fonts, theme as theme_mod
+    set_language(user.get("language", "en"))
+    fonts.set_scale(user.get("font_scale") or 1.0)
+    theme_mod.set_font_scale(user.get("font_scale") or 1.0)
+    theme_mod.set_accent(user.get("accent"))
+    win = MainWindow(db, user, backup, user.get("theme") or theme)
     win.show()
     # Keep reference alive
     QApplication.instance()._main_window = win  # type: ignore[attr-defined]

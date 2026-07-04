@@ -25,6 +25,7 @@ from matplotlib.figure import Figure
 
 from database import DatabaseManager
 from services.recurring_service import RecurringService
+from views.chartutil import money_axis
 from views.widgets import SummaryCard, make_empty_state
 from views.sortable import SortableItem, SORT_ROLE, enable_sorting
 from views.i18n import tr
@@ -101,7 +102,8 @@ class ForecastView(QWidget):
         if not data["events"]:
             self._body.addWidget(make_empty_state(
                 tr("No recurring income or expenses to forecast.\n"
-                   "Add recurring items to see where your balance is heading.")
+                   "Add recurring items to see where your balance is heading."),
+                icon="🔮",
             ))
             return
 
@@ -161,6 +163,7 @@ class ForecastView(QWidget):
         ax.tick_params(axis="x", colors=c["muted"], labelsize=8, rotation=30)
         ax.tick_params(axis="y", colors=c["muted"], labelsize=8)
         ax.spines[:].set_color(c["grid"])
+        money_axis(ax)
         fig.tight_layout(pad=1.2)
 
         canvas = FigureCanvas(fig)

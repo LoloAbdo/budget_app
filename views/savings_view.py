@@ -23,6 +23,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 from database import DatabaseManager
+from views.chartutil import money_axis
 from views.widgets import SummaryCard, make_empty_state
 from views.i18n import tr, month_abbr
 from views.theme import chart_colors
@@ -215,6 +216,7 @@ class SavingsView(QWidget):
         ax.set_xticklabels(month_abbr(), fontsize=8, color=c["muted"])
         ax.tick_params(axis="y", colors=c["muted"], labelsize=8)
         ax.spines[:].set_color(c["grid"])
+        money_axis(ax)
         fig.tight_layout(pad=1.2)
 
         canvas = FigureCanvas(fig)
@@ -225,7 +227,7 @@ class SavingsView(QWidget):
     def _build_history_table(self):
         entries = self._db.get_interest_entries(self._user["id"], limit=50)
         if not entries:
-            return make_empty_state(tr("No interest recorded yet."))
+            return make_empty_state(tr("No interest recorded yet."), icon="🐷")
         cols = [tr("Date"), tr("Account"), tr("Amount")]
         tbl = QTableWidget(len(entries), len(cols))
         tbl.setHorizontalHeaderLabels(cols)

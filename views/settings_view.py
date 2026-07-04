@@ -120,9 +120,11 @@ class CategoryDialog(QDialog):
 # ── Settings view ──────────────────────────────────────────────────────────────
 
 class SettingsView(QWidget):
-    theme_changed    = pyqtSignal(str)  # a theme key from views.theme.THEMES
-    data_changed     = pyqtSignal()
-    language_changed = pyqtSignal(str)  # "en" or "fr"
+    theme_changed      = pyqtSignal(str)    # a theme key from views.theme.THEMES
+    data_changed       = pyqtSignal()
+    language_changed   = pyqtSignal(str)    # "en" or "fr"
+    font_scale_changed = pyqtSignal(float)  # 0.9–1.25
+    accent_changed     = pyqtSignal(str)    # "#RRGGBB", or "" = theme default
 
     def __init__(
         self,
@@ -206,8 +208,72 @@ class SettingsView(QWidget):
         apply_lang_btn.clicked.connect(self._apply_language)
         layout.addWidget(apply_lang_btn)
 
+        # ── Font size row ─────────────────────────────────────────────────────
+        from views.fonts import FONT_SCALES
+        size_row = QHBoxLayout()
+        size_row.addWidget(QLabel(tr("Font size:")))
+        self._scale_combo = QComboBox()
+        for value, label in FONT_SCALES:
+            self._scale_combo.addItem(label, value)
+        current_scale = float(self._user.get("font_scale") or 1.0)
+        idx = self._scale_combo.findData(current_scale)
+        if idx >= 0:
+            self._scale_combo.setCurrentIndex(idx)
+        self._scale_combo.activated.connect(self._apply_font_scale)
+        size_row.addWidget(self._scale_combo)
+        size_hint = QLabel(tr("Applies immediately to the whole app."))
+        size_hint.setObjectName("muted")
+        size_row.addWidget(size_hint)
+        size_row.addStretch()
+        layout.addLayout(size_row)
+
+        # ── Accent color row ──────────────────────────────────────────────────
+        accent_row = QHBoxLayout()
+        accent_row.addWidget(QLabel(tr("Accent color:")))
+        self._accent_btn = QPushButton()
+        self._accent_btn.setObjectName("secondary")
+        self._accent_btn.setMaximumWidth(160)
+        self._accent_btn.clicked.connect(self._pick_accent)
+        accent_row.addWidget(self._accent_btn)
+        reset_btn = QPushButton(tr("Reset"))
+        reset_btn.setObjectName("secondary")
+        reset_btn.setMaximumWidth(90)
+        reset_btn.clicked.connect(lambda: self.accent_changed.emit(""))
+        accent_row.addWidget(reset_btn)
+        accent_hint = QLabel(tr("Recolors buttons, highlights and charts in every theme."))
+        accent_hint.setObjectName("muted")
+        accent_row.addWidget(accent_hint)
+        accent_row.addStretch()
+        layout.addLayout(accent_row)
+        self._refresh_accent_button()
+
         layout.addStretch()
         return w
+
+    def _apply_font_scale(self) -> None:
+        scale = self._scale_combo.currentData()
+        if scale != float(self._user.get("font_scale") or 1.0):
+            self.font_scale_changed.emit(scale)
+
+    def _refresh_accent_button(self) -> None:
+        """Show the current accent as a swatch on the picker button."""
+        accent = self._user.get("accent")
+        if accent:
+            self._accent_btn.setText(accent)
+            self._accent_btn.setStyleSheet(
+                f"background: {accent}; color: #FFFFFF; border: none;"
+            )
+        else:
+            self._accent_btn.setText(tr("Theme default"))
+            self._accent_btn.setStyleSheet("")
+
+    def _pick_accent(self) -> None:
+        from PyQt6.QtWidgets import QColorDialog
+        from PyQt6.QtGui import QColor
+        initial = QColor(self._user.get("accent") or "#7C5CFF")
+        color = QColorDialog.getColor(initial, self, tr("Pick an accent color"))
+        if color.isValid():
+            self.accent_changed.emit(color.name().upper())
 
     def _apply_theme(self) -> None:
         t = self._theme_combo.currentData()

@@ -120,7 +120,7 @@ class ActivityView(QWidget):
         enable_sorting(self._table, 0, Qt.SortOrder.DescendingOrder)
         layout.addWidget(self._table)
 
-        self._empty_lbl = make_empty_state("")
+        self._empty_lbl = make_empty_state("", icon="📝")
         layout.addWidget(self._empty_lbl)
 
         self._count_lbl = QLabel("")

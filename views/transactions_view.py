@@ -19,7 +19,8 @@ from database import DatabaseManager
 from services.import_export_service import ImportExportService
 from views.i18n import tr
 from views.sortable import SortableItem, SORT_ROLE, enable_sorting
-from views.widgets import add_table_shortcuts, make_empty_state
+from views.toast import show_toast
+from views.widgets import add_table_shortcuts, category_dot, make_empty_state
 
 
 # ── Transaction dialog ─────────────────────────────────────────────────────────
@@ -489,7 +490,10 @@ class TransactionsView(QWidget):
         add_table_shortcuts(self._table, on_delete=self._delete_selected, on_edit=self._edit_selected)
         layout.addWidget(self._table)
 
-        self._empty_lbl = make_empty_state("")
+        self._empty_lbl = make_empty_state(
+            "", icon="💳",
+            action_text=tr("+ Add Transaction"), on_action=self._add_transaction,
+        )
         layout.addWidget(self._empty_lbl)
 
         # Action row
@@ -560,6 +564,9 @@ class TransactionsView(QWidget):
             for c_idx, text in enumerate(items):
                 item = SortableItem(text)
                 item.setData(Qt.ItemDataRole.UserRole, txn["id"])
+                # Category column: tag with the category's color dot.
+                if c_idx == 2 and not is_transfer and txn.get("category_color"):
+                    item.setIcon(category_dot(txn["category_color"]))
                 if c_idx == 4:
                     item.setData(SORT_ROLE, txn["amount"])   # sort by number, not "$1,234.56"
                     item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -585,6 +592,7 @@ class TransactionsView(QWidget):
             tr("No transactions match your filters.") if filtered
             else tr("No transactions yet. Click '+ Add Transaction' to start.")
         )
+        self._empty_lbl.set_action_visible(not filtered)
         self._empty_lbl.setVisible(not rows)
         self._table.setVisible(bool(rows))
 
@@ -639,12 +647,14 @@ class TransactionsView(QWidget):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self.refresh()
             self.transaction_changed.emit()
+            show_toast(self, tr("Transfer created"))
 
     def _add_transaction(self) -> None:
         dlg = TransactionDialog(self._db, self._user["id"], parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self.refresh()
             self.transaction_changed.emit()
+            show_toast(self, tr("Transaction added"))
 
     def _edit_selected(self) -> None:
         row = self._table.currentRow()
@@ -664,6 +674,7 @@ class TransactionsView(QWidget):
                 self.refresh()
                 self._table.selectRow(row)
                 self.transaction_changed.emit()
+                show_toast(self, tr("Transaction updated"))
 
     def _duplicate_selected(self) -> None:
         """Open the Add dialog pre-filled from the selected transaction."""
@@ -684,6 +695,7 @@ class TransactionsView(QWidget):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self.refresh()
             self.transaction_changed.emit()
+            show_toast(self, tr("Transaction added"))
 
     def _delete_selected(self) -> None:
         row = self._table.currentRow()
@@ -719,3 +731,5 @@ class TransactionsView(QWidget):
             if new_row >= 0:
                 self._table.selectRow(new_row)
             self.transaction_changed.emit()
+            show_toast(self, tr("Transfer deleted") if is_transfer
+                       else tr("Transaction deleted"))

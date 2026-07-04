@@ -21,6 +21,7 @@ from matplotlib.figure import Figure
 from database import DatabaseManager
 from reports.pdf_report import PDFReportGenerator
 from services.import_export_service import ImportExportService
+from views.chartutil import money_axis
 from views.i18n import tr, month_abbr
 from views.theme import chart_colors
 
@@ -158,6 +159,7 @@ class ReportsView(QWidget):
         ax.tick_params(colors=c["muted"], labelsize=9)
         ax.spines[:].set_color(c["grid"])
         ax.set_xlabel(tr("Amount"), color=c["muted"], fontsize=9)
+        money_axis(ax, axis="x")
 
         for bar, val in zip(bars, totals[::-1]):
             ax.text(bar.get_width() + 5, bar.get_y() + bar.get_height()/2,
@@ -201,6 +203,7 @@ class ReportsView(QWidget):
         ax.set_xticklabels(month_abbr(), fontsize=9, color=c["muted"])
         ax.tick_params(axis="y", colors=c["muted"], labelsize=9)
         ax.spines[:].set_color(c["grid"])
+        money_axis(ax)
         ax.legend(framealpha=0, labelcolor=c["fg"], fontsize=9)
         fig.tight_layout(pad=1.5)
 

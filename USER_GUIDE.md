@@ -109,8 +109,10 @@ The Dashboard is your real-time financial snapshot for the current month.
 | Net Savings | Income minus expenses this month |
 | Savings Rate | Percentage of this month's income saved |
 
+Each card also shows how the number moved compared to last month (e.g. **▲ 12% vs last month**) — green when it's good news, red when it isn't (rising expenses count as bad). Cards with nothing to compare against simply omit the line.
+
 **Charts:**
-- **Spending by Category** — a donut chart of where your money went this month.
+- **Spending by Category** — a donut chart of where your money went this month, with each slice labeled by its share.
 - **Income vs Expenses — Monthly** — bars for each month of the current year.
 - **Net Worth — Last 12 Months** *(new in 1.2.0)* — a line chart of your total net worth over the past year, so you can see whether you're trending up or down at a glance.
 
@@ -274,6 +276,8 @@ Settings has these tabs:
 **Appearance**
 - **Theme** — pick from seven themes: **Dark**, **Light**, **Midnight** (pure black), **Ocean** (navy & cyan), **Forest** (deep green), **Sunset** (warm plum & orange), and **Sand** (warm light). Click **Apply Theme** to switch instantly — charts recolor to match, and your choice is remembered.
 - **Language** — English or French. Pick a language and click **Apply Language**; the entire interface re-localizes.
+- **Font size** — 90% to 125%; applies immediately to the whole app and is remembered. Handy if the default text feels small.
+- **Accent color** — pick any color and every theme recolors around it (buttons, highlights, charts). **Reset** returns to the theme's own accent.
 
 **Currency**
 - Shows your **home currency** and the cached exchange rates used to convert foreign-currency accounts in totals and charts.
@@ -456,8 +460,10 @@ Le tableau de bord est votre aperçu financier en temps réel pour le mois en co
 | Épargne nette | Revenus moins dépenses du mois |
 | Taux d'épargne | Pourcentage des revenus du mois épargné |
 
+Chaque carte indique aussi l'évolution par rapport au mois dernier (ex. **▲ 12 % vs mois dernier**) — en vert quand c'est une bonne nouvelle, en rouge sinon (des dépenses en hausse comptent comme mauvaises). Les cartes sans point de comparaison omettent simplement cette ligne.
+
 **Graphiques :**
-- **Dépenses par catégorie** — un graphique en anneau de la répartition du mois.
+- **Dépenses par catégorie** — un graphique en anneau de la répartition du mois, chaque part étant étiquetée avec son pourcentage.
 - **Revenus vs Dépenses — Mensuel** — des barres pour chaque mois de l'année.
 - **Valeur nette — 12 derniers mois** *(nouveau dans la 1.2.0)* — une courbe de votre valeur nette totale sur l'année écoulée, pour voir d'un coup d'œil la tendance.
 
@@ -621,6 +627,8 @@ Les paramètres comportent ces onglets :
 **Apparence**
 - **Thème** — choisissez parmi sept thèmes : **Sombre**, **Clair**, **Minuit** (noir pur), **Océan** (marine et cyan), **Forêt** (vert profond), **Coucher de soleil** (prune et orange chauds) et **Sable** (clair et chaleureux). Cliquez sur **Appliquer le thème** pour changer instantanément — les graphiques adoptent les couleurs assorties et votre choix est mémorisé.
 - **Langue** — anglais ou français. Choisissez une langue puis cliquez sur **Appliquer la langue** ; toute l'interface est traduite.
+- **Taille du texte** — de 90 % à 125 % ; s'applique immédiatement à toute l'application et est mémorisée. Pratique si le texte par défaut paraît petit.
+- **Couleur d'accent** — choisissez n'importe quelle couleur et chaque thème se recolore autour d'elle (boutons, surbrillances, graphiques). **Réinitialiser** revient à l'accent propre du thème.
 
 **Devise**
 - Affiche votre **devise principale** et les taux de change en cache utilisés pour convertir les comptes en devises étrangères dans les totaux et graphiques.

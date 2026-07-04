@@ -20,7 +20,10 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
 from database import DatabaseManager
-from views.widgets import SummaryCard, make_empty_state
+from views.chartutil import money_axis
+from views.widgets import (
+    SummaryCard, category_dot, delta_points, delta_text, make_empty_state,
+)
 from views.i18n import tr, month_abbr
 from views.theme import chart_colors
 from views.sortable import SortableItem, SORT_ROLE, enable_sorting
@@ -98,15 +101,30 @@ class DashboardView(QWidget):
 
         savings_color = "#10B981" if summary["savings"] >= 0 else "#EF4444"
 
+        # Deltas vs last month: previous summary for the flow cards, previous
+        # end-of-month net worth for the balance card. Rising expenses read
+        # as bad (invert), everything else reads as good when rising.
+        prev_month = month - 1 or 12
+        prev_year = year if month > 1 else year - 1
+        prev = self._db.get_monthly_summary(self._user["id"], prev_month, prev_year)
+        prev_balance = networth[-2]["balance"] if len(networth) >= 2 else None
+
         cards_data = [
-            (tr("Total Balance"),    f"{self._currency} {balance:,.2f}",          "#6C63FF"),
-            (tr("Monthly Income"),   f"{self._currency} {summary['income']:,.2f}", "#10B981"),
-            (tr("Monthly Expenses"), f"{self._currency} {summary['expenses']:,.2f}","#EF4444"),
-            (tr("Net Savings"),      f"{self._currency} {summary['savings']:,.2f}", savings_color),
-            (tr("Savings Rate"),     f"{summary['savings_rate']:.1f}%",            "#F59E0B"),
+            (tr("Total Balance"),    f"{self._currency} {balance:,.2f}",           "#6C63FF",
+             delta_text(balance, prev_balance)),
+            (tr("Monthly Income"),   f"{self._currency} {summary['income']:,.2f}", "#10B981",
+             delta_text(summary["income"], prev["income"])),
+            (tr("Monthly Expenses"), f"{self._currency} {summary['expenses']:,.2f}","#EF4444",
+             delta_text(summary["expenses"], prev["expenses"], invert=True)),
+            (tr("Net Savings"),      f"{self._currency} {summary['savings']:,.2f}", savings_color,
+             delta_text(summary["savings"], prev["savings"])),
+            (tr("Savings Rate"),     f"{summary['savings_rate']:.1f}%",             "#F59E0B",
+             delta_points(summary["savings_rate"],
+                          prev["savings_rate"] if prev["income"] > 0 else None)),
         ]
-        for title, val, color in cards_data:
-            card = SummaryCard(title, val, color=color)
+        for title, val, color, delta in cards_data:
+            card = SummaryCard(title, val, color=color, delta=delta,
+                               delta_label=tr("vs last month"))
             cards_row.addWidget(card)
 
         self._main_layout.addLayout(cards_row)
@@ -233,10 +251,19 @@ class DashboardView(QWidget):
         vals   = [r["total"] for r in spending[:7]]
         colors = [r.get("color", "#607D8B") for r in spending[:7]]
 
-        wedges, _ = ax.pie(
+        # Percentage labels on each slice; slices under 4% stay unlabeled to
+        # avoid overlapping text on thin wedges.
+        total = sum(vals) or 1.0
+        wedges, _, autotexts = ax.pie(
             vals, labels=None, colors=colors,
             startangle=90, wedgeprops={"width": 0.6, "edgecolor": c["bg"]},
+            autopct=lambda pct: f"{pct:.0f}%" if pct >= 4 else "",
+            pctdistance=0.72,
         )
+        for t in autotexts:
+            t.set_color("#FFFFFF")
+            t.set_fontsize(8)
+            t.set_fontweight("bold")
         ax.legend(
             wedges, labels,
             loc="lower center", ncol=2, framealpha=0,
@@ -285,6 +312,7 @@ class DashboardView(QWidget):
         ax.tick_params(axis="y", colors=c["muted"], labelsize=8)
         ax.spines[:].set_color(c["grid"])
         ax.yaxis.set_tick_params(labelcolor=c["muted"])
+        money_axis(ax)
         ax.legend(framealpha=0, labelcolor=c["fg"], fontsize=9)
         fig.tight_layout(pad=1.2)
 
@@ -325,6 +353,7 @@ class DashboardView(QWidget):
         ax.tick_params(axis="y", colors=c["muted"], labelsize=8)
         ax.spines[:].set_color(c["grid"])
         ax.yaxis.set_tick_params(labelcolor=c["muted"])
+        money_axis(ax)
         fig.tight_layout(pad=1.2)
 
         canvas = FigureCanvas(fig)
@@ -336,7 +365,7 @@ class DashboardView(QWidget):
 
     def _build_txn_table(self, transactions: list[dict]):
         if not transactions:
-            return make_empty_state(tr("No transactions yet."))
+            return make_empty_state(tr("No transactions yet."), icon="💳")
         cols = [tr("Date"), tr("Description"), tr("Category"), tr("Account"), tr("Amount")]
         tbl = QTableWidget(len(transactions), len(cols))
         tbl.setHorizontalHeaderLabels(cols)
@@ -363,6 +392,8 @@ class DashboardView(QWidget):
             ]
             for col_idx, text in enumerate(items):
                 item = SortableItem(text)
+                if col_idx == 2 and txn.get("category_color") and txn.get("transfer_id") is None:
+                    item.setIcon(category_dot(txn["category_color"]))
                 if col_idx == 4:
                     item.setData(SORT_ROLE, txn["amount"])   # sort Amount numerically
                     item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)

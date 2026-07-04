@@ -12,6 +12,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon, QPixmap, QPainter
 
 from services.auth_service import AuthService
+from views.fonts import ui_font
 from views.i18n import tr
 
 
@@ -51,7 +52,7 @@ class LoginView(QDialog):
         # Logo / Title area
         title = QLabel(tr("💰 Budget Manager"))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setFont(QFont("Segoe UI", 20, QFont.Weight.Bold))
+        title.setFont(ui_font(20, QFont.Weight.Bold))
         root.addWidget(title)
 
         subtitle = QLabel(tr("Personal Finance, Simplified"))

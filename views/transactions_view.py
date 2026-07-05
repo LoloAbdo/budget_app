@@ -69,6 +69,11 @@ class TransactionDialog(QDialog):
 
         self._desc_edit = QLineEdit()
         self._desc_edit.setPlaceholderText(tr("e.g. Grocery run"))
+        # Auto-categorization: as the description is typed, apply the user's
+        # rules — but never override a category the user picked themselves.
+        self._auto_categorized = False   # current combo value came from a rule
+        self._applying_rule = False      # guard: programmatic combo change
+        self._desc_edit.textEdited.connect(self._on_desc_edited)
         form.addRow(tr("Description"), self._desc_edit)
 
         # ── Type toggle: Expense (default) / Income ──────────────────────────
@@ -151,6 +156,37 @@ class TransactionDialog(QDialog):
         cat_id = self._category_combo.currentData()
         if cat_id is not None and cat_id in self._cat_types:
             self._set_type(self._cat_types[cat_id])
+        # A change not made by the rule engine is the user's own choice —
+        # from now on, typing in the description must not fight it.
+        if not self._applying_rule:
+            self._auto_categorized = False
+
+    def _select_category(self, cat_id) -> None:
+        for i in range(self._category_combo.count()):
+            if self._category_combo.itemData(i) == cat_id:
+                self._category_combo.setCurrentIndex(i)
+                break
+
+    def _on_desc_edited(self, text: str) -> None:
+        """Apply auto-categorization rules while a NEW transaction is typed."""
+        if self._txn:   # editing an existing row — don't surprise the user
+            return
+        current = self._category_combo.currentData()
+        if current is not None and not self._auto_categorized:
+            return      # user picked a category manually — leave it alone
+        matched = self._db.match_category_rule(self._user_id, text)
+        self._applying_rule = True
+        try:
+            if matched is not None:
+                self._select_category(matched)
+                self._auto_categorized = True
+            elif self._auto_categorized:
+                # The description no longer matches the rule that set the
+                # category — reset to None rather than keep a stale guess.
+                self._category_combo.setCurrentIndex(0)
+                self._auto_categorized = False
+        finally:
+            self._applying_rule = False
 
     def _signed_amount(self) -> float:
         """Return the amount with correct sign: negative for Expense."""
@@ -529,6 +565,25 @@ class TransactionsView(QWidget):
         btn_row.addWidget(self._count_lbl)
 
         layout.addLayout(btn_row)
+
+    def apply_global_search(self, keyword: str) -> None:
+        """Show *keyword* matches across all accounts, categories, and dates.
+
+        Called when the user picks a result in the global search (Ctrl+F):
+        the panel's own filters are widened so the match is guaranteed to be
+        visible, then the keyword is applied.
+        """
+        for combo in (self._cat_filter, self._acct_filter):
+            combo.blockSignals(True)
+            combo.setCurrentIndex(0)
+            combo.blockSignals(False)
+        self._start_date.blockSignals(True)
+        self._start_date.setDate(QDate(2000, 1, 1))
+        self._start_date.blockSignals(False)
+        self._end_date.blockSignals(True)
+        self._end_date.setDate(QDate.currentDate())
+        self._end_date.blockSignals(False)
+        self._search_edit.setText(keyword)   # textChanged triggers refresh()
 
     # ── Data ──────────────────────────────────────────────────────────────────
 

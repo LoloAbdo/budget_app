@@ -111,6 +111,10 @@ class ImportExportService:
 
                     cat_name = row.get("category", "").strip()
                     category_id = categories.get(cat_name)
+                    # No usable category in the file → try the user's
+                    # auto-categorization rules on the description.
+                    if category_id is None:
+                        category_id = self._db.match_category_rule(user_id, description)
 
                     self._db.create_transaction(
                         account_id=account_id,

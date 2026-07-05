@@ -40,8 +40,38 @@ def test_chart_colors_complete_for_every_theme():
 
 def test_available_themes_matches_registry():
     keys = [k for k, _ in theme.available_themes()]
-    assert keys == list(theme.THEMES.keys())
+    # "auto" is a virtual entry offered first; the real palettes follow.
+    assert keys == [theme.AUTO_THEME] + list(theme.THEMES.keys())
     assert "dark" in keys and "light" in keys
+
+
+class TestAutoTheme:
+    def test_resolves_to_dark_when_os_is_dark(self, monkeypatch):
+        monkeypatch.setattr(theme, "system_prefers_dark", lambda: True)
+        assert theme.resolve_theme("auto") == "dark"
+        assert theme.is_dark_theme("auto") is True
+        assert theme.theme_qss("auto") == theme.theme_qss("dark")
+
+    def test_resolves_to_light_when_os_is_light(self, monkeypatch):
+        monkeypatch.setattr(theme, "system_prefers_dark", lambda: False)
+        assert theme.resolve_theme("auto") == "light"
+        assert theme.is_dark_theme("auto") is False
+        assert theme.theme_qss("auto") == theme.theme_qss("light")
+
+    def test_real_theme_names_pass_through(self):
+        for key in theme.THEMES:
+            assert theme.resolve_theme(key) == key
+
+    def test_no_qt_app_defaults_to_dark(self):
+        # In a bare test process (no QGuiApplication), the OS scheme is
+        # unknowable — the fallback must be dark, the app's historic default.
+        assert theme.system_prefers_dark() is True
+
+    def test_chart_colors_follow_auto(self, monkeypatch):
+        monkeypatch.setattr(theme, "system_prefers_dark", lambda: False)
+        theme.set_active_theme("auto")
+        assert theme.chart_colors() == _chart_colors_for("light")
+        theme.set_active_theme("dark")   # restore for other tests
 
 
 def test_theme_labels_are_translated_in_french():

@@ -472,6 +472,38 @@ _FR: dict[str, str] = {
     "Copied to clipboard.": "Copié dans le presse-papiers.",
     "Saved.": "Enregistré.",
     "Close": "Fermer",
+
+    # ── Auto-categorization rules ─────────────────────────────────────────
+    "Rules": "Règles",
+    "Rules categorize transactions automatically: when a description "
+    "contains the pattern, the category is applied — while typing a new "
+    "transaction and on CSV/Excel import. The longest matching pattern wins.":
+        "Les règles catégorisent les transactions automatiquement : quand une "
+        "description contient le motif, la catégorie est appliquée — pendant la "
+        "saisie d'une nouvelle transaction et à l'import CSV/Excel. Le motif "
+        "correspondant le plus long l'emporte.",
+    "+ Add Rule": "+ Ajouter une règle",
+    "Add Rule": "Ajouter une règle",
+    "Edit Rule": "Modifier la règle",
+    "Delete Rule": "Supprimer la règle",
+    "Delete rule '{pattern}'?": "Supprimer la règle « {pattern} » ?",
+    "Description contains": "La description contient",
+    "e.g. NETFLIX": "p. ex. NETFLIX",
+    "Pattern is required.": "Le motif est obligatoire.",
+    "Please select a category.": "Veuillez sélectionner une catégorie.",
+
+    # ── Global search ─────────────────────────────────────────────────────
+    "Search transactions": "Rechercher des transactions",
+    "🔍 Search description, notes, or amount — e.g. NETFLIX or 15.99":
+        "🔍 Rechercher description, notes ou montant — p. ex. NETFLIX ou 15.99",
+    "Type to search across all accounts and dates.":
+        "Tapez pour chercher dans tous les comptes et toutes les dates.",
+    "Showing the first {n} matches — narrow your search.":
+        "Affichage des {n} premiers résultats — précisez votre recherche.",
+    "{n} match(es).": "{n} résultat(s).",
+
+    # ── Auto theme ────────────────────────────────────────────────────────
+    "Auto (match Windows)": "Auto (suivre Windows)",
     "Account not found.": "Compte introuvable.",
     "About": "À propos",
     "Version {v}": "Version {v}",

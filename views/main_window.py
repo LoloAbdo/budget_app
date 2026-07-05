@@ -88,6 +88,12 @@ class MainWindow(QMainWindow):
         self._setup_shortcuts()
         self._process_recurring()
         self._start_backup_timer()
+        # Follow the OS when the theme is "auto": Windows switching between
+        # light and dark re-themes the app live.
+        from PyQt6.QtGui import QGuiApplication
+        QGuiApplication.styleHints().colorSchemeChanged.connect(
+            self._on_os_color_scheme_changed
+        )
         # Quiet, one-shot update check shortly after launch (non-blocking).
         QTimer.singleShot(2500, self._check_updates_quietly)
         # Refresh FX rates in the background if any account uses a foreign
@@ -261,6 +267,20 @@ class MainWindow(QMainWindow):
         ]:
             sc = QShortcut(QKeySequence(key), self)
             sc.activated.connect(lambda i=idx: self._switch_to(i))
+        # Global transaction search
+        search_sc = QShortcut(QKeySequence("Ctrl+F"), self)
+        search_sc.activated.connect(self._open_search)
+
+    def _open_search(self) -> None:
+        from views.search_dialog import SearchDialog
+        dlg = SearchDialog(self._db, self._user, parent=self)
+        dlg.jump_requested.connect(self._on_search_jump)
+        dlg.exec()
+
+    def _on_search_jump(self, keyword: str) -> None:
+        """Open the Transactions panel filtered to the search query."""
+        self._txn_view.apply_global_search(keyword)
+        self._switch_to(1)   # Transactions panel
 
     # ── Recurring ──────────────────────────────────────────────────────────────
 
@@ -326,6 +346,13 @@ class MainWindow(QMainWindow):
         # Charts are matplotlib (not QSS) — redraw them so they pick up the palette
         for view in (self._dashboard_view, self._reports_view, self._savings_view):
             view.refresh()
+
+    def _on_os_color_scheme_changed(self, _scheme) -> None:
+        """Windows toggled light/dark — re-resolve if we're following the OS."""
+        if self._theme == "auto":
+            self._apply_theme("auto")
+            for view in (self._dashboard_view, self._reports_view, self._savings_view):
+                view.refresh()
 
     @pyqtSlot(str)
     def _on_language_changed(self, lang: str) -> None:

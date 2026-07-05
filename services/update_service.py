@@ -9,6 +9,7 @@ UpdateInfo with available=False (and an error string when relevant).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -29,6 +30,11 @@ _UA = "BudgetManager/1.0 (+local desktop app)"
 # release.yml). This is the file the auto-updater downloads and runs.
 INSTALLER_ASSET_NAME = "BudgetManagerSetup.exe"
 
+# Checksums file published alongside the binaries (sha256sum format:
+# "<hex digest> *<filename>", one line per asset). The updater refuses to run
+# an installer whose hash doesn't match its entry.
+CHECKSUMS_ASSET_NAME = "SHA256SUMS.txt"
+
 # Silent-upgrade flags for the Inno Setup installer. /CLOSEAPPLICATIONS lets it
 # close this running app to replace its files; the installer's postinstall [Run]
 # entry then relaunches the new version. /NORESTART suppresses any reboot prompt.
@@ -44,6 +50,7 @@ class UpdateInfo:
     error: str = ""
     installer_url: Optional[str] = None   # direct download link for the installer
     installer_size: int = 0               # bytes, for a download progress bar
+    checksums_url: Optional[str] = None   # SHA256SUMS.txt asset, when published
 
 
 def parse_version(tag: str) -> tuple[int, ...]:
@@ -106,10 +113,14 @@ def check_for_update(
     info.url = data.get("html_url") or RELEASES_URL
     info.available = is_newer(tag, current_version)
 
-    asset = select_installer_asset(data.get("assets") or [])
+    assets = data.get("assets") or []
+    asset = select_installer_asset(assets)
     if asset:
         info.installer_url = asset.get("browser_download_url")
         info.installer_size = int(asset.get("size") or 0)
+    sums = select_checksums_asset(assets)
+    if sums:
+        info.checksums_url = sums.get("browser_download_url")
     return info
 
 
@@ -127,6 +138,100 @@ def select_installer_asset(assets: list[dict]) -> Optional[dict]:
         if name.endswith("setup.exe"):
             return a
     return None
+
+
+def select_checksums_asset(assets: list[dict]) -> Optional[dict]:
+    """Pick the SHA256SUMS.txt asset from a release's asset list, if present."""
+    for a in assets:
+        if (a.get("name") or "").lower() == CHECKSUMS_ASSET_NAME.lower():
+            return a
+    return None
+
+
+# ── Integrity verification ────────────────────────────────────────────────────
+
+def parse_sha256sums(text: str) -> dict[str, str]:
+    """Parse sha256sum-style lines ("<hex> *<filename>") into {filename: hex}.
+
+    Filenames are lowercased for case-insensitive lookup; both the binary
+    ("*name") and text (" name") markers are accepted. Malformed lines are
+    skipped rather than failing the whole file.
+    """
+    out: dict[str, str] = {}
+    for line in text.splitlines():
+        m = re.match(r"^([0-9a-fA-F]{64})\s+\*?(.+?)\s*$", line.strip())
+        if m:
+            out[m.group(2).lower()] = m.group(1).lower()
+    return out
+
+
+def sha256_of_file(path: str, chunk_size: int = 1024 * 1024) -> str:
+    """Hex SHA-256 of *path*, streamed so large installers don't load into RAM."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while True:
+            chunk = f.read(chunk_size)
+            if not chunk:
+                break
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def fetch_text(url: str, timeout: int = _TIMEOUT) -> str:
+    """Fetch a small text asset (the checksums file). Raises on any error."""
+    req = urllib.request.Request(url, headers={"User-Agent": _UA})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", errors="replace")
+
+
+def verify_installer(
+    path: str,
+    expected_size: int = 0,
+    checksums_url: Optional[str] = None,
+    asset_name: str = INSTALLER_ASSET_NAME,
+) -> None:
+    """Verify a downloaded installer before it is executed.
+
+    Checks, in order:
+      1. Size matches what the release API reported (when known) — catches
+         truncated/corrupted downloads for free.
+      2. SHA-256 matches the release's published SHA256SUMS.txt (when the
+         release ships one — all releases from v2.4.0 on do). A missing or
+         unfetchable checksums file on a release that advertised one, or a
+         missing entry for the installer, FAILS the check: better to make the
+         user download manually than to silently skip verification.
+
+    Raises ValueError with a user-displayable message on any mismatch.
+    Releases published before checksums existed (checksums_url=None) get the
+    size check only, so updating from an old version keeps working.
+    """
+    if expected_size:
+        actual = os.path.getsize(path)
+        if actual != expected_size:
+            raise ValueError(
+                f"Downloaded size ({actual} bytes) does not match the release "
+                f"asset ({expected_size} bytes)."
+            )
+
+    if not checksums_url:
+        return
+
+    try:
+        sums = parse_sha256sums(fetch_text(checksums_url))
+    except Exception as exc:
+        raise ValueError(f"Could not fetch the release checksums: {exc}") from exc
+
+    expected = sums.get(asset_name.lower())
+    if not expected:
+        raise ValueError(f"No checksum published for {asset_name}.")
+
+    actual_hash = sha256_of_file(path)
+    if actual_hash != expected:
+        raise ValueError(
+            "Installer checksum mismatch — the download may be corrupted or "
+            "tampered with. Expected "
+            f"{expected[:12]}…, got {actual_hash[:12]}…"
+        )
 
 
 # ── Download ──────────────────────────────────────────────────────────────────

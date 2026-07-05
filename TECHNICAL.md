@@ -127,7 +127,7 @@ app.exec()
 
 ## 5. Database Schema & Migrations
 
-Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, `categories`, `transactions`, `budgets`, `financial_goals`, `recurring_transactions`, `watchlist`, `fx_rates`, `recovery_codes`.
+Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, `categories`, `transactions`, `budgets`, `financial_goals`, `recurring_transactions`, `watchlist`, `fx_rates`, `recovery_codes`, `category_rules`.
 
 **Key columns & relationships:**
 - `users` — bcrypt `password`, `currency` (the **home currency**, default CAD), `language` (`'en'`/`'fr'`).
@@ -139,6 +139,7 @@ Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, 
 - `recurring_transactions` — `frequency` ∈ {Weekly, Bi-weekly, Monthly, Quarterly, Yearly}; optional `to_account_id` for recurring transfers; optional `end_date` (NULL = no end) after which the rule stops posting; `is_active` (1/0) to pause a rule without deleting it.
 - `watchlist` — markets symbols with cached last price/change/currency; `UNIQUE(user_id, symbol, asset_type)`.
 - `recovery_codes` — one-time password-reset codes: `code_hash` (bcrypt of the normalized code — plaintext is never stored), `used_at` (NULL = still usable; kept after use so "codes remaining" and the reset history stay honest). Regenerating deletes the user's previous set.
+- `category_rules` — auto-categorization: `pattern` matched case-insensitively as a substring of a transaction's description → `category_id`. `match_category_rule()` picks the longest matching pattern (ties → oldest rule). Applied by the transaction dialog while typing (never overriding a manual pick) and by CSV/Excel import for rows without a category. `search_transactions()` (global Ctrl+F) also lives in `DatabaseManager`: numeric query → sign-insensitive amount match, otherwise description/notes LIKE, capped and newest-first.
 
 **Balance auto-update:** `create_transaction` → `balance += amount`; `update_transaction` → reverse old, apply new; `delete_transaction` → `balance −= amount`.
 
@@ -170,10 +171,10 @@ Parameterized queries throughout; foreign keys ON. Tables: `users`, `accounts`, 
 | **AuthService** | `register()` (validates name/email/password length, unique email), `login()`; bcrypt hashing with constant-time verify. Recovery codes: `generate_recovery_codes()` returns 8 one-time codes (`XXXX-XXXX-XXXX`, `secrets`-based, lookalike-free alphabet) and stores only bcrypt hashes; `reset_password_with_code()` burns the matched code and sets the new password, returning the **same generic error** for unknown e-mail, no codes, or wrong code (no account probing). Input is normalized (case/dashes/spaces ignored). |
 | **BackupService** | `create_backup(label)` writes `backups/budget_<timestamp>_<label>.db` and prunes to the 30 most recent; `list_backups()`, `restore_backup(path)`. |
 | **RecurringService** | `process_due(user_id)` posts every rule whose `next_due_date ≤ today`, advancing the date with `dateutil.relativedelta`; a `while` loop catches up multiple missed periods. Handles transfers (`to_account_id`), skips paused rules (`is_active = 0`), and stops posting once a rule's occurrence passes its optional `end_date` (both also honored by `forecast()`). |
-| **ImportExportService** | CSV/Excel import (column map: `date, amount, description, category, account`; invalid rows skipped, returns counts) and CSV/multi-sheet Excel export. |
+| **ImportExportService** | CSV/Excel import (column map: `date, amount, description, category, account`; invalid rows skipped, returns counts) and CSV/multi-sheet Excel export. Rows without a usable category are run through the user's auto-categorization rules. |
 | **market_service** | Module of functions (not a class): keyless quotes from CoinGecko (crypto) and Stooq/Yahoo (stocks), `get_fx_rate()` conversion to the user's currency, and `fetch_quotes()` which batches stock requests into one call. |
 | **FxService** | Keeps the `fx_rates` cache fresh for multi-currency accounts: `required_pairs()` derives the (account currency → home) pairs, `needs_refresh()` checks staleness (>24 h), `refresh()` fetches via `market_service.get_fx_rate` and stores both directions. Failed fetches keep the previous cached value (offline-safe). Also exports `CURRENCIES`, the UI picker list. |
-| **update_service** | `check_for_update()` queries the GitHub "latest release" API, compares the tag to `version.__version__` via `is_newer()`, and captures the installer asset's download URL. On the installed build (`can_auto_update()`), Settings ▸ About offers one-click update: `download_file()` fetches `BudgetManagerSetup.exe`, then `launch_installer()` runs it silently and the app quits so Inno upgrades in place and relaunches. Source/portable stay notify-only. |
+| **update_service** | `check_for_update()` queries the GitHub "latest release" API, compares the tag to `version.__version__` via `is_newer()`, and captures the installer asset's download URL plus the `SHA256SUMS.txt` asset URL. On the installed build (`can_auto_update()`), Settings ▸ About offers one-click update: `download_file()` fetches `BudgetManagerSetup.exe`, `verify_installer()` checks its size against the release metadata and its SHA-256 against the published checksums (fail-closed: a bad or unfetchable checksum deletes the download and aborts; releases without checksums get the size check only), then `launch_installer()` runs it silently and the app quits so Inno upgrades in place and relaunches. Source/portable stay notify-only. |
 
 ---
 
@@ -236,6 +237,7 @@ Common `objectName` targets: `sidebar`, `navBtn` (`:checked` = active), `card`, 
 - **Data isolation:** queries filter by `user_id` (directly or via `accounts.user_id`); a user only sees their own data.
 - **Backups:** written locally; `restore_backup` copies into place so a failure leaves the live DB intact.
 - **Network:** the market and update services make outbound HTTPS calls to public, keyless endpoints only; no credentials are transmitted.
+- **Verified updates:** the auto-updater validates the downloaded installer's size and SHA-256 against the release's published `SHA256SUMS.txt` (generated by `release.yml`) before executing it; any mismatch deletes the file and surfaces an error.
 
 ---
 
@@ -277,7 +279,7 @@ Tests live in `tests/` and use isolated temp-file databases via `conftest.py` fi
 pytest                       # full suite (config in pytest.ini); must stay green
 ```
 
-Coverage spans database CRUD, auth, recurring transfers, savings/interest, markets, watchlist, i18n, the update service, and net-worth history. **Note:** `pytest --cov` can fail with a PyO3/bcrypt "initialized once" error in some environments — that's coverage re-importing bcrypt, not a real test failure. Plain `pytest` is clean.
+Coverage spans database CRUD, auth, recurring transfers, savings/interest, markets, watchlist, i18n, the update service, and net-worth history. An autouse conftest fixture drops bcrypt to its minimum cost (4 rounds) so password/recovery-code tests run in milliseconds instead of ~250 ms per hash; verification is cost-agnostic, so nothing tested changes. **Note:** `pytest --cov` can fail with a PyO3/bcrypt "initialized once" error in some environments — that's coverage re-importing bcrypt, not a real test failure. Plain `pytest` is clean.
 
 ---
 
@@ -377,7 +379,7 @@ Identique à la section anglaise [§4.5](#45-startup-sequence) : analyse des arg
 
 ## 5. Schéma de base de données et migrations
 
-Requêtes paramétrées partout ; clés étrangères activées. Tables : `users`, `accounts`, `categories`, `transactions`, `budgets`, `financial_goals`, `recurring_transactions`, `watchlist`, `fx_rates`, `recovery_codes`.
+Requêtes paramétrées partout ; clés étrangères activées. Tables : `users`, `accounts`, `categories`, `transactions`, `budgets`, `financial_goals`, `recurring_transactions`, `watchlist`, `fx_rates`, `recovery_codes`, `category_rules`.
 
 **Colonnes et relations clés :**
 - `users` — `password` bcrypt, `currency` (la **devise principale**, CAD par défaut), `language` (`'en'`/`'fr'`).
@@ -389,6 +391,7 @@ Requêtes paramétrées partout ; clés étrangères activées. Tables : `users`
 - `recurring_transactions` — `frequency` ∈ {Weekly, Bi-weekly, Monthly, Quarterly, Yearly} ; `to_account_id` optionnel pour les virements récurrents ; `end_date` optionnel (NULL = sans fin) après lequel la règle cesse de publier ; `is_active` (1/0) pour mettre une règle en pause sans la supprimer.
 - `watchlist` — symboles de marchés avec dernier cours/variation/devise en cache ; `UNIQUE(user_id, symbol, asset_type)`.
 - `recovery_codes` — codes de réinitialisation à usage unique : `code_hash` (bcrypt du code normalisé — jamais de clair), `used_at` (NULL = encore utilisable ; conservé après usage pour que « codes restants » et l'historique restent fidèles). La régénération supprime l'ancien jeu de l'utilisateur.
+- `category_rules` — catégorisation automatique : `pattern` comparé sans casse comme sous-chaîne de la description d'une transaction → `category_id`. `match_category_rule()` retient le motif correspondant le plus long (égalité → règle la plus ancienne). Appliqué par le dialogue de transaction pendant la saisie (sans jamais écraser un choix manuel) et par l'import CSV/Excel pour les lignes sans catégorie. `search_transactions()` (Ctrl+F global) vit aussi dans `DatabaseManager` : requête numérique → correspondance de montant sans tenir compte du signe, sinon LIKE sur description/notes, plafonné et du plus récent au plus ancien.
 
 **Mise à jour automatique des soldes :** `create_transaction` → `solde += montant` ; `update_transaction` → annule l'ancien, applique le nouveau ; `delete_transaction` → `solde −= montant`.
 
@@ -407,10 +410,10 @@ Requêtes paramétrées partout ; clés étrangères activées. Tables : `users`
 | **AuthService** | `register()` (valide nom/courriel/longueur du mot de passe, courriel unique), `login()` ; hachage bcrypt avec vérification à temps constant. Codes de récupération : `generate_recovery_codes()` renvoie 8 codes à usage unique (`XXXX-XXXX-XXXX`, générés via `secrets`, alphabet sans caractères ambigus) et ne stocke que des hachages bcrypt ; `reset_password_with_code()` consomme le code correspondant et définit le nouveau mot de passe, avec le **même message d'erreur générique** pour courriel inconnu, absence de codes ou mauvais code (pas de sondage de comptes). La saisie est normalisée (casse/tirets/espaces ignorés). |
 | **BackupService** | `create_backup(label)` écrit `backups/budget_<horodatage>_<label>.db` et élague aux 30 plus récents ; `list_backups()`, `restore_backup(path)`. |
 | **RecurringService** | `process_due(user_id)` publie chaque règle dont `next_due_date ≤ aujourd'hui`, en avançant la date avec `dateutil.relativedelta` ; une boucle `while` rattrape les périodes manquées. Gère les virements (`to_account_id`), ignore les règles en pause (`is_active = 0`) et cesse de publier dès qu'une occurrence dépasse la `end_date` optionnelle (les deux étant aussi respectées par `forecast()`). |
-| **ImportExportService** | Import CSV/Excel (colonnes : `date, amount, description, category, account` ; lignes invalides ignorées, renvoie les compteurs) et export CSV / Excel multi-feuilles. |
+| **ImportExportService** | Import CSV/Excel (colonnes : `date, amount, description, category, account` ; lignes invalides ignorées, renvoie les compteurs) et export CSV / Excel multi-feuilles. Les lignes sans catégorie exploitable passent par les règles de catégorisation automatique de l'utilisateur. |
 | **market_service** | Module de fonctions (pas une classe) : cours sans clé depuis CoinGecko (crypto) et Stooq/Yahoo (actions), conversion `get_fx_rate()` vers la devise de l'utilisateur, et `fetch_quotes()` qui regroupe les requêtes d'actions en un seul appel. |
 | **FxService** | Tient à jour le cache `fx_rates` pour les comptes multi-devises : `required_pairs()` dérive les paires (devise du compte → principale), `needs_refresh()` vérifie l'ancienneté (>24 h), `refresh()` récupère via `market_service.get_fx_rate` et stocke les deux sens. Un échec de récupération conserve la valeur en cache (sûr hors ligne). Exporte aussi `CURRENCIES`, la liste du sélecteur. |
-| **update_service** | `check_for_update()` interroge l'API « latest release » de GitHub, compare le tag à `version.__version__` via `is_newer()` et récupère le lien de l'installateur. Sur la version installée (`can_auto_update()`), Paramètres ▸ À propos propose la mise à jour en un clic : `download_file()` télécharge `BudgetManagerSetup.exe`, puis `launch_installer()` le lance en mode silencieux et l'application se ferme pour qu'Inno mette à jour sur place et relance. Les versions source/portable restent informatives seulement. |
+| **update_service** | `check_for_update()` interroge l'API « latest release » de GitHub, compare le tag à `version.__version__` via `is_newer()` et récupère le lien de l'installateur ainsi que l'URL de l'actif `SHA256SUMS.txt`. Sur la version installée (`can_auto_update()`), Paramètres ▸ À propos propose la mise à jour en un clic : `download_file()` télécharge `BudgetManagerSetup.exe`, `verify_installer()` vérifie sa taille par rapport aux métadonnées de la release et son SHA-256 par rapport aux sommes publiées (échec = fermeture : une somme invalide ou impossible à récupérer supprime le téléchargement et annule ; les releases sans sommes n'ont que le contrôle de taille), puis `launch_installer()` le lance en mode silencieux et l'application se ferme pour qu'Inno mette à jour sur place et relance. Les versions source/portable restent informatives seulement. |
 
 ---
 
@@ -444,6 +447,7 @@ Cibles `objectName` courantes : `sidebar`, `navBtn` (`:checked` = actif), `card`
 
 - **Mots de passe :** hachés avec bcrypt ; vérification à temps constant ; jamais journalisés ni stockés en clair.
 - **Codes de récupération :** codes à usage unique pour réinitialiser un mot de passe oublié ; seuls des hachages bcrypt sont stockés, usage unique (consommés en cas de succès), message d'erreur générique quelle que soit la cause de l'échec pour empêcher de sonder quels courriels existent. Les codes n'apparaissent jamais dans le journal d'activité.
+- **Mises à jour vérifiées :** l'auto-updater valide la taille et le SHA-256 de l'installateur téléchargé par rapport au `SHA256SUMS.txt` publié avec la release (généré par `release.yml`) avant de l'exécuter ; toute différence supprime le fichier et affiche une erreur.
 - **Injection SQL :** chaque instruction utilise des `?` ; aucune interpolation de chaîne d'entrée utilisateur.
 - **Isolation des données :** les requêtes filtrent par `user_id` (directement ou via `accounts.user_id`) ; un utilisateur ne voit que ses propres données.
 - **Sauvegardes :** écrites localement ; `restore_backup` copie en place pour qu'un échec laisse la base active intacte.
@@ -489,7 +493,7 @@ Les tests sont dans `tests/` et utilisent des bases temporaires isolées via les
 pytest                       # suite complète (config dans pytest.ini) ; doit rester verte
 ```
 
-La couverture inclut le CRUD de la base, l'authentification, les virements récurrents, l'épargne/les intérêts, les marchés, la liste de surveillance, l'i18n, le service de mise à jour et l'historique de valeur nette. **Note :** `pytest --cov` peut échouer avec une erreur PyO3/bcrypt « initialized once » dans certains environnements — c'est la couverture qui réimporte bcrypt, pas un vrai échec de test. Le `pytest` simple est propre.
+La couverture inclut le CRUD de la base, l'authentification, les virements récurrents, l'épargne/les intérêts, les marchés, la liste de surveillance, l'i18n, le service de mise à jour et l'historique de valeur nette. Une fixture conftest automatique abaisse bcrypt à son coût minimal (4 tours) pour que les tests de mots de passe/codes de récupération s'exécutent en millisecondes au lieu de ~250 ms par hachage ; la vérification étant indépendante du coût, rien de ce qui est testé ne change. **Note :** `pytest --cov` peut échouer avec une erreur PyO3/bcrypt « initialized once » dans certains environnements — c'est la couverture qui réimporte bcrypt, pas un vrai échec de test. Le `pytest` simple est propre.
 
 ---
 

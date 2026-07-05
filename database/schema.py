@@ -130,6 +130,18 @@ CREATE TABLE IF NOT EXISTS watchlist (
     UNIQUE(user_id, symbol, asset_type)
 );
 
+-- Auto-categorization rules: case-insensitive substring match on a
+-- transaction's description ("NETFLIX" -> Subscriptions). Longest matching
+-- pattern wins, so specific rules beat generic ones.
+CREATE TABLE IF NOT EXISTS category_rules (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    pattern     TEXT    NOT NULL,
+    category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_category_rules_user ON category_rules(user_id);
+
 -- One-time password recovery codes (bcrypt hashes only — never plaintext).
 -- A used code keeps its row with used_at set, so "codes remaining" is honest
 -- and the audit trail of resets stays reconstructable.
@@ -627,6 +639,66 @@ class DatabaseManager:
         self._execute("DELETE FROM categories WHERE id=?", (category_id,))
         self._log("DELETE", "category", category_id, {"name": old["name"]} if old else None)
 
+    # ── Auto-categorization rules ─────────────────────────────────────────────
+
+    def get_category_rules(self, user_id: int) -> list[dict]:
+        """The user's rules with the target category's name/color for display."""
+        return self._fetchall(
+            """SELECT r.*, c.name AS category_name, c.color AS category_color,
+                      c.type AS category_type
+               FROM category_rules r
+               JOIN categories c ON c.id = r.category_id
+               WHERE r.user_id=? ORDER BY LOWER(r.pattern)""",
+            (user_id,),
+        )
+
+    def create_category_rule(self, user_id: int, pattern: str, category_id: int) -> int:
+        rid = self._execute(
+            "INSERT INTO category_rules (user_id, pattern, category_id) VALUES (?,?,?)",
+            (user_id, pattern.strip(), category_id),
+        )
+        self._log("INSERT", "category_rule", rid,
+                  {"pattern": pattern.strip(), "category_id": category_id}, user_id=user_id)
+        return rid
+
+    def update_category_rule(self, rule_id: int, pattern: str, category_id: int,
+                             user_id: Optional[int] = None) -> None:
+        self._execute(
+            "UPDATE category_rules SET pattern=?, category_id=? WHERE id=?",
+            (pattern.strip(), category_id, rule_id),
+        )
+        self._log("UPDATE", "category_rule", rule_id,
+                  {"pattern": pattern.strip(), "category_id": category_id}, user_id=user_id)
+
+    def delete_category_rule(self, rule_id: int, user_id: Optional[int] = None) -> None:
+        old = self._fetchone("SELECT * FROM category_rules WHERE id=?", (rule_id,))
+        self._execute("DELETE FROM category_rules WHERE id=?", (rule_id,))
+        self._log("DELETE", "category_rule", rule_id,
+                  {"pattern": old["pattern"]} if old else None, user_id=user_id)
+
+    def match_category_rule(self, user_id: int, description: str) -> Optional[int]:
+        """Category id whose rule matches *description*, or None.
+
+        Case-insensitive substring match. When several rules match, the
+        longest pattern wins (most specific); ties go to the oldest rule so
+        results stay deterministic.
+        """
+        desc = (description or "").lower().strip()
+        if not desc:
+            return None
+        best_key: Optional[tuple[int, int]] = None
+        best_cat: Optional[int] = None
+        for r in self._fetchall(
+            "SELECT id, pattern, category_id FROM category_rules WHERE user_id=?",
+            (user_id,),
+        ):
+            p = (r["pattern"] or "").lower().strip()
+            if p and p in desc:
+                key = (len(p), -r["id"])
+                if best_key is None or key > best_key:
+                    best_key, best_cat = key, r["category_id"]
+        return best_cat
+
     # ── Transactions ──────────────────────────────────────────────────────────
 
     def get_transactions(
@@ -677,6 +749,32 @@ class DatabaseManager:
                LEFT JOIN categories c ON t.category_id = c.id
                WHERE t.id=?""",
             (transaction_id,),
+        )
+
+    def search_transactions(self, user_id: int, query: str, limit: int = 200) -> list[dict]:
+        """Global search across all accounts and dates (powers Ctrl+F).
+
+        A numeric query matches the amount (absolute value, so "15.99" finds
+        both the expense and a refund); anything else searches description and
+        notes, case-insensitively. Newest first, capped at *limit*.
+        """
+        q = (query or "").strip()
+        if not q:
+            return []
+        try:
+            value = abs(float(q.replace(",", ".")))
+        except ValueError:
+            return self.get_transactions(user_id, keyword=q, limit=limit)
+        return self._fetchall(
+            f"""SELECT t.*, c.name AS category_name, c.type AS category_type,
+                       c.color AS category_color,
+                       a.account_name, a.account_type, a.currency AS account_currency
+                FROM transactions t
+                JOIN accounts a ON t.account_id = a.id
+                LEFT JOIN categories c ON t.category_id = c.id
+                WHERE a.user_id = ? AND ABS(ABS(t.amount) - ?) < 0.005
+                ORDER BY t.date DESC, t.id DESC LIMIT {int(limit)}""",
+            (user_id, value),
         )
 
     def create_transaction(

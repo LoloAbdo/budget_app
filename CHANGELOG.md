@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-07-05
+
+### Added
+- **Auto-categorization rules.** Settings ▸ Rules maps description patterns to
+  categories ("NETFLIX" → Subscriptions, case-insensitive substring; the
+  longest matching pattern wins). Rules apply live while typing a new
+  transaction (never overriding a manually picked category) and to CSV/Excel
+  imports for rows without a category.
+- **Global search.** Ctrl+F opens a search dialog that matches description,
+  notes, or an exact amount (sign-insensitive) across all accounts and dates.
+  Double-click or Enter jumps to the Transactions panel with the query applied
+  and filters widened.
+- **Auto theme.** A new "Auto (match Windows)" theme follows the OS light/dark
+  setting and re-themes live when Windows switches modes. Available in
+  Settings ▸ Appearance and as `--theme auto`.
+
+### Security
+- **Verified updates.** Each release now publishes `SHA256SUMS.txt`, and the
+  in-app updater checks the installer's size and SHA-256 against it before
+  launching — a corrupted or tampered download is deleted and reported instead
+  of run. Releases without checksums (pre-2.4.0) still update with the size
+  check only.
+
+### Internal
+- Tests hash bcrypt passwords at minimum cost (4 rounds), cutting the auth
+  suite from ~28 s to ~1 s with no change to what's tested.
+
 ## [2.3.0] - 2026-07-04
 
 ### Added

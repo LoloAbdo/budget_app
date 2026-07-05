@@ -67,11 +67,29 @@ jobs:
           $ver = (python -c "import version; print(version.__version__)").Trim()
           & $iscc "/DMyAppVersion=$ver" installer.iss
 
+      # SHA-256 checksums for both binaries, in sha256sum format
+      # ("<hex> *<filename>"). The in-app updater downloads this file and
+      # refuses to run an installer whose hash doesn't match.
+      - name: Generate SHA256SUMS.txt
+        shell: pwsh
+        run: |
+          $lines = @(
+            @{ Path = "installer_output/BudgetManagerSetup.exe" },
+            @{ Path = "dist_portable/BudgetManager.exe" }
+          ) | ForEach-Object {
+            $hash = (Get-FileHash $_.Path -Algorithm SHA256).Hash.ToLower()
+            $name = Split-Path $_.Path -Leaf
+            "$hash *$name"
+          }
+          # ASCII + LF so the file parses identically everywhere.
+          [IO.File]::WriteAllText("SHA256SUMS.txt", ($lines -join "`n") + "`n")
+          Get-Content SHA256SUMS.txt
+
       # Idempotent publish: create the release if it doesn't exist yet,
       # otherwise just (re-)upload the assets with --clobber. This way a
       # pre-existing release (e.g. created manually) or a workflow re-run
       # never fails with "a release with the same tag name already exists".
-      - name: Publish GitHub Release (installer + portable exe)
+      - name: Publish GitHub Release (installer + portable exe + checksums)
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -83,12 +101,14 @@ jobs:
             gh release upload $tag `
               "installer_output/BudgetManagerSetup.exe" `
               "dist_portable/BudgetManager.exe" `
+              "SHA256SUMS.txt" `
               --clobber
           } else {
             Write-Host "Creating release $tag"
             gh release create $tag `
               "installer_output/BudgetManagerSetup.exe" `
               "dist_portable/BudgetManager.exe" `
+              "SHA256SUMS.txt" `
               --title "Budget Manager $tag" `
               --generate-notes
           }

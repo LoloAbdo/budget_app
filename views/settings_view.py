@@ -94,6 +94,70 @@ class RecoveryCodesDialog(QDialog):
             QMessageBox.warning(self, tr("Recovery Codes"), str(exc))
 
 
+# ── Auto-categorization rule dialog ────────────────────────────────────────────
+
+class RuleDialog(QDialog):
+    """Add / edit one auto-categorization rule (pattern → category)."""
+
+    def __init__(self, db: DatabaseManager, user_id: int,
+                 rule: Optional[dict] = None, parent=None):
+        super().__init__(parent)
+        self._db = db
+        self._user_id = user_id
+        self._rule = rule
+        self.setWindowTitle(tr("Edit Rule") if rule else tr("Add Rule"))
+        self.setMinimumWidth(380)
+
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+        form.setSpacing(10)
+
+        self._pattern_edit = QLineEdit()
+        self._pattern_edit.setPlaceholderText(tr("e.g. NETFLIX"))
+        form.addRow(tr("Description contains"), self._pattern_edit)
+
+        self._category_combo = QComboBox()
+        for c in self._db.get_categories():
+            self._category_combo.addItem(f"{c['name']} ({tr(c['type'])})", c["id"])
+        form.addRow(tr("Category"), self._category_combo)
+
+        layout.addLayout(form)
+
+        btn_row = QHBoxLayout()
+        cancel_btn = QPushButton(tr("Cancel"))
+        cancel_btn.setObjectName("secondary")
+        cancel_btn.clicked.connect(self.reject)
+        save_btn = QPushButton(tr("Save"))
+        save_btn.setDefault(True)
+        save_btn.clicked.connect(self._save)
+        btn_row.addWidget(cancel_btn)
+        btn_row.addWidget(save_btn)
+        layout.addLayout(btn_row)
+
+        if rule:
+            self._pattern_edit.setText(rule["pattern"])
+            for i in range(self._category_combo.count()):
+                if self._category_combo.itemData(i) == rule["category_id"]:
+                    self._category_combo.setCurrentIndex(i)
+                    break
+
+    def _save(self) -> None:
+        pattern = self._pattern_edit.text().strip()
+        cat_id = self._category_combo.currentData()
+        if not pattern:
+            QMessageBox.warning(self, tr("Validation"), tr("Pattern is required."))
+            return
+        if cat_id is None:
+            QMessageBox.warning(self, tr("Validation"), tr("Please select a category."))
+            return
+        if self._rule:
+            self._db.update_category_rule(self._rule["id"], pattern, cat_id,
+                                          user_id=self._user_id)
+        else:
+            self._db.create_category_rule(self._user_id, pattern, cat_id)
+        self.accept()
+
+
 # ── Category dialog ────────────────────────────────────────────────────────────
 
 PRESET_COLORS = [
@@ -222,6 +286,7 @@ class SettingsView(QWidget):
         tabs.addTab(self._build_currency_tab(),   tr("Currency"))
         tabs.addTab(self._build_security_tab(),   tr("Security"))
         tabs.addTab(self._build_categories_tab(), tr("Categories"))
+        tabs.addTab(self._build_rules_tab(),      tr("Rules"))
         tabs.addTab(self._build_backup_tab(),     tr("Backup & Restore"))
         tabs.addTab(self._build_import_tab(),     tr("Import Data"))
         tabs.addTab(self._build_about_tab(),      tr("About"))
@@ -639,6 +704,99 @@ class SettingsView(QWidget):
                 self._cat_table.selectRow(new_row)
             self.data_changed.emit()
 
+    # ── Auto-categorization rules ──────────────────────────────────────────────
+
+    def _build_rules_tab(self) -> QWidget:
+        w = QWidget()
+        layout = QVBoxLayout(w)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(10)
+
+        help_lbl = QLabel(tr(
+            "Rules categorize transactions automatically: when a description "
+            "contains the pattern, the category is applied — while typing a new "
+            "transaction and on CSV/Excel import. The longest matching pattern wins."
+        ))
+        help_lbl.setObjectName("muted")
+        help_lbl.setWordWrap(True)
+        layout.addWidget(help_lbl)
+
+        btn_row = QHBoxLayout()
+        add_btn = QPushButton(tr("+ Add Rule"))
+        add_btn.clicked.connect(self._add_rule)
+        btn_row.addWidget(add_btn)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+        self._rules_table = QTableWidget()
+        self._rules_table.setColumnCount(2)
+        self._rules_table.setHorizontalHeaderLabels(
+            [tr("Description contains"), tr("Category")]
+        )
+        self._rules_table.setAlternatingRowColors(True)
+        self._rules_table.verticalHeader().setVisible(False)
+        self._rules_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        hdr = self._rules_table.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        hdr.setMinimumSectionSize(60)
+        self._rules_table.doubleClicked.connect(self._edit_rule)
+        enable_sorting(self._rules_table, 0, Qt.SortOrder.AscendingOrder)
+        layout.addWidget(self._rules_table)
+
+        del_btn = QPushButton(tr("🗑 Delete Selected"))
+        del_btn.setObjectName("danger")
+        del_btn.setMaximumWidth(180)
+        del_btn.clicked.connect(self._delete_rule)
+        layout.addWidget(del_btn)
+
+        self._refresh_rules()
+        return w
+
+    def _refresh_rules(self) -> None:
+        rules = self._db.get_category_rules(self._user["id"])
+        self._rules_table.setSortingEnabled(False)
+        self._rules_table.setRowCount(len(rules))
+        for r, rule in enumerate(rules):
+            for col, text in enumerate([rule["pattern"], rule["category_name"]]):
+                item = SortableItem(text)
+                item.setData(Qt.ItemDataRole.UserRole, rule["id"])
+                self._rules_table.setItem(r, col, item)
+        self._rules_table.setSortingEnabled(True)
+
+    def _add_rule(self) -> None:
+        dlg = RuleDialog(self._db, self._user["id"], parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self._refresh_rules()
+
+    def _edit_rule(self) -> None:
+        row = self._rules_table.currentRow()
+        if row < 0:
+            return
+        rule_id = self._rules_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        rule = next(
+            (r for r in self._db.get_category_rules(self._user["id"]) if r["id"] == rule_id),
+            None,
+        )
+        if rule:
+            dlg = RuleDialog(self._db, self._user["id"], rule=rule, parent=self)
+            if dlg.exec() == QDialog.DialogCode.Accepted:
+                self._refresh_rules()
+
+    def _delete_rule(self) -> None:
+        row = self._rules_table.currentRow()
+        if row < 0:
+            return
+        rule_id = self._rules_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        pattern = self._rules_table.item(row, 0).text()
+        reply = QMessageBox.question(
+            self, tr("Delete Rule"), tr("Delete rule '{pattern}'?").format(pattern=pattern),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self._db.delete_category_rule(rule_id, user_id=self._user["id"])
+            self._refresh_rules()
+
     # ── Backup ─────────────────────────────────────────────────────────────────
 
     def _build_backup_tab(self) -> QWidget:
@@ -878,7 +1036,11 @@ class SettingsView(QWidget):
         dest = os.path.join(
             tempfile.gettempdir(), f"BudgetManagerSetup_{info.latest}.exe"
         )
-        worker = UpdateDownloadWorker(info.installer_url, dest)
+        worker = UpdateDownloadWorker(
+            info.installer_url, dest,
+            expected_size=getattr(info, "installer_size", 0),
+            checksums_url=getattr(info, "checksums_url", None),
+        )
         worker.signals.progress.connect(self._on_download_progress)
         worker.signals.done.connect(self._on_download_done)
         worker.signals.error.connect(self._on_download_error)

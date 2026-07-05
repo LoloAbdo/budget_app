@@ -276,7 +276,7 @@ Prices and daily change are converted to your currency. Stock requests are batch
 Settings has these tabs:
 
 **Appearance**
-- **Theme** — pick from seven themes: **Dark**, **Light**, **Midnight** (pure black), **Ocean** (navy & cyan), **Forest** (deep green), **Sunset** (warm plum & orange), and **Sand** (warm light). Click **Apply Theme** to switch instantly — charts recolor to match, and your choice is remembered.
+- **Theme** — pick from seven themes: **Dark**, **Light**, **Midnight** (pure black), **Ocean** (navy & cyan), **Forest** (deep green), **Sunset** (warm plum & orange), and **Sand** (warm light) — or **Auto (match Windows)**, which follows your Windows light/dark setting and switches live when Windows does. Click **Apply Theme** to switch instantly — charts recolor to match, and your choice is remembered.
 - **Language** — English or French. Pick a language and click **Apply Language**; the entire interface re-localizes.
 - **Font size** — 90% to 125%; applies immediately to the whole app and is remembered. Handy if the default text feels small.
 - **Accent color** — pick any color and every theme recolors around it (buttons, highlights, charts). **Reset** returns to the theme's own accent.
@@ -291,6 +291,10 @@ Settings has these tabs:
 
 **Categories**
 - Add, edit, or delete income/expense categories (name + colour). The defaults cover most needs; deleting a category unlinks it from existing transactions.
+
+**Rules**
+- Auto-categorization: each rule says "when a description **contains** this text, use this category" — e.g. `NETFLIX` → Subscriptions. Matching ignores case, and the longest matching pattern wins (so `AMAZON PRIME` beats `AMAZON`).
+- Rules apply **while you type** a new transaction (the category fills in by itself, but never overrides one you picked manually) and to **CSV/Excel imports** for rows that don't specify a category.
 
 **Backup & Restore**
 - The app auto-saves a backup every 24 hours while running (keeping the 30 most recent).
@@ -315,6 +319,9 @@ Settings has these tabs:
 | `Ctrl + 3` | Budgets | `Ctrl + 8` | Savings |
 | `Ctrl + 4` | Goals | `Ctrl + 9` | Markets |
 | `Ctrl + 5` | Accounts | `Ctrl + 0` | Settings |
+| `Ctrl + F` | Search all transactions | | |
+
+**Global search (`Ctrl+F`)** looks through every account and the full history at once — type part of a description, a word from the notes, or an exact amount like `15.99` (it finds both the charge and the refund). Double-click a result to open it in the Transactions panel.
 
 ---
 
@@ -633,7 +640,7 @@ Les cours et la variation quotidienne sont convertis dans votre devise. Les requ
 Les paramètres comportent ces onglets :
 
 **Apparence**
-- **Thème** — choisissez parmi sept thèmes : **Sombre**, **Clair**, **Minuit** (noir pur), **Océan** (marine et cyan), **Forêt** (vert profond), **Coucher de soleil** (prune et orange chauds) et **Sable** (clair et chaleureux). Cliquez sur **Appliquer le thème** pour changer instantanément — les graphiques adoptent les couleurs assorties et votre choix est mémorisé.
+- **Thème** — choisissez parmi sept thèmes : **Sombre**, **Clair**, **Minuit** (noir pur), **Océan** (marine et cyan), **Forêt** (vert profond), **Coucher de soleil** (prune et orange chauds) et **Sable** (clair et chaleureux) — ou **Auto (suivre Windows)**, qui suit le réglage clair/sombre de Windows et change en direct quand Windows change. Cliquez sur **Appliquer le thème** pour changer instantanément — les graphiques adoptent les couleurs assorties et votre choix est mémorisé.
 - **Langue** — anglais ou français. Choisissez une langue puis cliquez sur **Appliquer la langue** ; toute l'interface est traduite.
 - **Taille du texte** — de 90 % à 125 % ; s'applique immédiatement à toute l'application et est mémorisée. Pratique si le texte par défaut paraît petit.
 - **Couleur d'accent** — choisissez n'importe quelle couleur et chaque thème se recolore autour d'elle (boutons, surbrillances, graphiques). **Réinitialiser** revient à l'accent propre du thème.
@@ -648,6 +655,10 @@ Les paramètres comportent ces onglets :
 
 **Catégories**
 - Ajoutez, modifiez ou supprimez des catégories de revenus/dépenses (nom + couleur). Les valeurs par défaut couvrent l'essentiel ; supprimer une catégorie la dissocie des transactions existantes.
+
+**Règles**
+- Catégorisation automatique : chaque règle dit « quand une description **contient** ce texte, utiliser cette catégorie » — p. ex. `NETFLIX` → Abonnements. La correspondance ignore la casse, et le motif correspondant le plus long l'emporte (`AMAZON PRIME` bat donc `AMAZON`).
+- Les règles s'appliquent **pendant la saisie** d'une nouvelle transaction (la catégorie se remplit d'elle-même, sans jamais écraser un choix manuel) et aux **imports CSV/Excel** pour les lignes sans catégorie.
 
 **Sauvegarde et restauration**
 - L'application enregistre automatiquement une sauvegarde toutes les 24 heures pendant son exécution (en conservant les 30 plus récentes).
@@ -672,6 +683,9 @@ Les paramètres comportent ces onglets :
 | `Ctrl + 3` | Budgets | `Ctrl + 8` | Épargne |
 | `Ctrl + 4` | Objectifs | `Ctrl + 9` | Marchés |
 | `Ctrl + 5` | Comptes | `Ctrl + 0` | Paramètres |
+| `Ctrl + F` | Rechercher toutes les transactions | | |
+
+**La recherche globale (`Ctrl+F`)** parcourt tous les comptes et tout l'historique d'un coup — tapez une partie d'une description, un mot des notes, ou un montant exact comme `15.99` (elle trouve la dépense et le remboursement). Double-cliquez sur un résultat pour l'ouvrir dans le panneau Transactions.
 
 ---
 

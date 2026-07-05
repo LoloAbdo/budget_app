@@ -616,6 +616,38 @@ THEMES: dict[str, tuple[str, dict[str, str]]] = {
 _PALETTES: dict[str, dict[str, str]] = {k: p for k, (_, p) in THEMES.items()}
 _QSS_CACHE: dict[tuple, str] = {}
 
+# Virtual theme key: follows the OS light/dark preference. Stored in
+# users.theme like a real theme, but resolved to dark/light at apply time.
+AUTO_THEME = "auto"
+
+
+def system_prefers_dark() -> bool:
+    """True when Windows (or the platform) is set to dark mode.
+
+    Uses Qt's styleHints color scheme (Qt ≥ 6.5). An unknown/unavailable
+    scheme falls back to dark — the app's historic default.
+    """
+    try:
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QGuiApplication
+        app = QGuiApplication.instance()
+        if app is not None:
+            scheme = app.styleHints().colorScheme()
+            if scheme == Qt.ColorScheme.Light:
+                return False
+            if scheme == Qt.ColorScheme.Dark:
+                return True
+    except Exception:
+        pass
+    return True
+
+
+def resolve_theme(name: str) -> str:
+    """Map the virtual 'auto' theme to a real palette key; pass others through."""
+    if name == AUTO_THEME:
+        return "dark" if system_prefers_dark() else "light"
+    return name
+
 # User personalization applied on top of the chosen theme.
 _custom_accent: str | None = None   # hex like "#FF8800", or None = theme default
 _font_scale: float = 1.0
@@ -643,6 +675,7 @@ def effective_palette(name: str) -> dict[str, str]:
     pair for the gradient, brighter hovers, and a soft fill mixed into the
     theme's surface so selections stay subtle on any background.
     """
+    name = resolve_theme(name)
     key = name if name in _PALETTES else "dark"
     p = _PALETTES[key]
     if not _custom_accent:
@@ -661,7 +694,8 @@ def effective_palette(name: str) -> dict[str, str]:
 
 def theme_qss(name: str) -> str:
     """Stylesheet for a theme at the current font scale and accent
-    (unknown theme names → dark)."""
+    (unknown theme names → dark; 'auto' → the OS light/dark preference)."""
+    name = resolve_theme(name)
     key = name if name in _PALETTES else "dark"
     cache_key = (key, _font_scale, _custom_accent)
     if cache_key not in _QSS_CACHE:
@@ -671,12 +705,14 @@ def theme_qss(name: str) -> str:
 
 def available_themes() -> list[tuple[str, str]]:
     """(key, English label) pairs for building theme pickers."""
-    return [(key, label) for key, (label, _) in THEMES.items()]
+    return [(AUTO_THEME, "Auto (match Windows)")] + [
+        (key, label) for key, (label, _) in THEMES.items()
+    ]
 
 
 def is_dark_theme(name: str) -> bool:
     """True if the theme's background is dark (drives the OS title-bar mode)."""
-    bg = _PALETTES.get(name, DARK)["bg"].lstrip("#")
+    bg = _PALETTES.get(resolve_theme(name), DARK)["bg"].lstrip("#")
     r, g, b = (int(bg[i:i + 2], 16) for i in (0, 2, 4))
     # Perceived luminance (ITU-R BT.601); < 128 of 255 reads as dark.
     return (0.299 * r + 0.587 * g + 0.114 * b) < 128
@@ -697,6 +733,7 @@ _active_theme = "dark"
 def set_active_theme(name: str) -> None:
     """Record the active theme so charts render with matching colours."""
     global _active_theme
+    name = resolve_theme(name)
     _active_theme = name if name in _PALETTES else "dark"
 
 

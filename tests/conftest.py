@@ -12,6 +12,21 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
+@pytest.fixture(autouse=True)
+def _fast_bcrypt(monkeypatch):
+    """Drop bcrypt to its minimum cost (4 rounds) for every test.
+
+    Production code always calls ``bcrypt.gensalt()`` with the default 12
+    rounds (~250 ms per hash); tests hash dozens of passwords and recovery
+    codes, so at full cost the auth suite alone takes ~30 s. Verification is
+    cost-agnostic (the salt embeds the rounds), so this changes nothing about
+    what the tests prove.
+    """
+    import bcrypt
+    real_gensalt = bcrypt.gensalt
+    monkeypatch.setattr(bcrypt, "gensalt", lambda rounds=4, prefix=b"2b": real_gensalt(4))
+
+
 @pytest.fixture
 def db():
     """A fresh, isolated DatabaseManager backed by a temp file per test."""

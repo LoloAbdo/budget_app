@@ -181,3 +181,100 @@ class TestInstallerCommand:
         cmd = us.installer_launch_command(r"C:\tmp\Setup.exe")
         assert cmd[0] == r"C:\tmp\Setup.exe"
         assert cmd[1:] == ["/SILENT", "/CLOSEAPPLICATIONS", "/NORESTART"]
+
+
+class _FakeTextResp:
+    def __init__(self, text: str):
+        self._data = text.encode()
+    def read(self):
+        return self._data
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        return False
+
+
+class TestChecksums:
+    DATA = b"installer bytes"
+    # sha256 of DATA
+    import hashlib as _h
+    DIGEST = _h.sha256(DATA).hexdigest()
+
+    def _installer(self, tmp_path):
+        p = tmp_path / "BudgetManagerSetup.exe"
+        p.write_bytes(self.DATA)
+        return str(p)
+
+    def test_parse_sha256sums(self):
+        text = (
+            f"{self.DIGEST} *BudgetManagerSetup.exe\n"
+            f"{'a' * 64}  BudgetManager.exe\n"
+            "garbage line\n"
+            "deadbeef *tooshort.exe\n"
+        )
+        sums = us.parse_sha256sums(text)
+        assert sums["budgetmanagersetup.exe"] == self.DIGEST
+        assert sums["budgetmanager.exe"] == "a" * 64
+        assert "tooshort.exe" not in sums     # digest not 64 hex chars
+
+    def test_sha256_of_file(self, tmp_path):
+        assert us.sha256_of_file(self._installer(tmp_path)) == self.DIGEST
+
+    def test_verify_ok(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(
+            urllib.request, "urlopen",
+            lambda *a, **k: _FakeTextResp(f"{self.DIGEST} *BudgetManagerSetup.exe\n"),
+        )
+        # Both size and hash match → no exception.
+        us.verify_installer(
+            self._installer(tmp_path),
+            expected_size=len(self.DATA),
+            checksums_url="https://x/SHA256SUMS.txt",
+        )
+
+    def test_verify_rejects_wrong_hash(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(
+            urllib.request, "urlopen",
+            lambda *a, **k: _FakeTextResp(f"{'0' * 64} *BudgetManagerSetup.exe\n"),
+        )
+        with pytest.raises(ValueError, match="checksum mismatch"):
+            us.verify_installer(self._installer(tmp_path),
+                                checksums_url="https://x/SHA256SUMS.txt")
+
+    def test_verify_rejects_wrong_size(self, tmp_path):
+        with pytest.raises(ValueError, match="size"):
+            us.verify_installer(self._installer(tmp_path), expected_size=999_999)
+
+    def test_verify_rejects_missing_entry(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(
+            urllib.request, "urlopen",
+            lambda *a, **k: _FakeTextResp(f"{self.DIGEST} *SomethingElse.exe\n"),
+        )
+        with pytest.raises(ValueError, match="No checksum published"):
+            us.verify_installer(self._installer(tmp_path),
+                                checksums_url="https://x/SHA256SUMS.txt")
+
+    def test_verify_fails_closed_when_sums_unfetchable(self, monkeypatch, tmp_path):
+        def boom(*a, **k):
+            raise OSError("offline")
+        monkeypatch.setattr(urllib.request, "urlopen", boom)
+        with pytest.raises(ValueError, match="Could not fetch"):
+            us.verify_installer(self._installer(tmp_path),
+                                checksums_url="https://x/SHA256SUMS.txt")
+
+    def test_verify_skips_hash_for_old_releases(self, tmp_path):
+        # No checksums_url (pre-2.4.0 release) → only the size check runs.
+        us.verify_installer(self._installer(tmp_path),
+                            expected_size=len(self.DATA), checksums_url=None)
+
+    def test_check_for_update_captures_checksums_asset(self, monkeypatch):
+        payload = {
+            "tag_name": "v9.9.9",
+            "assets": [
+                {"name": "BudgetManagerSetup.exe", "browser_download_url": "https://x/s.exe", "size": 1},
+                {"name": "SHA256SUMS.txt", "browser_download_url": "https://x/sums.txt", "size": 200},
+            ],
+        }
+        monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: _FakeResp(payload))
+        info = us.check_for_update("1.0.0")
+        assert info.checksums_url == "https://x/sums.txt"

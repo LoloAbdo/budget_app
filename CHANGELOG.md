@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-07-05
+
+### Added
+- **Four new themes.** **Nord** (calm blue-grey with a frost accent),
+  **Dracula** (the classic purple-and-pink on slate), **High Contrast**
+  (pure black, strong borders, vivid blue accent — an accessibility option),
+  and **Sakura** (a soft cherry-blossom light theme with a rose accent),
+  bringing the registry to eleven themes plus Auto.
+
 ## [2.4.0] - 2026-07-05
 
 ### Added

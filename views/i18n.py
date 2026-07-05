@@ -502,8 +502,12 @@ _FR: dict[str, str] = {
         "Affichage des {n} premiers résultats — précisez votre recherche.",
     "{n} match(es).": "{n} résultat(s).",
 
-    # ── Auto theme ────────────────────────────────────────────────────────
+    # ── Auto theme + new palettes ─────────────────────────────────────────
     "Auto (match Windows)": "Auto (suivre Windows)",
+    "Nord": "Nord",
+    "Dracula": "Dracula",
+    "High Contrast": "Contraste élevé",
+    "Sakura": "Sakura",
     "Account not found.": "Compte introuvable.",
     "About": "À propos",
     "Version {v}": "Version {v}",

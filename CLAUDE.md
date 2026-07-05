@@ -26,7 +26,7 @@ Release manually** — just push the tag; manually pre-creating it is what stran
 binaries. After pushing a tag, the build takes ~5 min and the Release only appears at the
 very last step, so "release not found" right after tagging is normal — wait or `gh run watch`.
 
-Current version: **2.2.0**. Releases: v1.0.0 (portable only), v1.0.1 (+ installer),
+Current version: **2.5.0**. Releases: v1.0.0 (portable only), v1.0.1 (+ installer),
 v1.1.0 (DB indexes), v1.2.0 (net-worth chart), v1.3.0 (budget alerts),
 v1.4.0 (change password + pinned deps), v1.5.0 (sortable table columns),
 v1.6.0 (table UX polish + persisted theme/window state),
@@ -37,7 +37,10 @@ v1.10.0 (activity log viewer, upcoming bills, pause/resume recurring, copy budge
 v1.11.0 (one-click auto-update on the installed build),
 v2.0.0 (multi-currency accounts + home-currency conversion),
 v2.1.0 (7-theme registry: dark/light/midnight/ocean/forest/sunset/sand),
-v2.2.0 (style overhaul: app icon, dark title bar, chart/table polish, deltas, empty states, toasts, bundled Inter font, font scale, custom accent).
+v2.2.0 (style overhaul: app icon, dark title bar, chart/table polish, deltas, empty states, toasts, bundled Inter font, font scale, custom accent),
+v2.3.0 (password recovery codes),
+v2.4.0 (verified updates, auto-categorization rules, global search, auto theme),
+v2.5.0 (four new themes: nord/dracula/hicontrast/sakura).
 
 ## Architecture
 - `main.py` — entry point + data-path logic.
@@ -51,6 +54,7 @@ v2.2.0 (style overhaul: app icon, dark title bar, chart/table polish, deltas, em
 ## Key conventions & decisions
 - **i18n**: `tr("English text")` is the key (English = source). French table in `views/i18n.py`. Missing key → falls back to the key. Combos that write to the DB display localized text but store English values.
 - **Data location**: source run → `./data`; frozen `.exe` → `%APPDATA%\BudgetManager`. (One-file exe unpacks to a temp dir Windows wipes, so data must live in %APPDATA%.) Source and exe therefore use **separate** databases.
+- **Themes**: 11-palette registry in `views/theme.py` (dark/light/midnight/ocean/forest/sunset/sand/nord/dracula/hicontrast/sakura) + the virtual `auto`. Adding one = a palette dict with the same token set as `DARK` + a `THEMES` entry + a French label in `i18n.py` — the tests enforce all three. Accent buttons render white text, so accents must stay dark enough for white-on-accent contrast.
 - **Multi-currency (v2.0.0)**: each account has a `currency`; transaction amounts live in their account's currency. All aggregates (total balance, monthly summary/totals, spending by category, budgets' `actual_spending`, net-worth history, forecast) convert to the user's home currency in SQL via the `DatabaseManager._FX` fragment — a `COALESCE(fx_rates lookup, 1.0)` multiplier, so "no rate cached" degrades to 1:1 instead of erroring. `set_fx_rate` stores **both directions**; `FxService.refresh()` fetches via `market_service.get_fx_rate`. MainWindow quietly refreshes stale rates (>24 h) at launch; Settings ▸ Currency shows the cache + manual refresh. Cross-currency transfers store a different amount per leg (`create_transfer(..., to_amount=)`). Changing an account's currency **relabels** (never converts) its amounts. No rate history is kept — historical conversions use today's rate, so net-worth history for foreign accounts is an approximation by design.
 - **Savings/interest**: editing a Savings account's balance records the unexplained delta as a signed "Interest" income transaction (auto-detect, with an opt-out checkbox). Summary in the Savings tab.
 - **Markets**: keyless data (CoinGecko crypto + Stooq/Yahoo stocks), converted to the user's currency. Auto-refresh defaults to **Off (manual)**; stock requests are batched into one call.

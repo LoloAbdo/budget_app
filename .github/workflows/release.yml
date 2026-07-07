@@ -49,12 +49,12 @@ jobs:
       # Portable single-file exe (no install needed) -> dist_portable\BudgetManager.exe
       - name: Build portable exe (one-file)
         shell: pwsh
-        run: pyinstaller --noconfirm --onefile --windowed --name BudgetManager --icon assets/icon.ico --add-data "assets;assets" --collect-all matplotlib --distpath dist_portable main.py
+        run: pyinstaller --noconfirm --onefile --windowed --name BudgetManager --icon assets/icon.ico --add-data "assets;assets" --add-data "CHANGELOG.md;." --collect-all matplotlib --distpath dist_portable main.py
 
       # One-folder build (instant startup) that the installer packages -> dist\BudgetManager\
       - name: Build app folder (one-folder, for the installer)
         shell: pwsh
-        run: pyinstaller --noconfirm --onedir --windowed --name BudgetManager --icon assets/icon.ico --add-data "assets;assets" --collect-all matplotlib main.py
+        run: pyinstaller --noconfirm --onedir --windowed --name BudgetManager --icon assets/icon.ico --add-data "assets;assets" --add-data "CHANGELOG.md;." --collect-all matplotlib main.py
 
       - name: Install Inno Setup
         shell: pwsh

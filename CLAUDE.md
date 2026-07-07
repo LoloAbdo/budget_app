@@ -26,7 +26,7 @@ Release manually** — just push the tag; manually pre-creating it is what stran
 binaries. After pushing a tag, the build takes ~5 min and the Release only appears at the
 very last step, so "release not found" right after tagging is normal — wait or `gh run watch`.
 
-Current version: **2.5.0**. Releases: v1.0.0 (portable only), v1.0.1 (+ installer),
+Current version: **2.6.0**. Releases: v1.0.0 (portable only), v1.0.1 (+ installer),
 v1.1.0 (DB indexes), v1.2.0 (net-worth chart), v1.3.0 (budget alerts),
 v1.4.0 (change password + pinned deps), v1.5.0 (sortable table columns),
 v1.6.0 (table UX polish + persisted theme/window state),
@@ -40,7 +40,8 @@ v2.1.0 (7-theme registry: dark/light/midnight/ocean/forest/sunset/sand),
 v2.2.0 (style overhaul: app icon, dark title bar, chart/table polish, deltas, empty states, toasts, bundled Inter font, font scale, custom accent),
 v2.3.0 (password recovery codes),
 v2.4.0 (verified updates, auto-categorization rules, global search, auto theme),
-v2.5.0 (four new themes: nord/dracula/hicontrast/sakura).
+v2.5.0 (four new themes: nord/dracula/hicontrast/sakura),
+v2.6.0 (What's New changelog panel in About).
 
 ## Architecture
 - `main.py` — entry point + data-path logic.
@@ -48,6 +49,7 @@ v2.5.0 (four new themes: nord/dracula/hicontrast/sakura).
 - `services/` — `auth` (login/register + one-time password recovery codes: bcrypt-hashed in the `recovery_codes` table, generated in Settings ▸ Security, consumed by the login screen's "Forgot password?" page; the reset flow returns one generic error for every failure cause so e-mails can't be probed), `backup`, `import_export`, `recurring`, `market` (stocks/crypto), `update` (GitHub releases check), `fx` (exchange-rate cache refresh; also exports the `CURRENCIES` picker list). `RecurringService.forecast()` projects the combined balance forward from recurring income/expenses in the home currency (powers the Forecast panel; transfers excluded since they don't change net worth).
 - `views/` — PyQt6 panels; `main_window.py` wires the sidebar + signals. `theme.py` holds QSS + chart colors (incl. the virtual `"auto"` theme — resolved to dark/light via `resolve_theme()` from the OS color scheme; MainWindow re-applies live on `colorSchemeChanged`). `i18n.py` is the translation layer. `activity_view.py` is a read-only in-app viewer for the `audit_log`. `search_dialog.py` is the global Ctrl+F search (debounced, jumps to the Transactions panel via `TransactionsView.apply_global_search`). `winutil.py` darkens native Windows title bars to match dark themes (app-wide event filter installed in `main.py`).
 - `assets/icon.ico` — the app icon (committed; regenerate with `scripts/make_icon.py` only to change the design). Referenced by `main.py`, both build scripts + `release.yml` (`--icon`, `--add-data "assets;assets"`), and `installer.iss` — keep all four in sync.
+- `CHANGELOG.md` is bundled into the frozen build (`--add-data "CHANGELOG.md;."` in both build scripts + `release.yml`) and rendered read-only in **Settings ▸ About ▸ What's New** so users see what changed after updating (`settings_view.load_changelog()` → `QTextBrowser.setMarkdown`; resolves next to source or in `sys._MEIPASS`). It's a single source of truth — no separate in-app copy to keep in sync.
 - `tests/` — pytest; `conftest.py` has shared fixtures (`db`, `user_id`, `account_id`, `savings_id`).
 - Docs: `USER_GUIDE.md` + `TECHNICAL.md` are bilingual (English first, French after) and `CHANGELOG.md` tracks releases. Keep them current when behavior or version changes.
 

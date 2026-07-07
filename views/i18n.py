@@ -517,6 +517,8 @@ _FR: dict[str, str] = {
     "Update available: {v}": "Mise à jour disponible : {v}",
     "Download": "Télécharger",
     "Could not check for updates.": "Impossible de vérifier les mises à jour.",
+    "What's New": "Nouveautés",
+    "The changelog is unavailable.": "Le journal des modifications est indisponible.",
     "Update available: {v} — see Settings ▸ About":
         "Mise à jour disponible : {v} — voir Paramètres ▸ À propos",
     "⤓ Update now": "⤓ Mettre à jour maintenant",

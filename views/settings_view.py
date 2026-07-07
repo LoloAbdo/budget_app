@@ -7,14 +7,16 @@ from typing import Optional
 from datetime import datetime
 
 import os
+import sys
 import tempfile
+from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog,
     QFormLayout, QLineEdit, QComboBox, QFileDialog, QMessageBox,
     QFrame, QTabWidget, QListWidget, QListWidgetItem, QProgressBar,
-    QApplication, QPlainTextEdit,
+    QApplication, QPlainTextEdit, QTextBrowser,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot, QThreadPool
 from PyQt6.QtGui import QColor, QFont
@@ -28,6 +30,20 @@ from views.i18n import tr, set_language, get_language, LANGUAGES
 from views.sortable import SortableItem, enable_sorting
 from views.update_check import UpdateCheckWorker, UpdateDownloadWorker
 from version import __version__
+
+
+def load_changelog() -> str:
+    """Return the raw CHANGELOG.md text, or "" if it can't be found/read.
+
+    Lives next to the source in a normal run, or in the PyInstaller unpack dir
+    (``sys._MEIPASS``) for the frozen build — both build scripts and release.yml
+    bundle it via ``--add-data "CHANGELOG.md;."``.
+    """
+    base = Path(getattr(sys, "_MEIPASS", "")) or Path(__file__).resolve().parent.parent
+    try:
+        return (base / "CHANGELOG.md").read_text(encoding="utf-8")
+    except OSError:
+        return ""
 
 
 # ── Recovery codes dialog ──────────────────────────────────────────────────────
@@ -974,7 +990,22 @@ class SettingsView(QWidget):
         # Latest UpdateInfo from the most recent check (installer URL/size, etc.).
         self._update_info = None
 
-        layout.addStretch()
+        # ── What's New: the full changelog, so users can see what each version
+        #    added after updating. Rendered from the bundled CHANGELOG.md.
+        whats_new = QLabel(tr("What's New"))
+        whats_new.setObjectName("subheading")
+        layout.addWidget(whats_new)
+
+        changelog = QTextBrowser()
+        changelog.setObjectName("changelog")
+        changelog.setOpenExternalLinks(True)
+        text = load_changelog()
+        if text:
+            changelog.setMarkdown(text)
+        else:
+            changelog.setPlainText(tr("The changelog is unavailable."))
+        layout.addWidget(changelog, 1)
+
         return w
 
     def _check_for_updates(self) -> None:

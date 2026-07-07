@@ -35,6 +35,7 @@ if (-not $SkipBuild) {
         --name BudgetManager `
         --icon assets\icon.ico `
         --add-data "assets;assets" `
+        --add-data "CHANGELOG.md;." `
         --collect-all matplotlib `
         main.py
 }

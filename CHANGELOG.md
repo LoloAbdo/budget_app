@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-07-07
+
+### Added
+- **What's New in About.** Settings ▸ About now shows the full changelog in a
+  scrollable panel, so after updating you can see exactly what each version
+  added. Rendered from the bundled `CHANGELOG.md` (a single source of truth,
+  shipped with both the portable and installed builds).
+
 ## [2.5.0] - 2026-07-05
 
 ### Added
@@ -330,7 +338,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial public release (portable executable only).
 
-[Unreleased]: https://github.com/LoloAbdo/budget_app/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/LoloAbdo/budget_app/compare/v2.6.0...HEAD
+[2.6.0]: https://github.com/LoloAbdo/budget_app/compare/v2.5.0...v2.6.0
 [1.4.0]: https://github.com/LoloAbdo/budget_app/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/LoloAbdo/budget_app/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/LoloAbdo/budget_app/compare/v1.2.0...v1.3.0

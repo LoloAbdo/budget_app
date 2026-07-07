@@ -8,6 +8,7 @@ action/entity filters and a free-text search, plus a CSV export that reuses the
 same service as Settings ▸ Backup & Restore.
 """
 
+import json
 from datetime import datetime
 from typing import Optional
 
@@ -32,12 +33,107 @@ ACTIONS = {
     "DELETE": ("Deleted", "#EF4444"),
 }
 
+# Friendly, user-facing names for the raw entity keys.
+ENTITY_LABELS = {
+    "transaction":   "Transaction",
+    "transfer":      "Transfer",
+    "account":       "Account",
+    "category":      "Category",
+    "category_rule": "Category rule",
+    "budget":        "Budget",
+    "goal":          "Goal",
+    "recurring":     "Recurring item",
+    "watchlist":     "Watchlist item",
+    "user":          "Profile",
+}
+
+# How to render each detail key for a normal user, in display order. A ``None``
+# label shows the value on its own (e.g. a description); a text label prefixes
+# it ("Amount: 50.00"). Keys not listed here — and every internal ``*_id`` — are
+# hidden as developer plumbing. Keys marked money are formatted to 2 decimals.
+_DETAIL_FIELDS = [
+    ("description",    None,          False),
+    ("name",           None,          False),
+    ("symbol",         None,          False),
+    ("pattern",        None,          False),
+    ("email",          None,          False),
+    ("amount",         "Amount",      True),
+    ("to_amount",      "Received",    True),
+    ("balance",        "Balance",     True),
+    ("target",         "Target",      True),
+    ("current",        "Saved",       True),
+    ("category",       "Category",    False),
+    ("type",           "Type",        False),
+    ("asset_type",     "Type",        False),
+    ("frequency",      "Frequency",   False),
+    ("date",           "Date",        False),
+    ("target_date",    "Target date", False),
+    ("next_due_date",  "Next due",    False),
+    ("end_date",       "Ends",        False),
+    ("currency",       "Currency",    False),
+    ("language",       "Language",    False),
+    ("theme",          "Theme",       False),
+    ("accent",         "Accent",      False),
+    ("font_scale",     "Font size",   False),
+    ("password",       "Password",    False),
+    ("recovery_codes", "Recovery codes", False),
+    ("recovery_code",  "Recovery code",  False),
+]
+
+# Enumerated values (not free text) worth localizing; free-text fields like a
+# description or account name are shown verbatim so tr() can't mangle them.
+_TRANSLATE_VALUES = {"type", "asset_type", "frequency", "theme", "language"}
+
+
+def _friendly_time(iso: Optional[str]) -> tuple[str, str]:
+    """(display, sort-key) for an ISO timestamp — e.g. 'Jul 7, 2026, 15:59'."""
+    if not iso:
+        return "", ""
+    try:
+        dt = datetime.fromisoformat(iso)
+    except (ValueError, TypeError):
+        return iso, iso
+    # dt.day avoids a leading zero on the day without touching the 24h time
+    # (%-d / %#d aren't portable across platforms).
+    return f"{dt.strftime('%b')} {dt.day}, {dt.year}, {dt.strftime('%H:%M')}", iso
+
+
+def _humanize_details(raw: Optional[str]) -> str:
+    """Turn a raw JSON detail snapshot into a short, plain-language summary.
+
+    Internal id fields are dropped; the fields that matter to a user are shown
+    in a stable order. Falls back to the raw text if it isn't JSON we recognise.
+    """
+    if not raw:
+        return ""
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        return raw
+    if not isinstance(data, dict):
+        return str(data)
+
+    parts: list[str] = []
+    for key, label, is_money in _DETAIL_FIELDS:
+        if data.get(key) is None:
+            continue
+        value = data[key]
+        if is_money:
+            try:
+                value = f"{float(value):,.2f}"
+            except (ValueError, TypeError):
+                value = str(value)
+        elif key in _TRANSLATE_VALUES:
+            value = tr(str(value))
+        parts.append(str(value) if label is None else f"{tr(label)}: {value}")
+    return "  ·  ".join(parts)
+
 
 class ActivityView(QWidget):
     """Activity log panel: filterable, read-only history of every change."""
 
     # English keys; localized at build time via tr()
-    COLS = ["When", "Action", "Item", "ID", "Details"]
+    COLS = ["When", "Action", "Item", "Details"]
 
     def __init__(self, db: DatabaseManager, user: dict, parent=None) -> None:
         super().__init__(parent)
@@ -112,11 +208,10 @@ class ActivityView(QWidget):
         hdr = self._table.horizontalHeader()
         hdr.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         hdr.setMinimumSectionSize(60)
-        self._table.setColumnWidth(0, 160)   # When
+        self._table.setColumnWidth(0, 170)   # When
         self._table.setColumnWidth(1, 90)    # Action
-        self._table.setColumnWidth(2, 110)   # Item
-        self._table.setColumnWidth(3, 60)    # ID
-        hdr.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)  # Details
+        self._table.setColumnWidth(2, 130)   # Item
+        hdr.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)  # Details
         enable_sorting(self._table, 0, Qt.SortOrder.DescendingOrder)
         layout.addWidget(self._table)
 
@@ -139,7 +234,7 @@ class ActivityView(QWidget):
         self._entity_filter.clear()
         self._entity_filter.addItem(tr("All Items"), None)
         for ent in sorted({r["entity"] for r in self._rows}):
-            self._entity_filter.addItem(tr(ent.capitalize()), ent)
+            self._entity_filter.addItem(tr(ENTITY_LABELS.get(ent, ent.capitalize())), ent)
         idx = self._entity_filter.findData(current)
         self._entity_filter.setCurrentIndex(idx if idx >= 0 else 0)
         self._entity_filter.blockSignals(False)
@@ -159,7 +254,8 @@ class ActivityView(QWidget):
             if entity and r["entity"] != entity:
                 continue
             if keyword:
-                haystack = f"{r['entity']} {r['details'] or ''}".lower()
+                item_label = tr(ENTITY_LABELS.get(r["entity"], r["entity"].capitalize()))
+                haystack = f"{item_label} {_humanize_details(r['details'])}".lower()
                 if keyword not in haystack:
                     continue
             rows.append(r)
@@ -168,19 +264,19 @@ class ActivityView(QWidget):
         self._table.setRowCount(len(rows))
         for i, r in enumerate(rows):
             verb_label, verb_color = ACTIONS.get(r["action"], (r["action"], "#9CA3AF"))
+            when_text, when_sort = _friendly_time(r["timestamp"])
             values = [
-                r["timestamp"],
+                when_text,
                 tr(verb_label),
-                tr(r["entity"].capitalize()),
-                str(r["entity_id"]) if r["entity_id"] is not None else "—",
-                r["details"] or "",
+                tr(ENTITY_LABELS.get(r["entity"], r["entity"].capitalize())),
+                _humanize_details(r["details"]),
             ]
             for c, text in enumerate(values):
                 item = SortableItem(text)
+                if c == 0:
+                    item.setData(SORT_ROLE, when_sort)  # sort by real timestamp
                 if c == 1:
                     item.setForeground(QColor(verb_color))
-                if c == 3 and r["entity_id"] is not None:
-                    item.setData(SORT_ROLE, r["entity_id"])  # numeric sort on ID
                 self._table.setItem(i, c, item)
         self._table.setSortingEnabled(True)
 

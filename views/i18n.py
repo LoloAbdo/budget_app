@@ -116,6 +116,15 @@ _FR: dict[str, str] = {
     "Email": "Courriel",
     "Password": "Mot de passe",
     "Sign In": "Se connecter",
+    "Remember me": "Se souvenir de moi",
+    "Save your email and password on this computer for next time":
+        "Enregistrer votre courriel et votre mot de passe sur cet ordinateur pour la prochaine fois",
+    "Saved Login": "Connexion enregistrée",
+    "When \"Remember me\" is ticked at sign-in, your email and password are stored on this computer (the password is encrypted). Forget them to require signing in from scratch next time.":
+        "Lorsque « Se souvenir de moi » est coché à la connexion, votre courriel et votre mot de passe sont enregistrés sur cet ordinateur (le mot de passe est chiffré). Oubliez-les pour devoir vous reconnecter de zéro la prochaine fois.",
+    "Saved on this computer: {email}": "Enregistré sur cet ordinateur : {email}",
+    "No saved login on this computer.": "Aucune connexion enregistrée sur cet ordinateur.",
+    "Forget Saved Login": "Oublier la connexion enregistrée",
     "Show password": "Afficher le mot de passe",
     "Hide password": "Masquer le mot de passe",
     "Full Name": "Nom complet",
@@ -384,6 +393,21 @@ _FR: dict[str, str] = {
     "Budget": "Budget",
     "Goal": "Objectif",
     "Watchlist": "Liste de suivi",
+    "Category rule": "Règle de catégorie",
+    "Recurring item": "Élément récurrent",
+    "Watchlist item": "Élément de la liste de suivi",
+    "Profile": "Profil",
+    # Detail-field labels shown in the Activity "Details" column.
+    "Received": "Reçu",
+    "Target": "Objectif",
+    "Saved": "Épargné",
+    "Target date": "Date cible",
+    "Next due": "Prochaine échéance",
+    "Language": "Langue",
+    "Theme": "Thème",
+    "Accent": "Accent",
+    "Font size": "Taille de police",
+    "Recovery codes": "Codes de récupération",
 
     # ── Savings ───────────────────────────────────────────────────────────
     # (the bare "Savings" account-type label is defined in the enum section above)

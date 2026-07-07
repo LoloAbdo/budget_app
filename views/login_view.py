@@ -6,12 +6,13 @@ Login / Registration dialog shown before the main window.
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QFrame, QComboBox, QMessageBox, QStackedWidget,
-    QWidget,
+    QWidget, QCheckBox,
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon, QPixmap, QPainter
 
 from services.auth_service import AuthService
+from services import credential_store
 from views.fonts import ui_font
 from views.i18n import tr
 
@@ -76,6 +77,19 @@ class LoginView(QDialog):
         self._toggle_btn.clicked.connect(self._toggle_page)
         root.addWidget(self._toggle_btn)
 
+        self._prefill_remembered()
+
+    def _prefill_remembered(self) -> None:
+        """Pre-fill the login form from any saved 'Remember me' credentials."""
+        email, password = credential_store.load()
+        if email:
+            self._login_email.setText(email)
+            self._remember_chk.setChecked(True)
+        if password:
+            self._login_pw.setText(password)
+        # Focus the first empty field so the user can just press Enter.
+        (self._login_pw if email and not password else self._login_email).setFocus()
+
     def _build_login_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
@@ -92,6 +106,12 @@ class LoginView(QDialog):
         self._login_pw.setEchoMode(QLineEdit.EchoMode.Password)
         self._add_password_eye(self._login_pw)
         layout.addWidget(self._login_pw)
+
+        self._remember_chk = QCheckBox(tr("Remember me"))
+        self._remember_chk.setToolTip(
+            tr("Save your email and password on this computer for next time")
+        )
+        layout.addWidget(self._remember_chk)
 
         btn = QPushButton(tr("Sign In"))
         btn.setAutoDefault(False)   # prevent Enter from double-firing with returnPressed
@@ -218,11 +238,15 @@ class LoginView(QDialog):
         self._show_page(1 if self._stack.currentIndex() == 0 else 0)
 
     def _do_login(self) -> None:
-        ok, user, msg = self._auth.login(
-            self._login_email.text().strip(),
-            self._login_pw.text(),
-        )
+        email = self._login_email.text().strip()
+        password = self._login_pw.text()
+        ok, user, msg = self._auth.login(email, password)
         if ok and user:
+            # Save or clear credentials according to the checkbox.
+            if self._remember_chk.isChecked():
+                credential_store.remember(email, password)
+            else:
+                credential_store.forget()
             self.login_success.emit(user)
             self.accept()
         else:

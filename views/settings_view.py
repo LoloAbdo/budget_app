@@ -26,24 +26,34 @@ from services.auth_service import AuthService
 from services.backup_service import BackupService
 from services.import_export_service import ImportExportService
 from services.update_service import can_auto_update, launch_installer
+from services import credential_store
 from views.i18n import tr, set_language, get_language, LANGUAGES
 from views.sortable import SortableItem, enable_sorting
 from views.update_check import UpdateCheckWorker, UpdateDownloadWorker
 from version import __version__
 
 
-def load_changelog() -> str:
-    """Return the raw CHANGELOG.md text, or "" if it can't be found/read.
+def load_changelog(lang: Optional[str] = None) -> str:
+    """Return the changelog text for *lang*, or "" if it can't be found/read.
 
-    Lives next to the source in a normal run, or in the PyInstaller unpack dir
-    (``sys._MEIPASS``) for the frozen build — both build scripts and release.yml
-    bundle it via ``--add-data "CHANGELOG.md;."``.
+    Prefers a localized ``CHANGELOG.<lang>.md`` (e.g. ``CHANGELOG.fr.md``) and
+    falls back to the English ``CHANGELOG.md`` when there's no translation.
+    The file lives next to the source in a normal run, or in the PyInstaller
+    unpack dir (``sys._MEIPASS``) for the frozen build — the build scripts and
+    release.yml bundle every ``CHANGELOG*.md`` via ``--add-data``.
     """
     base = Path(getattr(sys, "_MEIPASS", "")) or Path(__file__).resolve().parent.parent
-    try:
-        return (base / "CHANGELOG.md").read_text(encoding="utf-8")
-    except OSError:
-        return ""
+    lang = lang or get_language()
+    candidates = []
+    if lang and lang != "en":
+        candidates.append(f"CHANGELOG.{lang}.md")
+    candidates.append("CHANGELOG.md")
+    for name in candidates:
+        try:
+            return (base / name).read_text(encoding="utf-8")
+        except OSError:
+            continue
+    return ""
 
 
 # ── Recovery codes dialog ──────────────────────────────────────────────────────
@@ -578,8 +588,53 @@ class SettingsView(QWidget):
 
         self._refresh_recovery_status()
 
+        # ── Saved login ("Remember me") ─────────────────────────────────────────
+        sl_divider = QFrame()
+        sl_divider.setFrameShape(QFrame.Shape.HLine)
+        layout.addWidget(sl_divider)
+
+        sl_title = QLabel(tr("Saved Login"))
+        sl_title.setObjectName("subheading")
+        layout.addWidget(sl_title)
+
+        sl_help = QLabel(tr(
+            "When \"Remember me\" is ticked at sign-in, your email and password "
+            "are stored on this computer (the password is encrypted). Forget "
+            "them to require signing in from scratch next time."
+        ))
+        sl_help.setObjectName("muted")
+        sl_help.setWordWrap(True)
+        layout.addWidget(sl_help)
+
+        self._sl_status = QLabel("")
+        self._sl_status.setWordWrap(True)
+        layout.addWidget(self._sl_status)
+
+        self._forget_login_btn = QPushButton(tr("Forget Saved Login"))
+        self._forget_login_btn.setObjectName("danger")
+        self._forget_login_btn.setMaximumWidth(240)
+        self._forget_login_btn.clicked.connect(self._forget_saved_login)
+        layout.addWidget(self._forget_login_btn)
+
+        self._refresh_saved_login_status()
+
         layout.addStretch()
         return w
+
+    def _refresh_saved_login_status(self) -> None:
+        saved = credential_store.is_remembered()
+        if saved:
+            email, _pw = credential_store.load()
+            self._sl_status.setText(
+                tr("Saved on this computer: {email}").format(email=email)
+            )
+        else:
+            self._sl_status.setText(tr("No saved login on this computer."))
+        self._forget_login_btn.setEnabled(saved)
+
+    def _forget_saved_login(self) -> None:
+        credential_store.forget()
+        self._refresh_saved_login_status()
 
     def _refresh_recovery_status(self) -> None:
         n = AuthService(self._db).recovery_codes_remaining(self._user["id"])

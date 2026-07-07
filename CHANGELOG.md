@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-07-07
+
+### Added
+- **"Remember me" on the login screen.** Tick it and your email and password
+  are saved on this computer so the next launch pre-fills them — just press
+  Sign In. The password is encrypted at rest with Windows DPAPI (tied to your
+  Windows account, never stored in plaintext, and unreadable by other users or
+  on another machine); if encryption isn't available only the email is kept.
+  Unticking it and signing in erases the saved credentials, and
+  **Settings ▸ Security ▸ Saved Login** can forget them at any time.
+
+### Changed
+- **Readable Activity Log.** The activity log now reads in plain language
+  instead of raw data: friendly timestamps ("Jul 7, 2026, 15:59"), plain item
+  names ("Profile", "Recurring item"), and a human summary of each change
+  ("Groceries · Amount: -52.40 · Date: 2026-07-07") in place of the JSON
+  snapshot. Internal database IDs are hidden (the standalone ID column is gone).
+  The full detail is still available via **Export**.
+- **Localized What's New.** The changelog in Settings ▸ About now follows the
+  app language, showing a full French translation when the app is in French and
+  switching live when you change languages.
+
 ## [2.6.0] - 2026-07-07
 
 ### Added
@@ -338,7 +360,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial public release (portable executable only).
 
-[Unreleased]: https://github.com/LoloAbdo/budget_app/compare/v2.6.0...HEAD
+[Unreleased]: https://github.com/LoloAbdo/budget_app/compare/v2.7.0...HEAD
+[2.7.0]: https://github.com/LoloAbdo/budget_app/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/LoloAbdo/budget_app/compare/v2.5.0...v2.6.0
 [1.4.0]: https://github.com/LoloAbdo/budget_app/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/LoloAbdo/budget_app/compare/v1.3.0...v1.3.1

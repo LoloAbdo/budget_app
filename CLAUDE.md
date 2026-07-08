@@ -26,7 +26,7 @@ Release manually** — just push the tag; manually pre-creating it is what stran
 binaries. After pushing a tag, the build takes ~5 min and the Release only appears at the
 very last step, so "release not found" right after tagging is normal — wait or `gh run watch`.
 
-Current version: **2.7.0**. Releases: v1.0.0 (portable only), v1.0.1 (+ installer),
+Current version: **2.8.0**. Releases: v1.0.0 (portable only), v1.0.1 (+ installer),
 v1.1.0 (DB indexes), v1.2.0 (net-worth chart), v1.3.0 (budget alerts),
 v1.4.0 (change password + pinned deps), v1.5.0 (sortable table columns),
 v1.6.0 (table UX polish + persisted theme/window state),
@@ -42,7 +42,8 @@ v2.3.0 (password recovery codes),
 v2.4.0 (verified updates, auto-categorization rules, global search, auto theme),
 v2.5.0 (four new themes: nord/dracula/hicontrast/sakura),
 v2.6.0 (What's New changelog panel in About),
-v2.7.0 (Remember me login + readable, localized Activity Log & changelog).
+v2.7.0 (Remember me login + readable, localized Activity Log & changelog),
+v2.8.0 (debt payoff planner: snowball/avalanche + budget rollover).
 
 ## Architecture
 - `main.py` — entry point + data-path logic.

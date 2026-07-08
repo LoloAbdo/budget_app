@@ -252,6 +252,10 @@ _FR: dict[str, str] = {
     "Edit Budget": "Modifier le budget",
     "Delete Budget": "Supprimer le budget",
     "Budget Amount": "Montant du budget",
+    "Roll unused amount into next month": "Reporter le montant inutilisé au mois suivant",
+    "Carry this budget's leftover (or overspend) forward as extra room next month.":
+        "Reporter le solde (ou le dépassement) de ce budget comme marge supplémentaire le mois suivant.",
+    "Includes {sign}{amount} rolled over": "Inclut {sign}{amount} reporté",
     "Budget amount must be greater than zero.": "Le montant du budget doit être supérieur à zéro.",
     "Could not save budget:\n{err}": "Impossible d'enregistrer le budget :\n{err}",
     "Delete the budget for '{name}'?": "Supprimer le budget pour « {name} » ?",
@@ -291,6 +295,44 @@ _FR: dict[str, str] = {
     "Delete goal '{name}'?": "Supprimer l'objectif « {name} » ?",
     "No goals yet.\nClick '+ Add Goal' to set your first financial target.":
         "Aucun objectif pour le moment.\nCliquez sur « + Ajouter un objectif » pour définir votre première cible.",
+
+    # ── Debt payoff planner ──────────────────────────────────────────────────
+    "Debts": "Dettes",
+    "Debt Payoff Planner": "Plan de remboursement des dettes",
+    "+ Add Debt": "+ Ajouter une dette",
+    "Add Debt": "Ajouter une dette",
+    "Edit Debt": "Modifier la dette",
+    "Delete Debt": "Supprimer la dette",
+    "Balance Owed": "Solde dû",
+    "Interest Rate (APR)": "Taux d'intérêt (TAP)",
+    "Minimum Monthly Payment": "Paiement mensuel minimum",
+    "e.g. Visa card": "ex. carte Visa",
+    "Debt name is required.": "Le nom de la dette est requis.",
+    "Balance must be greater than zero.": "Le solde doit être supérieur à zéro.",
+    "Could not save debt:\n{err}": "Impossible d'enregistrer la dette :\n{err}",
+    "Delete debt '{name}'?": "Supprimer la dette « {name} » ?",
+    "Strategy": "Stratégie",
+    "Avalanche (highest interest first)": "Avalanche (intérêt le plus élevé d'abord)",
+    "Snowball (smallest balance first)": "Boule de neige (plus petit solde d'abord)",
+    "Extra monthly payment": "Paiement mensuel supplémentaire",
+    "No debts tracked. Click '+ Add Debt' to build a payoff plan.":
+        "Aucune dette suivie. Cliquez sur « + Ajouter une dette » pour créer un plan de remboursement.",
+    "You're debt-free here — nothing to plan. 🎉":
+        "Aucune dette ici — rien à planifier. 🎉",
+    "Total owed: {total}": "Total dû : {total}",
+    "Your monthly payment is too small to clear these debts — the balance never reaches zero. Increase the minimums or add an extra payment.":
+        "Votre paiement mensuel est trop faible pour rembourser ces dettes — le solde n'atteint jamais zéro. Augmentez les minimums ou ajoutez un paiement supplémentaire.",
+    "{y} yr {m} mo": "{y} an(s) {m} mois",
+    "{y} yr": "{y} an(s)",
+    "{m} mo": "{m} mois",
+    "Total owed: {total}  •  Monthly payment: {pay}":
+        "Total dû : {total}  •  Paiement mensuel : {pay}",
+    "Debt-free in {span} — around {date}": "Libéré de dettes dans {span} — vers {date}",
+    "Total interest paid: {interest}": "Total des intérêts payés : {interest}",
+    "vs minimums only: save {interest} and {months} months":
+        "vs paiements minimums : économisez {interest} et {months} mois",
+    "{apr}% APR  •  min {min}/mo": "{apr}% TAP  •  min {min}/mois",
+    "paid off in month {n}": "remboursée au mois {n}",
     "Target: {date}": "Cible : {date}",
 
     # ── Accounts ──────────────────────────────────────────────────────────

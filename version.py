@@ -7,7 +7,7 @@ Bump __version__ when cutting a release and tag the repo to match
 GitHub release tag.
 """
 
-__version__ = "2.7.0"
+__version__ = "2.8.0"
 
 GITHUB_OWNER = "LoloAbdo"
 GITHUB_REPO = "budget_app"

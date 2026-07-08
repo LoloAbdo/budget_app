@@ -7,6 +7,26 @@ et ce projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+## [2.8.0] - 2026-07-08
+
+### Ajouté
+- **Plan de remboursement des dettes.** Un nouveau panneau **Dettes** vous
+  permet de lister ce que vous devez (solde, taux d'intérêt et paiement minimum)
+  et construit un plan de remboursement. Choisissez la stratégie **Avalanche**
+  (attaquer d'abord le taux d'intérêt le plus élevé — la moins chère au total)
+  ou **Boule de neige** (rembourser d'abord le plus petit solde — la victoire la
+  plus rapide), ajoutez un paiement mensuel supplémentaire facultatif, et voyez
+  votre date de libération, le total des intérêts, et combien de temps et
+  d'intérêts vous économisez par rapport aux paiements minimums seuls. Chaque
+  dette indique le mois où elle est remboursée. Si vos paiements ne suivent pas
+  les intérêts, le plan le signale au lieu de deviner.
+- **Report de budget.** Tout budget peut désormais reporter son montant
+  inutilisé au mois suivant — cochez **Reporter le montant inutilisé au mois
+  suivant** lors de l'ajout ou de la modification d'un budget. Le dépassement
+  est aussi reporté (comme moins de marge le mois suivant). Le report
+  s'accumule sur les mois consécutifs et est intégré à la barre de progression
+  et aux alertes du budget.
+
 ## [2.7.0] - 2026-07-07
 
 ### Ajouté

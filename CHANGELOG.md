@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-07-08
+
+### Added
+- **Debt payoff planner.** A new **Debts** panel lets you list what you owe
+  (balance, interest rate and minimum payment) and builds a payoff plan. Choose
+  the **Avalanche** strategy (attack the highest interest rate first — cheapest
+  overall) or **Snowball** (clear the smallest balance first — quickest win),
+  add an optional extra monthly payment, and see your debt-free date, total
+  interest, and how much time and interest you save versus paying only the
+  minimums. Each debt shows the month it's cleared. If your payments can't keep
+  up with the interest, the plan says so instead of guessing.
+- **Budget rollover.** Any budget can now carry its unused amount into the next
+  month — tick **Roll unused amount into next month** when adding or editing a
+  budget. Overspending carries forward too (as less room next month). The
+  rollover accumulates across consecutive months and is folded into the
+  budget's progress bar and alerts.
+
 ## [2.7.0] - 2026-07-07
 
 ### Added

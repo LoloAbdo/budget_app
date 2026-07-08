@@ -24,6 +24,7 @@ from views.dashboard_view   import DashboardView
 from views.transactions_view import TransactionsView
 from views.budget_view      import BudgetView
 from views.goals_view       import GoalsView
+from views.debt_view        import DebtView
 from views.accounts_view    import AccountsView
 from views.reports_view     import ReportsView
 from views.forecast_view    import ForecastView
@@ -44,14 +45,15 @@ NAV_ITEMS = [
     ("💳", "Transactions",   1),
     ("📊", "Budgets",        2),
     ("🎯", "Goals",          3),
-    ("🏦", "Accounts",       4),
-    ("📈", "Reports",        5),
-    ("🔮", "Forecast",       6),
-    ("🔄", "Recurring",      7),
-    ("🐷", "Savings",        8),
-    ("💹", "Markets",        9),
-    ("📝", "Activity",       10),
-    ("⚙️",  "Settings",      11),
+    ("💸", "Debts",          4),
+    ("🏦", "Accounts",       5),
+    ("📈", "Reports",        6),
+    ("🔮", "Forecast",       7),
+    ("🔄", "Recurring",      8),
+    ("🐷", "Savings",        9),
+    ("💹", "Markets",        10),
+    ("📝", "Activity",       11),
+    ("⚙️",  "Settings",      12),
 ]
 
 
@@ -139,6 +141,7 @@ class MainWindow(QMainWindow):
         self._txn_view          = TransactionsView(self._db, self._user)
         self._budget_view       = BudgetView(self._db, self._user)
         self._goals_view        = GoalsView(self._db, self._user)
+        self._debt_view         = DebtView(self._db, self._user)
         self._accounts_view     = AccountsView(self._db, self._user)
         self._reports_view      = ReportsView(self._db, self._user)
         self._forecast_view     = ForecastView(self._db, self._user)
@@ -155,6 +158,7 @@ class MainWindow(QMainWindow):
             self._txn_view,
             self._budget_view,
             self._goals_view,
+            self._debt_view,
             self._accounts_view,
             self._reports_view,
             self._forecast_view,

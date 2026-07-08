@@ -9,7 +9,7 @@ from typing import Optional
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QComboBox, QDialog, QFormLayout, QDoubleSpinBox, QMessageBox,
-    QScrollArea, QFrame, QGridLayout, QSpinBox,
+    QScrollArea, QFrame, QGridLayout, QSpinBox, QCheckBox,
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
@@ -71,6 +71,15 @@ class BudgetDialog(QDialog):
             self._amount_spin.setValue(self._existing["budget_amount"])
         form.addRow(tr("Budget Amount"), self._amount_spin)
 
+        self._rollover_chk = QCheckBox(tr("Roll unused amount into next month"))
+        self._rollover_chk.setToolTip(
+            tr("Carry this budget's leftover (or overspend) forward as extra "
+               "room next month.")
+        )
+        if self._existing:
+            self._rollover_chk.setChecked(bool(self._existing.get("rollover")))
+        form.addRow("", self._rollover_chk)
+
         layout.addLayout(form)
 
         btn_row = QHBoxLayout()
@@ -91,7 +100,10 @@ class BudgetDialog(QDialog):
         try:
             cat_id = self._cat_combo.currentData()
             amount = self._amount_spin.value()
-            self._db.upsert_budget(self._user_id, cat_id, self._month, self._year, amount)
+            self._db.upsert_budget(
+                self._user_id, cat_id, self._month, self._year, amount,
+                self._rollover_chk.isChecked(),
+            )
         except Exception as exc:
             QMessageBox.critical(self, tr("Error"), tr("Could not save budget:\n{err}").format(err=exc))
             return
@@ -189,7 +201,7 @@ class BudgetView(QWidget):
             self._summary_lbl.setText("")
             return
 
-        total_budget  = sum(b["budget_amount"] for b in budgets)
+        total_budget  = sum(b.get("effective_budget", b["budget_amount"]) for b in budgets)
         total_spent   = sum(b["actual_spending"] for b in budgets)
         total_remain  = total_budget - total_spent
 

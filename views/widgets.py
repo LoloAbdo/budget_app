@@ -261,7 +261,9 @@ class BudgetBar(QFrame):
         top.addStretch()
 
         spent    = budget.get("actual_spending", 0.0)
-        budgeted = budget["budget_amount"]
+        base     = budget["budget_amount"]
+        carry    = budget.get("carryover", 0.0)
+        budgeted = budget.get("effective_budget", base)
         remaining = budgeted - spent
         pct = min(100, int(spent / max(budgeted, 1) * 100))
 
@@ -308,3 +310,15 @@ class BudgetBar(QFrame):
         )
         status_lbl.setStyleSheet(f"color: {status_color}; font-size: 11px;")
         layout.addWidget(status_lbl)
+
+        # ── Rollover note ─────────────────────────────────────────────────────
+        if budget.get("rollover") and abs(carry) >= 0.005:
+            sign = "+" if carry >= 0 else "−"
+            carry_lbl = QLabel(
+                tr("Includes {sign}{amount} rolled over").format(
+                    sign=sign, amount=f"{currency} {abs(carry):,.0f}"
+                )
+            )
+            carry_lbl.setObjectName("muted")
+            carry_lbl.setStyleSheet("font-size: 11px;")
+            layout.addWidget(carry_lbl)

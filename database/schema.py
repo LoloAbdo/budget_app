@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS budgets (
     month           INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12),
     year            INTEGER NOT NULL,
     budget_amount   REAL    NOT NULL DEFAULT 0.0,
+    rollover        INTEGER NOT NULL DEFAULT 0,
     UNIQUE(user_id, category_id, month, year)
 );
 
@@ -113,6 +114,19 @@ CREATE TABLE IF NOT EXISTS financial_goals (
     target_amount   REAL    NOT NULL,
     current_amount  REAL    NOT NULL DEFAULT 0.0,
     target_date     TEXT    NOT NULL
+);
+
+-- Debts for the payoff planner (snowball / avalanche). Balances, APR (annual
+-- percent, e.g. 19.99) and the minimum monthly payment are kept in the user's
+-- home currency — the planner is single-currency by design.
+CREATE TABLE IF NOT EXISTS debts (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name          TEXT    NOT NULL,
+    balance       REAL    NOT NULL DEFAULT 0.0,
+    apr           REAL    NOT NULL DEFAULT 0.0,
+    min_payment   REAL    NOT NULL DEFAULT 0.0,
+    created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS watchlist (
@@ -303,6 +317,17 @@ class DatabaseManager:
         if "theme" not in user_cols:
             conn.execute(
                 "ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'dark'"
+            )
+            conn.commit()
+
+        # v1.0.11 — per-budget rollover flag. When set, a budget's unspent (or
+        # overspent) balance carries into the next month's effective limit.
+        # Existing budgets default to 0, so upgraded databases behave exactly
+        # as before until the user opts a line in.
+        budget_cols = [r[1] for r in conn.execute("PRAGMA table_info(budgets)").fetchall()]
+        if "rollover" not in budget_cols:
+            conn.execute(
+                "ALTER TABLE budgets ADD COLUMN rollover INTEGER NOT NULL DEFAULT 0"
             )
             conn.commit()
 
@@ -941,12 +966,59 @@ class DatabaseManager:
 
     # ── Budgets ───────────────────────────────────────────────────────────────
 
+    def _category_spending(self, user_id: int, category_id: int, month: int, year: int) -> float:
+        """Home-currency expense total for one category in one month.
+
+        Mirrors the ``actual_spending`` subquery in :meth:`get_budgets`; kept
+        separate so the rollover walk can price prior months without re-running
+        the whole budget query.
+        """
+        home = self.get_home_currency(user_id)
+        row = self._fetchone(
+            f"""SELECT COALESCE(SUM(ABS(t.amount) * {self._FX}), 0) AS spent
+                FROM transactions t
+                JOIN accounts a ON t.account_id = a.id
+                WHERE t.category_id = ?
+                  AND a.user_id = ?
+                  AND t.amount < 0
+                  AND t.transfer_id IS NULL
+                  AND strftime('%m', t.date) = printf('%02d', ?)
+                  AND strftime('%Y', t.date) = CAST(? AS TEXT)""",
+            (home, category_id, user_id, month, year),
+        )
+        return row["spent"] if row else 0.0
+
+    def _budget_carryover(
+        self, user_id: int, category_id: int, month: int, year: int, depth: int = 120
+    ) -> float:
+        """Rollover carried *into* the given month for one category.
+
+        Equals the previous month's remaining balance (its base budget plus its
+        own carry-in, minus what was spent) when that previous month also has a
+        rollover-enabled budget for the category — otherwise 0. Recurses up the
+        continuous rollover streak; ``depth`` bounds the walk. The value can be
+        negative: an overspent month carries its overage forward as debt.
+        """
+        if depth <= 0:
+            return 0.0
+        pm, py = (12, year - 1) if month == 1 else (month - 1, year)
+        row = self._fetchone(
+            "SELECT budget_amount, rollover FROM budgets "
+            "WHERE user_id=? AND category_id=? AND month=? AND year=?",
+            (user_id, category_id, pm, py),
+        )
+        if not row or not row["rollover"]:
+            return 0.0
+        prev_carry = self._budget_carryover(user_id, category_id, pm, py, depth - 1)
+        prev_spent = self._category_spending(user_id, category_id, pm, py)
+        return row["budget_amount"] + prev_carry - prev_spent
+
     def get_budgets(self, user_id: int, month: int, year: int) -> list[dict]:
         # Spending is converted into the user's home currency per transaction,
         # so budgets (kept in home currency) compare against a consistent total
         # even when the money left accounts held in other currencies.
         home = self.get_home_currency(user_id)
-        return self._fetchall(
+        rows = self._fetchall(
             f"""SELECT b.*, c.name AS category_name, c.color,
                       COALESCE((SELECT SUM(ABS(t.amount) * {self._FX})
                                 FROM transactions t
@@ -962,6 +1034,17 @@ class DatabaseManager:
                ORDER BY c.name""",
             (home, user_id, month, year, user_id, month, year),
         )
+        # Fold in any rollover carried from prior months. ``effective_budget``
+        # is what spending is actually compared against; ``budget_amount`` stays
+        # the untouched base limit the user set.
+        for b in rows:
+            carry = (
+                self._budget_carryover(user_id, b["category_id"], month, year)
+                if b.get("rollover") else 0.0
+            )
+            b["carryover"] = round(carry, 2)
+            b["effective_budget"] = round(b["budget_amount"] + carry, 2)
+        return rows
 
     def get_budget_alerts(
         self, user_id: int, month: int, year: int, threshold: float = 0.9
@@ -973,7 +1056,7 @@ class DatabaseManager:
         """
         alerts = []
         for b in self.get_budgets(user_id, month, year):
-            limit = b["budget_amount"]
+            limit = b.get("effective_budget", b["budget_amount"])
             if limit <= 0:
                 continue
             ratio = b["actual_spending"] / limit
@@ -982,14 +1065,20 @@ class DatabaseManager:
         alerts.sort(key=lambda a: a["ratio"], reverse=True)
         return alerts
 
-    def upsert_budget(self, user_id: int, category_id: int, month: int, year: int, amount: float) -> int:
+    def upsert_budget(
+        self, user_id: int, category_id: int, month: int, year: int,
+        amount: float, rollover: bool = False,
+    ) -> int:
         bid = self._execute(
-            "INSERT INTO budgets (user_id, category_id, month, year, budget_amount) VALUES (?,?,?,?,?) "
-            "ON CONFLICT(user_id, category_id, month, year) DO UPDATE SET budget_amount=excluded.budget_amount",
-            (user_id, category_id, month, year, amount),
+            "INSERT INTO budgets (user_id, category_id, month, year, budget_amount, rollover) "
+            "VALUES (?,?,?,?,?,?) "
+            "ON CONFLICT(user_id, category_id, month, year) DO UPDATE SET "
+            "budget_amount=excluded.budget_amount, rollover=excluded.rollover",
+            (user_id, category_id, month, year, amount, 1 if rollover else 0),
         )
         self._log("UPDATE", "budget", bid, {
-            "category_id": category_id, "month": month, "year": year, "amount": amount,
+            "category_id": category_id, "month": month, "year": year,
+            "amount": amount, "rollover": bool(rollover),
         }, user_id=user_id)
         return bid
 
@@ -1014,7 +1103,8 @@ class DatabaseManager:
             if b["category_id"] in existing:
                 continue
             self.upsert_budget(
-                user_id, b["category_id"], to_month, to_year, b["budget_amount"]
+                user_id, b["category_id"], to_month, to_year,
+                b["budget_amount"], bool(b.get("rollover")),
             )
             copied += 1
         return copied
@@ -1050,6 +1140,44 @@ class DatabaseManager:
     def delete_goal(self, goal_id: int) -> None:
         self._execute("DELETE FROM financial_goals WHERE id=?", (goal_id,))
         self._log("DELETE", "goal", goal_id)
+
+    # ── Debts (payoff planner) ────────────────────────────────────────────────
+
+    def get_debts(self, user_id: int) -> list[dict]:
+        """All of the user's debts, largest balance first."""
+        return self._fetchall(
+            "SELECT * FROM debts WHERE user_id=? ORDER BY balance DESC, name",
+            (user_id,),
+        )
+
+    def create_debt(
+        self, user_id: int, name: str, balance: float, apr: float, min_payment: float
+    ) -> int:
+        did = self._execute(
+            "INSERT INTO debts (user_id, name, balance, apr, min_payment) VALUES (?,?,?,?,?)",
+            (user_id, name, _money(balance), apr, _money(min_payment)),
+        )
+        self._log("INSERT", "debt", did, {
+            "name": name, "balance": _money(balance), "apr": apr,
+            "min_payment": _money(min_payment),
+        }, user_id=user_id)
+        return did
+
+    def update_debt(
+        self, debt_id: int, name: str, balance: float, apr: float, min_payment: float
+    ) -> None:
+        self._execute(
+            "UPDATE debts SET name=?, balance=?, apr=?, min_payment=? WHERE id=?",
+            (name, _money(balance), apr, _money(min_payment), debt_id),
+        )
+        self._log("UPDATE", "debt", debt_id, {
+            "name": name, "balance": _money(balance), "apr": apr,
+            "min_payment": _money(min_payment),
+        })
+
+    def delete_debt(self, debt_id: int) -> None:
+        self._execute("DELETE FROM debts WHERE id=?", (debt_id,))
+        self._log("DELETE", "debt", debt_id)
 
     # ── Recurring Transactions ────────────────────────────────────────────────
 

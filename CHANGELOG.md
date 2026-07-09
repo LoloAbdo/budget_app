@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-07-09
+
+### Fixed
+- **Recurring transactions now post without restarting the app.** When a
+  recurring item comes due while the app is left open, opening the
+  **Transactions** tab posts it right away and refreshes your balances,
+  budgets and reports — no need to reload the app.
+- **Budget alerts no longer hide a wiped-out rollover budget.** When a heavy
+  overspend rolls forward and leaves a category with no room left at all, that
+  category now correctly shows as over budget instead of being skipped.
+
 ## [2.8.0] - 2026-07-08
 
 ### Added

@@ -240,14 +240,22 @@ class MainWindow(QMainWindow):
         self._stack.setCurrentIndex(idx)
         for i, btn in self._nav_buttons.items():
             btn.setChecked(i == idx)
+        widget = self._stack.widget(idx)
         # The forecast depends on recurring items, which emit no change signal,
         # so recompute it whenever the user opens the panel.
-        if self._stack.widget(idx) is self._forecast_view:
+        if widget is self._forecast_view:
             self._forecast_view.refresh()
         # The activity log grows from every panel; reload it when opened so it's
         # always current without needing a signal from each view.
-        elif self._stack.widget(idx) is self._activity_view:
+        elif widget is self._activity_view:
             self._activity_view.refresh()
+        # A recurring item can come due while the app stays open (past its due
+        # date). Post any now-due items when opening Transactions so the tab is
+        # current without restarting the app.
+        elif widget is self._txn_view:
+            if self._process_recurring() > 0:
+                self._txn_view.refresh()
+                self._txn_view.transaction_changed.emit()
 
     def _restore_last_panel(self) -> None:
         """Reopen on the sidebar panel that was active when the app last closed."""
@@ -288,11 +296,12 @@ class MainWindow(QMainWindow):
 
     # ── Recurring ──────────────────────────────────────────────────────────────
 
-    def _process_recurring(self) -> None:
+    def _process_recurring(self) -> int:
         count = self._recurring_svc.process_due(self._user["id"])
         if count > 0:
             from views.toast import show_toast
             show_toast(self, tr("✓ Posted {n} recurring transaction(s)").format(n=count))
+        return count
 
     # ── Auto-backup timer ──────────────────────────────────────────────────────
 

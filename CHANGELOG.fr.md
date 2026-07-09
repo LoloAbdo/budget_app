@@ -7,6 +7,19 @@ et ce projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+## [2.9.0] - 2026-07-09
+
+### Corrigé
+- **Les transactions récurrentes sont maintenant enregistrées sans redémarrer
+  l'application.** Lorsqu'une récurrence arrive à échéance alors que
+  l'application reste ouverte, ouvrir l'onglet **Transactions** l'enregistre
+  aussitôt et met à jour vos soldes, budgets et rapports — sans recharger
+  l'application.
+- **Les alertes de budget ne masquent plus un budget dont le report a épuisé
+  la marge.** Lorsqu'un dépassement important est reporté et ne laisse plus
+  aucune marge à une catégorie, celle-ci s'affiche désormais correctement comme
+  dépassée au lieu d'être ignorée.
+
 ## [2.8.0] - 2026-07-08
 
 ### Ajouté

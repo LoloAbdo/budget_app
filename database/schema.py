@@ -966,14 +966,18 @@ class DatabaseManager:
 
     # ── Budgets ───────────────────────────────────────────────────────────────
 
-    def _category_spending(self, user_id: int, category_id: int, month: int, year: int) -> float:
+    def _category_spending(
+        self, user_id: int, category_id: int, month: int, year: int,
+        home: Optional[str] = None,
+    ) -> float:
         """Home-currency expense total for one category in one month.
 
         Mirrors the ``actual_spending`` subquery in :meth:`get_budgets`; kept
         separate so the rollover walk can price prior months without re-running
-        the whole budget query.
+        the whole budget query. Pass ``home`` to skip the per-call home-currency
+        lookup when the caller already knows it (the rollover walk does).
         """
-        home = self.get_home_currency(user_id)
+        home = home or self.get_home_currency(user_id)
         row = self._fetchone(
             f"""SELECT COALESCE(SUM(ABS(t.amount) * {self._FX}), 0) AS spent
                 FROM transactions t
@@ -989,7 +993,8 @@ class DatabaseManager:
         return row["spent"] if row else 0.0
 
     def _budget_carryover(
-        self, user_id: int, category_id: int, month: int, year: int, depth: int = 120
+        self, user_id: int, category_id: int, month: int, year: int,
+        depth: int = 120, home: Optional[str] = None,
     ) -> float:
         """Rollover carried *into* the given month for one category.
 
@@ -1001,6 +1006,7 @@ class DatabaseManager:
         """
         if depth <= 0:
             return 0.0
+        home = home or self.get_home_currency(user_id)
         pm, py = (12, year - 1) if month == 1 else (month - 1, year)
         row = self._fetchone(
             "SELECT budget_amount, rollover FROM budgets "
@@ -1009,8 +1015,8 @@ class DatabaseManager:
         )
         if not row or not row["rollover"]:
             return 0.0
-        prev_carry = self._budget_carryover(user_id, category_id, pm, py, depth - 1)
-        prev_spent = self._category_spending(user_id, category_id, pm, py)
+        prev_carry = self._budget_carryover(user_id, category_id, pm, py, depth - 1, home)
+        prev_spent = self._category_spending(user_id, category_id, pm, py, home)
         return row["budget_amount"] + prev_carry - prev_spent
 
     def get_budgets(self, user_id: int, month: int, year: int) -> list[dict]:
@@ -1039,7 +1045,7 @@ class DatabaseManager:
         # the untouched base limit the user set.
         for b in rows:
             carry = (
-                self._budget_carryover(user_id, b["category_id"], month, year)
+                self._budget_carryover(user_id, b["category_id"], month, year, home=home)
                 if b.get("rollover") else 0.0
             )
             b["carryover"] = round(carry, 2)
@@ -1056,10 +1062,16 @@ class DatabaseManager:
         """
         alerts = []
         for b in self.get_budgets(user_id, month, year):
+            if b["budget_amount"] <= 0:
+                continue  # no budget actually set for this category
+            spent = b["actual_spending"]
             limit = b.get("effective_budget", b["budget_amount"])
             if limit <= 0:
-                continue
-            ratio = b["actual_spending"] / limit
+                # A rolled-over overspend has wiped out this month's room —
+                # there's no budget left at all, so it's always over budget.
+                ratio = float("inf") if spent > 0 else 1.0
+            else:
+                ratio = spent / limit
             if ratio >= threshold:
                 alerts.append({**b, "ratio": ratio, "over": ratio >= 1.0})
         alerts.sort(key=lambda a: a["ratio"], reverse=True)

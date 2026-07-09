@@ -88,6 +88,21 @@ def test_alerts_use_effective_budget(db, user_id, account_id):
     assert alerts == []                                     # under 90% of effective
 
 
+def test_rollover_overspend_that_wipes_room_still_alerts(db, user_id, account_id):
+    # Heavy prior overspend carries a big negative, dropping this month's
+    # effective budget to <= 0. It must still surface as an alert (the worst
+    # case), not be silently skipped like an unset budget.
+    cat = _expense_category(db)
+    db.upsert_budget(user_id, cat, 3, 2025, 100.0, rollover=True)
+    _spend(db, account_id, cat, 300.0, "2025-03-10")        # 200 over -> carry -200
+    db.upsert_budget(user_id, cat, 4, 2025, 100.0, rollover=True)
+    b = _budget(db, user_id, cat, 4, 2025)
+    assert b["effective_budget"] <= 0                       # room wiped out
+    alerts = db.get_budget_alerts(user_id, 4, 2025)
+    assert [a["category_id"] for a in alerts] == [cat]
+    assert alerts[0]["over"] is True
+
+
 def test_copy_last_month_preserves_rollover_flag(db, user_id, account_id):
     cat = _expense_category(db)
     db.upsert_budget(user_id, cat, 3, 2025, 100.0, rollover=True)

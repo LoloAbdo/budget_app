@@ -19,7 +19,7 @@ from PyQt6.QtGui import QColor
 from database import DatabaseManager
 from views.i18n import tr
 from views.sortable import SortableItem, SORT_ROLE, enable_sorting
-from views.widgets import add_table_shortcuts, make_empty_state
+from views.widgets import add_table_shortcuts, make_empty_state, ColumnWidths
 
 FREQUENCIES = ["Weekly", "Bi-weekly", "Monthly", "Quarterly", "Yearly"]
 
@@ -357,6 +357,7 @@ class RecurringView(QWidget):
         self._table.setColumnWidth(6, 140)
         self._table.setColumnWidth(7, 100)
         self._table.setColumnWidth(8, 90)
+        self._cols = ColumnWidths(self._table, "recurring", self._user["id"])
         self._table.doubleClicked.connect(self._edit_selected)
         enable_sorting(self._table, 0, Qt.SortOrder.AscendingOrder)
         add_table_shortcuts(self._table, on_delete=self._delete_selected, on_edit=self._edit_selected)
@@ -461,10 +462,14 @@ class RecurringView(QWidget):
 
         self._table.blockSignals(False)
         self._table.setSortingEnabled(True)
-        self._table.resizeColumnToContents(1)
-        self._table.resizeColumnToContents(2)
-        self._table.resizeColumnToContents(3)
-        self._table.resizeColumnToContents(4)
+        if self._cols.has_saved():
+            self._cols.restore()
+        else:
+            with self._cols.muted():
+                self._table.resizeColumnToContents(1)
+                self._table.resizeColumnToContents(2)
+                self._table.resizeColumnToContents(3)
+                self._table.resizeColumnToContents(4)
 
         # Empty state: nothing scheduled vs. filters hiding everything.
         self._empty_lbl.setText(

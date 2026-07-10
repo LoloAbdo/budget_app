@@ -7,6 +7,21 @@ et ce projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+## [2.10.0] - 2026-07-09
+
+### Corrigé
+- **Les boutons s'adaptent maintenant à leur libellé dans toutes les langues.**
+  Les boutons se dimensionnent selon leur texte plutôt qu'à une largeur fixe :
+  les libellés traduits plus longs (par exemple en français) s'affichent en
+  entier au lieu d'être tronqués par des points de suspension.
+
+### Ajouté
+- **Les tableaux retiennent la largeur de vos colonnes.** Redimensionnez une
+  colonne dans les tableaux Transactions, Comptes, Récurrences, Journal
+  d'activité ou Tableau de bord et vos largeurs sont enregistrées par
+  utilisateur — elles restent en place après les rafraîchissements, les
+  changements d'onglet et les redémarrages.
+
 ## [2.9.0] - 2026-07-09
 
 ### Corrigé

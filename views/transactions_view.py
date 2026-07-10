@@ -20,7 +20,7 @@ from services.import_export_service import ImportExportService
 from views.i18n import tr
 from views.sortable import SortableItem, SORT_ROLE, enable_sorting
 from views.toast import show_toast
-from views.widgets import add_table_shortcuts, category_dot, make_empty_state
+from views.widgets import add_table_shortcuts, category_dot, make_empty_state, ColumnWidths
 
 
 # ── Transaction dialog ─────────────────────────────────────────────────────────
@@ -520,6 +520,8 @@ class TransactionsView(QWidget):
         self._table.setColumnWidth(3, 150)   # Account
         self._table.setColumnWidth(4, 100)   # Amount
         self._table.setColumnWidth(5, 150)   # Notes
+        # Remember per-user column widths across refreshes and sessions.
+        self._cols = ColumnWidths(self._table, "transactions", self._user["id"])
         self._table.doubleClicked.connect(self._edit_selected)
         # Newest-first by default; every column is click-sortable.
         enable_sorting(self._table, 0, Qt.SortOrder.DescendingOrder)
@@ -636,8 +638,17 @@ class TransactionsView(QWidget):
                     item.setForeground(QColor("#8B5CF6"))
                 self._table.setItem(r_idx, c_idx, item)
 
-        self._table.resizeColumnsToContents()
-        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        if self._cols.has_saved():
+            # User picked their own widths — honor them and keep every column
+            # interactively resizable (no forced Stretch on Description).
+            self._table.horizontalHeader().setSectionResizeMode(
+                1, QHeaderView.ResizeMode.Interactive)
+            self._cols.restore()
+        else:
+            with self._cols.muted():
+                self._table.resizeColumnsToContents()
+                self._table.horizontalHeader().setSectionResizeMode(
+                    1, QHeaderView.ResizeMode.Stretch)
         self._table.setSortingEnabled(True)
         self._count_lbl.setText(tr("{n} transactions").format(n=len(rows)))
 

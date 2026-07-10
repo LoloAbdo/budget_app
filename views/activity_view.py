@@ -24,7 +24,7 @@ from database import DatabaseManager
 from services.import_export_service import ImportExportService
 from views.i18n import tr
 from views.sortable import SortableItem, SORT_ROLE, enable_sorting
-from views.widgets import make_empty_state
+from views.widgets import make_empty_state, ColumnWidths
 
 # Friendly labels + colors for the raw SQL action verbs.
 ACTIONS = {
@@ -212,6 +212,8 @@ class ActivityView(QWidget):
         self._table.setColumnWidth(1, 90)    # Action
         self._table.setColumnWidth(2, 130)   # Item
         hdr.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)  # Details
+        self._cols = ColumnWidths(self._table, "activity", self._user["id"])
+        self._cols.restore()   # apply saved widths (refresh never resizes columns)
         enable_sorting(self._table, 0, Qt.SortOrder.DescendingOrder)
         layout.addWidget(self._table)
 

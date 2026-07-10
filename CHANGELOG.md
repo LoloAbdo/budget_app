@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-07-09
+
+### Fixed
+- **Buttons now fit their label in every language.** Buttons size to their
+  text instead of a fixed width, so longer translated labels (e.g. in French)
+  are shown in full rather than being cut off with an ellipsis.
+
+### Added
+- **Tables remember your column widths.** Resize a column in the Transactions,
+  Accounts, Recurring, Activity Log, or Dashboard tables and your widths are
+  saved per user — they stay put across refreshes, tab switches, and restarts.
+
 ## [2.9.0] - 2026-07-09
 
 ### Fixed

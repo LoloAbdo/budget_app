@@ -24,7 +24,7 @@ from database import DatabaseManager
 from services import market_service as ms
 from views.i18n import tr
 from views.sortable import SortableItem, SORT_ROLE, enable_sorting
-from views.widgets import add_table_shortcuts
+from views.widgets import add_table_shortcuts, hug_button
 
 GREEN = "#10B981"
 RED = "#EF4444"
@@ -193,7 +193,7 @@ class MarketsView(QWidget):
 
         del_btn = QPushButton(tr("🗑 Remove"))
         del_btn.setObjectName("danger")
-        del_btn.setMaximumWidth(160)
+        hug_button(del_btn)
         del_btn.clicked.connect(self._remove_selected)
         del_btn.setToolTip(tr("Remove selected (Del)"))
         layout.addWidget(del_btn)

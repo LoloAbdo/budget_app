@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QFrame, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy,
     QProgressBar, QPushButton, QTableWidget,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSettings
 from PyQt6.QtGui import QFont, QColor, QIcon, QKeySequence, QPainter, QPixmap, QShortcut
 
 from views.fonts import scaled, ui_font
@@ -32,6 +32,75 @@ def category_dot(color: str) -> QIcon:
         icon = QIcon(pix)
         _DOT_CACHE[color] = icon
     return icon
+
+
+class ColumnWidths:
+    """Persist a table's column widths per user, across refreshes and sessions.
+
+    Widths are stored in ``QSettings`` under ``columns/<user_id>/<key>`` (so two
+    users on the same machine keep separate layouts, and the values travel with
+    per-machine window state rather than the shared database). Only genuine user
+    drags are saved: wrap any programmatic resize (e.g. ``resizeColumnsToContents``
+    in a refresh) in ``with cols.muted():`` so it isn't recorded as a preference.
+    """
+
+    def __init__(self, table: QTableWidget, key: str, user_id: int) -> None:
+        self._table = table
+        self._settings = QSettings()
+        self._prefix = f"columns/{user_id}/{key}"
+        self._muted = False
+        table.horizontalHeader().sectionResized.connect(self._on_resized)
+
+    def has_saved(self) -> bool:
+        return self._settings.value(self._prefix) is not None
+
+    def restore(self) -> bool:
+        """Apply saved widths. Returns False if nothing is stored yet."""
+        saved = self._settings.value(self._prefix)
+        if not saved:
+            return False
+        hdr = self._table.horizontalHeader()
+        with self.muted():
+            for i, raw in enumerate(saved):
+                try:
+                    w = int(raw)
+                except (TypeError, ValueError):
+                    continue
+                if 0 <= i < hdr.count() and w > 0:
+                    self._table.setColumnWidth(i, w)
+        return True
+
+    def muted(self):
+        cols = self
+
+        class _Guard:
+            def __enter__(self):
+                cols._muted = True
+
+            def __exit__(self, *exc):
+                cols._muted = False
+
+        return _Guard()
+
+    def _on_resized(self, *_args) -> None:
+        if self._muted:
+            return
+        hdr = self._table.horizontalHeader()
+        widths = [self._table.columnWidth(c) for c in range(hdr.count())]
+        self._settings.setValue(self._prefix, widths)
+
+
+def hug_button(btn: QPushButton) -> QPushButton:
+    """Size a button to its label instead of a hard-coded max width.
+
+    Uses a ``Maximum`` horizontal policy: the size hint (which always fits the
+    full text) becomes the ceiling, so the button hugs its label and never
+    stretches full-width — but also never clips. This keeps localized labels
+    (e.g. longer French text) fully visible where a fixed ``setMaximumWidth``
+    would truncate them with an ellipsis.
+    """
+    btn.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+    return btn
 
 
 GREEN = "#10B981"

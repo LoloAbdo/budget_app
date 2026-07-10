@@ -29,6 +29,7 @@ from services.update_service import can_auto_update, launch_installer
 from services import credential_store
 from views.i18n import tr, set_language, get_language, LANGUAGES
 from views.sortable import SortableItem, enable_sorting
+from views.widgets import hug_button
 from views.update_check import UpdateCheckWorker, UpdateDownloadWorker
 from version import __version__
 
@@ -341,7 +342,7 @@ class SettingsView(QWidget):
         layout.addLayout(row)
 
         apply_btn = QPushButton(tr("Apply Theme"))
-        apply_btn.setMaximumWidth(150)
+        hug_button(apply_btn)
         apply_btn.clicked.connect(self._apply_theme)
         layout.addWidget(apply_btn)
 
@@ -359,7 +360,7 @@ class SettingsView(QWidget):
         layout.addLayout(lang_row)
 
         apply_lang_btn = QPushButton(tr("Apply Language"))
-        apply_lang_btn.setMaximumWidth(180)
+        hug_button(apply_lang_btn)
         apply_lang_btn.clicked.connect(self._apply_language)
         layout.addWidget(apply_lang_btn)
 
@@ -387,12 +388,12 @@ class SettingsView(QWidget):
         accent_row.addWidget(QLabel(tr("Accent color:")))
         self._accent_btn = QPushButton()
         self._accent_btn.setObjectName("secondary")
-        self._accent_btn.setMaximumWidth(160)
+        hug_button(self._accent_btn)
         self._accent_btn.clicked.connect(self._pick_accent)
         accent_row.addWidget(self._accent_btn)
         reset_btn = QPushButton(tr("Reset"))
         reset_btn.setObjectName("secondary")
-        reset_btn.setMaximumWidth(90)
+        hug_button(reset_btn)
         reset_btn.clicked.connect(lambda: self.accent_changed.emit(""))
         accent_row.addWidget(reset_btn)
         accent_hint = QLabel(tr("Recolors buttons, highlights and charts in every theme."))
@@ -477,7 +478,7 @@ class SettingsView(QWidget):
 
         btn_row = QHBoxLayout()
         self._fx_refresh_btn = QPushButton(tr("⟳ Refresh Rates"))
-        self._fx_refresh_btn.setMaximumWidth(180)
+        hug_button(self._fx_refresh_btn)
         self._fx_refresh_btn.clicked.connect(self._refresh_fx_rates)
         btn_row.addWidget(self._fx_refresh_btn)
         self._fx_status = QLabel("")
@@ -552,7 +553,7 @@ class SettingsView(QWidget):
         layout.addLayout(form)
 
         update_btn = QPushButton(tr("Update Password"))
-        update_btn.setMaximumWidth(200)
+        hug_button(update_btn)
         update_btn.clicked.connect(self._change_password)
         layout.addWidget(update_btn)
 
@@ -582,7 +583,7 @@ class SettingsView(QWidget):
         layout.addWidget(self._rc_status)
 
         rc_btn = QPushButton(tr("Generate Recovery Codes"))
-        rc_btn.setMaximumWidth(240)
+        hug_button(rc_btn)
         rc_btn.clicked.connect(self._generate_recovery_codes)
         layout.addWidget(rc_btn)
 
@@ -612,7 +613,7 @@ class SettingsView(QWidget):
 
         self._forget_login_btn = QPushButton(tr("Forget Saved Login"))
         self._forget_login_btn.setObjectName("danger")
-        self._forget_login_btn.setMaximumWidth(240)
+        hug_button(self._forget_login_btn)
         self._forget_login_btn.clicked.connect(self._forget_saved_login)
         layout.addWidget(self._forget_login_btn)
 
@@ -714,7 +715,7 @@ class SettingsView(QWidget):
 
         del_btn = QPushButton(tr("🗑 Delete Selected"))
         del_btn.setObjectName("danger")
-        del_btn.setMaximumWidth(180)
+        hug_button(del_btn)
         del_btn.clicked.connect(self._delete_category)
         layout.addWidget(del_btn)
 
@@ -817,7 +818,7 @@ class SettingsView(QWidget):
 
         del_btn = QPushButton(tr("🗑 Delete Selected"))
         del_btn.setObjectName("danger")
-        del_btn.setMaximumWidth(180)
+        hug_button(del_btn)
         del_btn.clicked.connect(self._delete_rule)
         layout.addWidget(del_btn)
 
@@ -1017,13 +1018,13 @@ class SettingsView(QWidget):
         row = QHBoxLayout()
         self._update_btn = QPushButton(tr("Check for updates"))
         self._update_btn.setObjectName("secondary")
-        self._update_btn.setMaximumWidth(220)
+        hug_button(self._update_btn)
         self._update_btn.clicked.connect(self._check_for_updates)
         row.addWidget(self._update_btn)
 
         # Hidden until a check finds an installable update on a packaged build.
         self._update_now_btn = QPushButton(tr("⤓ Update now"))
-        self._update_now_btn.setMaximumWidth(220)
+        hug_button(self._update_now_btn)
         self._update_now_btn.setVisible(False)
         self._update_now_btn.clicked.connect(self._update_now)
         row.addWidget(self._update_now_btn)

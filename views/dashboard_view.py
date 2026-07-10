@@ -23,6 +23,7 @@ from database import DatabaseManager
 from views.chartutil import money_axis
 from views.widgets import (
     SummaryCard, category_dot, delta_points, delta_text, make_empty_state,
+    ColumnWidths,
 )
 from views.i18n import tr, month_abbr
 from views.theme import chart_colors
@@ -401,7 +402,12 @@ class DashboardView(QWidget):
                     item.setForeground(QColor(color))
                 tbl.setItem(row_idx, col_idx, item)
 
-        tbl.resizeColumnsToContents()
+        col_widths = ColumnWidths(tbl, "dashboard_recent", self._user["id"])
+        if col_widths.has_saved():
+            col_widths.restore()
+        else:
+            with col_widths.muted():
+                tbl.resizeColumnsToContents()
         tbl.setMinimumHeight(min(400, 46 + len(transactions) * 40))
         enable_sorting(tbl, 0, Qt.SortOrder.DescendingOrder)
         return tbl

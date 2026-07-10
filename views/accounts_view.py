@@ -20,7 +20,7 @@ from services.fx_service import CURRENCIES
 from views.i18n import tr
 from views.sortable import SortableItem, enable_sorting
 from views.toast import show_toast
-from views.widgets import add_table_shortcuts, make_empty_state
+from views.widgets import add_table_shortcuts, make_empty_state, ColumnWidths
 
 ACCOUNT_TYPES = ["Checking", "Savings", "Credit Card", "Cash"]
 ACCOUNT_NAME_MAX = 50   # enforced in dialog; no hard DB limit
@@ -279,6 +279,7 @@ class AccountsView(QWidget):
         self._table.setColumnWidth(1, 130)   # Type  — initial width; user can resize
         self._table.setColumnWidth(2, 90)    # Currency
         self._table.setColumnWidth(3, 150)   # Balance
+        self._cols = ColumnWidths(self._table, "accounts", self._user["id"])
 
         self._table.doubleClicked.connect(self._edit_selected)
         enable_sorting(self._table, 0, Qt.SortOrder.AscendingOrder)
@@ -351,10 +352,15 @@ class AccountsView(QWidget):
         self._table.blockSignals(False)
         self._table.setSortingEnabled(True)
 
-        # Resize only the non-stretch columns to fit their content
-        self._table.resizeColumnToContents(1)   # Type
-        self._table.resizeColumnToContents(2)   # Currency
-        self._table.resizeColumnToContents(3)   # Balance
+        # Honor the user's saved widths; otherwise fit the non-stretch columns
+        # to content (muted so the auto-fit isn't recorded as a preference).
+        if self._cols.has_saved():
+            self._cols.restore()
+        else:
+            with self._cols.muted():
+                self._table.resizeColumnToContents(1)   # Type
+                self._table.resizeColumnToContents(2)   # Currency
+                self._table.resizeColumnToContents(3)   # Balance
 
         # Empty state: no accounts at all vs. filters hiding them all.
         self._empty_lbl.setText(

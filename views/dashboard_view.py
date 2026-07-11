@@ -74,6 +74,7 @@ class DashboardView(QWidget):
         monthly  = self._db.get_monthly_totals(self._user["id"], year)
         networth = self._db.get_net_worth_history(self._user["id"], 12)
         alerts   = self._db.get_budget_alerts(self._user["id"], month, year)
+        insights = self._db.get_spending_insights(self._user["id"], month, year)
         upcoming = self._db.get_upcoming_recurring(self._user["id"], 7)
         recent   = self._db.get_transactions(self._user["id"], limit=10)
 
@@ -134,6 +135,10 @@ class DashboardView(QWidget):
         if alerts:
             self._main_layout.addWidget(self._build_budget_alerts(alerts))
 
+        # ── Spending insights ────────────────────────────────────────────────────
+        if insights:
+            self._main_layout.addWidget(self._build_insights(insights))
+
         # ── Upcoming bills ───────────────────────────────────────────────────────
         if upcoming:
             self._main_layout.addWidget(self._build_upcoming_bills(upcoming))
@@ -183,6 +188,52 @@ class DashboardView(QWidget):
                 f"  ·  {status}"
             )
             row = QLabel(text)
+            row.setStyleSheet(f"color: {color};")
+            layout.addWidget(row)
+
+        return card
+
+    # ── Spending insights ────────────────────────────────────────────────────
+
+    def _insight_text(self, ins: dict) -> str:
+        """Render one insight dict into a localized, human sentence."""
+        cur = self._currency
+        c = f"{cur} {ins['current']:,.0f}"
+        b = f"{cur} {ins['baseline']:,.0f}"
+        pct = f"{ins['pct']:.0f}%"
+        typ = ins["type"]
+        if typ == "spending_up":
+            return tr("You've spent {pct} more than last month ({cur} vs {prev}).").format(
+                pct=pct, cur=c, prev=b)
+        if typ == "spending_down":
+            return tr("You've spent {pct} less than last month ({cur} vs {prev}).").format(
+                pct=pct, cur=c, prev=b)
+        if typ == "category_up":
+            return tr("{cat} is {pct} above your {n}-month average ({cur} vs {avg}).").format(
+                cat=ins["category"], pct=pct, n=ins["months"], cur=c, avg=b)
+        # category_down
+        return tr("{cat} is {pct} below your {n}-month average ({cur} vs {avg}) — nice.").format(
+            cat=ins["category"], pct=pct, n=ins["months"], cur=c, avg=b)
+
+    def _build_insights(self, insights: list[dict]) -> QFrame:
+        """A card explaining notable month-over-month spending changes."""
+        card = QFrame()
+        card.setObjectName("card")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(6)
+
+        lbl = QLabel("💡 " + tr("Spending Insights"))
+        lbl.setObjectName("subheading")
+        layout.addWidget(lbl)
+
+        for ins in insights:
+            up = ins["type"] in ("spending_up", "category_up")
+            # Rising spend reads as a caution (amber); falling spend as good (green).
+            color = "#F59E0B" if up else "#10B981"
+            arrow = "▲" if up else "▼"
+            row = QLabel(f"{arrow}  {self._insight_text(ins)}")
+            row.setWordWrap(True)
             row.setStyleSheet(f"color: {color};")
             layout.addWidget(row)
 

@@ -50,6 +50,7 @@ _FR: dict[str, str] = {
     "Reports": "Rapports",
     "Forecast": "Prévisions",
     "Recurring": "Récurrents",
+    "Subscriptions": "Abonnements",
     "Settings": "Paramètres",
     "💰 Budget": "💰 Budget",
     "Sign Out": "Déconnexion",
@@ -158,6 +159,15 @@ _FR: dict[str, str] = {
     "Budget Alerts": "Alertes de budget",
     "Over budget": "Dépassé",
     "Near limit": "Proche de la limite",
+    "Spending Insights": "Aperçus des dépenses",
+    "You've spent {pct} more than last month ({cur} vs {prev}).":
+        "Vous avez dépensé {pct} de plus que le mois dernier ({cur} contre {prev}).",
+    "You've spent {pct} less than last month ({cur} vs {prev}).":
+        "Vous avez dépensé {pct} de moins que le mois dernier ({cur} contre {prev}).",
+    "{cat} is {pct} above your {n}-month average ({cur} vs {avg}).":
+        "{cat} : {pct} au-dessus de votre moyenne sur {n} mois ({cur} contre {avg}).",
+    "{cat} is {pct} below your {n}-month average ({cur} vs {avg}) — nice.":
+        "{cat} : {pct} en dessous de votre moyenne sur {n} mois ({cur} contre {avg}) — bravo.",
     "Upcoming Bills (next 7 days)": "Factures à venir (7 prochains jours)",
     "overdue": "en retard",
     "today": "aujourd'hui",
@@ -464,6 +474,20 @@ _FR: dict[str, str] = {
     "Recent interest activity": "Activité d'intérêts récente",
     "No savings accounts.\nAdd a Savings account to start tracking interest.":
         "Aucun compte d'épargne.\nAjoutez un compte de type Épargne pour suivre les intérêts.",
+
+    # ── Subscriptions ─────────────────────────────────────────────────────
+    "Subscription": "Abonnement",
+    "↻ Refresh": "↻ Actualiser",
+    "Recurring charges detected automatically from your transaction history.":
+        "Frais récurrents détectés automatiquement à partir de votre historique de transactions.",
+    "No subscriptions detected yet.\nA few months of transaction history are needed to spot recurring charges.":
+        "Aucun abonnement détecté pour l'instant.\n"
+        "Quelques mois d'historique de transactions sont nécessaires pour repérer les frais récurrents.",
+    "Est. Monthly Cost": "Coût mensuel estimé",
+    "Est. Yearly Cost": "Coût annuel estimé",
+    "Last charged": "Dernier prélèvement",
+    "Next (est.)": "Prochain (est.)",
+    "Per month": "Par mois",
 
     # ── Markets ───────────────────────────────────────────────────────────
     "Markets": "Marchés",

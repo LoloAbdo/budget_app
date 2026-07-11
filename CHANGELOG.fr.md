@@ -7,6 +7,20 @@ et ce projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+## [2.11.0] - 2026-07-11
+
+### Ajouté
+- **Aperçus des dépenses sur le tableau de bord.** Une nouvelle carte d'aperçus
+  explique pourquoi vos chiffres ont bougé ce mois-ci — en signalant les
+  catégories nettement au-dessus ou en dessous de votre propre moyenne récente,
+  et si vous dépensez plus ou moins que le mois dernier, pour que les totaux
+  s'accompagnent d'un contexte plutôt que d'un simple montant.
+- **Détecteur d'abonnements.** Un nouveau panneau **Abonnements** analyse votre
+  historique de transactions pour repérer les frais qui reviennent à un rythme
+  régulier et pour un montant stable (Netflix, gym, forfait téléphonique…) et
+  les liste avec un coût mensuel et annuel estimé — pour repérer facilement les
+  dépenses récurrentes oubliées ou qui augmentent.
+
 ## [2.10.0] - 2026-07-09
 
 ### Corrigé

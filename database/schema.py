@@ -6,12 +6,38 @@ Uses parameterized queries throughout to prevent SQL injection.
 
 import sqlite3
 import os
+import re
 import json
+import math
 import hashlib
 import threading
+from collections import Counter
 from pathlib import Path
 from typing import Any, Optional
 from datetime import datetime, timedelta
+
+
+def _median(values: list[float]) -> float:
+    """Median of a non-empty list (no numpy/statistics dependency needed)."""
+    s = sorted(values)
+    n = len(s)
+    mid = n // 2
+    if n % 2:
+        return float(s[mid])
+    return (s[mid - 1] + s[mid]) / 2.0
+
+
+def _normalize_merchant(description: str) -> str:
+    """Reduce a transaction description to a stable merchant key.
+
+    Keeps only alphabetic words of 3+ letters (dropping order/reference codes
+    like "P0A1B2" or trailing digits that change every charge), lowercases,
+    and keeps the first few words. So "NETFLIX #4471", "Netflix.com" and
+    "NETFLIX" all collapse to "netflix" — letting charges from the same
+    merchant group together regardless of the noisy suffix banks tack on.
+    """
+    tokens = [t for t in re.findall(r"[a-z]+", (description or "").lower()) if len(t) >= 3]
+    return " ".join(tokens[:3])
 
 
 def _money(value: Optional[float]) -> float:
@@ -1424,6 +1450,212 @@ class DatabaseManager:
             cursor = f"{cy:04d}-{cm:02d}"
 
         return [{"month": k, "balance": balances.get(k, 0.0)} for k in month_keys]
+
+    def get_spending_insights(
+        self, user_id: int, month: int, year: int, lookback: int = 3
+    ) -> list[dict]:
+        """
+        Lightweight spending anomaly/trend detection for the dashboard.
+
+        Compares this month's spending against the trailing ``lookback`` months
+        (all in the home currency) and surfaces a short, ranked list of the most
+        notable changes — an overall spike or dip versus last month, plus
+        per-category swings against the user's own baseline — so the dashboard
+        can explain *why* the numbers moved, not just show them.
+
+        Each insight is a dict with a machine-readable ``type`` plus the numbers
+        the view formats into a localized sentence::
+
+            {"type": "spending_up" | "spending_down"
+                     | "category_up" | "category_down",
+             "category": str | None,   # category name for category_* insights
+             "current": float,         # this month's spend (home currency)
+             "baseline": float,        # comparison figure (prev month, or average)
+             "pct": float,             # size of the change, always positive
+             "months": int}            # baseline window (for category_* wording)
+
+        Warnings (increases) rank before positives (decreases); within each,
+        larger swings first. Capped at four so the card stays glanceable. Only
+        categories with an established baseline (average ≥ ``MIN_BASELINE``) are
+        judged, so a brand-new category never reads as an "infinite" spike.
+        """
+        MIN_BASELINE = 25.0   # ignore categories/months averaging under this
+        MIN_DELTA    = 15.0   # ignore swings smaller than this in absolute terms
+        UP_RATIO     = 1.35   # +35% or more counts as a spike
+        DOWN_RATIO   = 0.60   # -40% or more counts as a dip
+
+        # This month's spend per category, plus the running total.
+        current = {r["name"]: r["total"]
+                   for r in self.get_spending_by_category(user_id, month, year)}
+        current_total = sum(current.values())
+
+        # Trailing months: accumulate per-category spend, and remember the
+        # single immediately-previous month's total for the overall comparison.
+        hist_totals: dict[str, float] = {}
+        prev_month_total = 0.0
+        m, y = month, year
+        for i in range(lookback):
+            m -= 1
+            if m == 0:
+                m, y = 12, y - 1
+            month_total = 0.0
+            for r in self.get_spending_by_category(user_id, m, y):
+                hist_totals[r["name"]] = hist_totals.get(r["name"], 0.0) + r["total"]
+                month_total += r["total"]
+            if i == 0:
+                prev_month_total = month_total
+
+        overall: list[dict] = []
+        if current_total >= MIN_BASELINE and prev_month_total >= MIN_BASELINE:
+            delta = current_total - prev_month_total
+            if abs(delta) >= max(MIN_DELTA, 0.15 * prev_month_total):
+                overall.append({
+                    "type": "spending_up" if delta > 0 else "spending_down",
+                    "category": None, "current": current_total,
+                    "baseline": prev_month_total,
+                    "pct": abs(delta) / prev_month_total * 100, "months": 1,
+                })
+
+        # Per-category swings vs the trailing average.
+        ups: list[dict] = []
+        downs: list[dict] = []
+        for name in set(current) | set(hist_totals):
+            cur = current.get(name, 0.0)
+            baseline = hist_totals.get(name, 0.0) / lookback
+            if baseline < MIN_BASELINE or abs(cur - baseline) < MIN_DELTA:
+                continue
+            if cur >= baseline * UP_RATIO:
+                ups.append({
+                    "type": "category_up", "category": name, "current": cur,
+                    "baseline": baseline, "pct": (cur / baseline - 1) * 100,
+                    "months": lookback,
+                })
+            elif cur <= baseline * DOWN_RATIO:
+                downs.append({
+                    "type": "category_down", "category": name, "current": cur,
+                    "baseline": baseline, "pct": (1 - cur / baseline) * 100,
+                    "months": lookback,
+                })
+
+        ups.sort(key=lambda c: c["pct"], reverse=True)
+        downs.sort(key=lambda c: c["pct"], reverse=True)
+        up_overall   = [i for i in overall if i["type"] == "spending_up"]
+        down_overall = [i for i in overall if i["type"] == "spending_down"]
+
+        # Warnings first (overall spike, then category spikes), positives after.
+        return (up_overall + ups + down_overall + downs)[:4]
+
+    def get_detected_subscriptions(
+        self, user_id: int, lookback_days: int = 420, min_occurrences: int = 3
+    ) -> list[dict]:
+        """
+        Detect likely recurring subscriptions from transaction history alone —
+        independent of the user-defined recurring rules.
+
+        Groups expense transactions by a normalized merchant key
+        (:func:`_normalize_merchant`), then keeps only groups that recur on a
+        regular cadence with a consistent amount — the signature of a real
+        subscription (Netflix, gym, phone plan…) rather than variable spending
+        like groceries. Amounts convert to the home currency so figures and
+        totals stay comparable across multi-currency accounts.
+
+        Returns one dict per detected subscription, biggest monthly cost first::
+
+            {"name": str,            # human label (most common raw description)
+             "amount": float,        # latest charge, home currency
+             "currency": str,        # home currency code
+             "cadence": str,         # weekly|biweekly|monthly|quarterly|yearly
+             "monthly_cost": float,  # amount normalized to a monthly figure
+             "occurrences": int,
+             "category_name": str | None,
+             "category_color": str | None,
+             "last_date": str,       # ISO date of the most recent charge
+             "next_date": str}       # estimated next charge date
+
+        Cadence is inferred from the median gap between charges and confirmed by
+        requiring most gaps to be regular; amounts must stay within ~25% so a
+        modest price increase still counts but variable spend doesn't.
+        """
+        # (low, high day-gap, cadence label, months-per-charge divisor)
+        BANDS = [
+            (6, 8, "weekly", 12 / 52),
+            (12, 16, "biweekly", 12 / 26),
+            (26, 35, "monthly", 1.0),
+            (84, 96, "quarterly", 3.0),
+            (350, 380, "yearly", 12.0),
+        ]
+
+        home = self.get_home_currency(user_id)
+        start = (datetime.now().date() - timedelta(days=lookback_days)).isoformat()
+        rows = self._fetchall(
+            f"""SELECT t.date, t.description,
+                       ABS(t.amount * {self._FX}) AS amount_home,
+                       c.name AS category_name, c.color AS category_color
+                FROM transactions t
+                JOIN accounts a ON t.account_id = a.id
+                LEFT JOIN categories c ON t.category_id = c.id
+                WHERE a.user_id = ?
+                  AND t.transfer_id IS NULL
+                  AND t.amount < 0
+                  AND t.date >= ?
+                ORDER BY t.date""",
+            (home, user_id, start),
+        )
+
+        # Bucket charges by merchant key.
+        groups: dict[str, list[dict]] = {}
+        for r in rows:
+            key = _normalize_merchant(r["description"])
+            if key:
+                groups.setdefault(key, []).append(r)
+
+        results: list[dict] = []
+        for charges in groups.values():
+            if len(charges) < min_occurrences:
+                continue
+
+            dates = [datetime.strptime(c["date"][:10], "%Y-%m-%d").date() for c in charges]
+            gaps = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
+            if not gaps or 0 in gaps:
+                continue   # same-day duplicates aren't a subscription cadence
+
+            median_gap = _median(gaps)
+            band = next((b for b in BANDS if b[0] <= median_gap <= b[1]), None)
+            if band is None:
+                continue   # cadence doesn't match any known billing period
+
+            # Most gaps must be regular (allow the odd off-cycle charge).
+            tol = max(5.0, 0.35 * median_gap)
+            regular = sum(1 for g in gaps if abs(g - median_gap) <= tol)
+            if regular < math.ceil(len(gaps) * 0.6):
+                continue
+
+            amounts = [c["amount_home"] for c in charges]
+            med_amt = _median(amounts)
+            if (max(amounts) - min(amounts)) > max(2.0, 0.25 * med_amt):
+                continue   # amount too variable to be a fixed subscription
+
+            latest = charges[-1]                        # rows arrive date-ascending
+            amount = round(latest["amount_home"], 2)
+            _, _, cadence, div = band
+            name = Counter(c["description"].strip() for c in charges).most_common(1)[0][0]
+            next_date = (dates[-1] + timedelta(days=round(median_gap))).isoformat()
+
+            results.append({
+                "name": name or _normalize_merchant(latest["description"]).title(),
+                "amount": amount,
+                "currency": home,
+                "cadence": cadence,
+                "monthly_cost": round(amount / div, 2),
+                "occurrences": len(charges),
+                "category_name": latest["category_name"],
+                "category_color": latest["category_color"],
+                "last_date": dates[-1].isoformat(),
+                "next_date": next_date,
+            })
+
+        results.sort(key=lambda s: s["monthly_cost"], reverse=True)
+        return results
 
     # ── Savings / Interest ─────────────────────────────────────────────────────
 

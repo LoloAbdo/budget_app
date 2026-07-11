@@ -29,6 +29,7 @@ from views.accounts_view    import AccountsView
 from views.reports_view     import ReportsView
 from views.forecast_view    import ForecastView
 from views.recurring_view   import RecurringView
+from views.subscriptions_view import SubscriptionsView
 from views.savings_view     import SavingsView
 from views.markets_view     import MarketsView
 from views.activity_view    import ActivityView
@@ -50,10 +51,11 @@ NAV_ITEMS = [
     ("📈", "Reports",        6),
     ("🔮", "Forecast",       7),
     ("🔄", "Recurring",      8),
-    ("🐷", "Savings",        9),
-    ("💹", "Markets",        10),
-    ("📝", "Activity",       11),
-    ("⚙️",  "Settings",      12),
+    ("🧾", "Subscriptions",  9),
+    ("🐷", "Savings",        10),
+    ("💹", "Markets",        11),
+    ("📝", "Activity",       12),
+    ("⚙️",  "Settings",      13),
 ]
 
 
@@ -146,6 +148,7 @@ class MainWindow(QMainWindow):
         self._reports_view      = ReportsView(self._db, self._user)
         self._forecast_view     = ForecastView(self._db, self._user)
         self._recurring_view    = RecurringView(self._db, self._user)
+        self._subscriptions_view = SubscriptionsView(self._db, self._user)
         self._savings_view      = SavingsView(self._db, self._user)
         self._markets_view      = MarketsView(self._db, self._user)
         self._activity_view     = ActivityView(self._db, self._user)
@@ -163,6 +166,7 @@ class MainWindow(QMainWindow):
             self._reports_view,
             self._forecast_view,
             self._recurring_view,
+            self._subscriptions_view,
             self._savings_view,
             self._markets_view,
             self._activity_view,
@@ -177,6 +181,7 @@ class MainWindow(QMainWindow):
         self._txn_view.transaction_changed.connect(self._accounts_view.refresh)
         self._txn_view.transaction_changed.connect(self._savings_view.refresh)
         self._txn_view.transaction_changed.connect(self._forecast_view.refresh)
+        self._txn_view.transaction_changed.connect(self._subscriptions_view.refresh)
         self._accounts_view.accounts_changed.connect(self._dashboard_view.refresh)
         self._accounts_view.accounts_changed.connect(self._savings_view.refresh)
         self._accounts_view.accounts_changed.connect(self._forecast_view.refresh)
@@ -418,6 +423,7 @@ class MainWindow(QMainWindow):
         self._budget_view.refresh()
         self._reports_view.refresh()
         self._recurring_view.refresh()
+        self._subscriptions_view.refresh()
         self._savings_view.refresh()
         self._forecast_view.refresh()
 

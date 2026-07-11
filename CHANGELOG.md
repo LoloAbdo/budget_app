@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-07-11
+
+### Added
+- **Spending insights on the dashboard.** A new insights card explains why your
+  numbers moved this month — flagging categories that are notably above or below
+  your own recent average, and whether you're spending more or less than last
+  month, so the totals come with context instead of just a figure.
+- **Subscription detector.** A new **Subscriptions** panel scans your
+  transaction history for charges that recur on a regular cadence with a steady
+  amount (Netflix, gym, phone plan…) and lists them with an estimated monthly
+  and yearly cost — making forgotten or creeping recurring spend easy to spot.
+
 ## [2.10.0] - 2026-07-09
 
 ### Fixed

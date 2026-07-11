@@ -118,6 +118,8 @@ Each card also shows how the number moved compared to last month (e.g. **▲ 12%
 - **Income vs Expenses — Monthly** — bars for each month of the current year.
 - **Net Worth — Last 12 Months** *(new in 1.2.0)* — a line chart of your total net worth over the past year, so you can see whether you're trending up or down at a glance.
 
+**Spending Insights** *(new in 2.11.0)* — a card that explains why this month's numbers moved: it flags categories that are notably above or below your own recent (3-month) average, and whether you're spending more or less than last month. Rising spend shows in amber, falling spend in green. It only appears when there's something worth pointing out.
+
 **Upcoming Bills (next 7 days)** — a card listing active recurring items due soon (overdue ones stay visible), so nothing sneaks up on you. Paused recurring rules are not shown.
 
 **Recent Transactions** — your last 10 entries.
@@ -222,6 +224,10 @@ Recurring rules are bills or income on a schedule — rent, salary, subscription
 **How it works:** every time you open the app, any rule whose due date is today or earlier is posted automatically, and its next due date advances. Missed periods are all caught up at once. Overdue rules appear highlighted in red. A rule with an end date stops once its schedule passes that date.
 
 Deleting a rule does not remove transactions it already posted.
+
+### Subscriptions (auto-detected)
+
+The sidebar's **🧾 Subscriptions** panel *(new in 2.11.0)* is separate from the recurring rules above. Instead of rules you set up yourself, it **watches your actual transaction history** and automatically spots charges that repeat on a regular schedule for a steady amount — streaming services, gym, phone plans and the like. Each detected subscription is listed with its amount, how often it bills, when it was last charged and the next estimated date, plus an estimated **monthly** and **yearly** total across all of them — so forgotten or creeping subscriptions are easy to catch. It's read-only: it reports what it finds and never creates or changes anything. A few months of history are needed before charges can be recognized.
 
 ---
 
@@ -482,6 +488,8 @@ Chaque carte indique aussi l'évolution par rapport au mois dernier (ex. **▲ 1
 - **Revenus vs Dépenses — Mensuel** — des barres pour chaque mois de l'année.
 - **Valeur nette — 12 derniers mois** *(nouveau dans la 1.2.0)* — une courbe de votre valeur nette totale sur l'année écoulée, pour voir d'un coup d'œil la tendance.
 
+**Aperçus des dépenses** *(nouveau dans la 2.11.0)* — une carte qui explique pourquoi vos chiffres ont bougé ce mois-ci : elle signale les catégories nettement au-dessus ou en dessous de votre propre moyenne récente (sur 3 mois), et si vous dépensez plus ou moins que le mois dernier. Les dépenses en hausse s'affichent en ambre, en baisse en vert. Elle n'apparaît que lorsqu'il y a quelque chose à souligner.
+
 **Factures à venir (7 prochains jours)** — une carte listant les éléments récurrents actifs à échéance proche (les retards restent visibles), pour ne rien manquer. Les règles récurrentes en pause n'y figurent pas.
 
 **Transactions récentes** — vos 10 dernières entrées.
@@ -586,6 +594,10 @@ Les règles récurrentes sont des factures ou revenus planifiés — loyer, sala
 **Fonctionnement :** à chaque ouverture de l'application, toute règle dont l'échéance est aujourd'hui ou passée est publiée automatiquement, et sa prochaine échéance avance. Les périodes manquées sont toutes rattrapées d'un coup. Les règles en retard apparaissent en rouge. Une règle avec une date de fin s'arrête dès que son échéancier dépasse cette date.
 
 Supprimer une règle ne supprime pas les transactions déjà publiées.
+
+### Abonnements (détectés automatiquement)
+
+Le panneau **🧾 Abonnements** de la barre latérale *(nouveau dans la 2.11.0)* est distinct des règles récurrentes ci-dessus. Au lieu de règles que vous configurez vous-même, il **analyse votre historique de transactions réel** et repère automatiquement les frais qui reviennent à un rythme régulier pour un montant stable — services de streaming, gym, forfaits téléphoniques et similaires. Chaque abonnement détecté est listé avec son montant, sa fréquence de facturation, la date du dernier prélèvement et la prochaine date estimée, ainsi qu'un total **mensuel** et **annuel** estimé pour l'ensemble — pour repérer facilement les abonnements oubliés ou qui augmentent. Le panneau est en lecture seule : il signale ce qu'il trouve et ne crée ni ne modifie jamais rien. Quelques mois d'historique sont nécessaires avant que les frais puissent être reconnus.
 
 ---
 

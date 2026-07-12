@@ -207,6 +207,36 @@ CREATE TABLE IF NOT EXISTS audit_log (
     details     TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(timestamp);
+
+-- Shopping price tracker: watched product URLs (Amazon &c.). start_price is
+-- frozen on the first successful fetch and never changes; each later refresh
+-- updates current_price + last_checked and appends to price_history. A price
+-- below start_price raises a dashboard alert. is_blocked=1 marks the last fetch
+-- as bot-walled (CAPTCHA) so the row shows a "stale" badge instead of bad data.
+CREATE TABLE IF NOT EXISTS watched_items (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    asin          TEXT,
+    domain        TEXT    NOT NULL DEFAULT 'amazon.ca',
+    url           TEXT    NOT NULL,
+    title         TEXT,
+    currency      TEXT    NOT NULL DEFAULT 'CAD',
+    start_price   REAL,
+    current_price REAL,
+    last_checked  TEXT,
+    is_blocked    INTEGER NOT NULL DEFAULT 0,
+    created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, asin, domain)
+);
+CREATE INDEX IF NOT EXISTS idx_watched_items_user ON watched_items(user_id);
+
+CREATE TABLE IF NOT EXISTS price_history (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id    INTEGER NOT NULL REFERENCES watched_items(id) ON DELETE CASCADE,
+    price      REAL    NOT NULL,
+    checked_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_price_history_item ON price_history(item_id);
 """
 
 # ── Default seed data ─────────────────────────────────────────────────────────
@@ -1798,3 +1828,121 @@ class DatabaseManager:
             "UPDATE watchlist SET last_price=?, last_change_pct=?, last_currency=?, last_updated=? WHERE id=?",
             (price, change_pct, currency, updated, watch_id),
         )
+
+    # ── Shopping price tracker ────────────────────────────────────────────────
+
+    def get_watched_items(self, user_id: int) -> list[dict]:
+        return self._fetchall(
+            "SELECT * FROM watched_items WHERE user_id=? ORDER BY created_at",
+            (user_id,),
+        )
+
+    def add_watched_item(
+        self,
+        user_id: int,
+        url: str,
+        asin: Optional[str] = None,
+        domain: str = "amazon.ca",
+        title: Optional[str] = None,
+        currency: str = "CAD",
+        start_price: Optional[float] = None,
+    ) -> int:
+        """Add a product to track (dedupes by asin+domain). Returns row id.
+
+        When ``start_price`` is known at add time it's frozen immediately and
+        seeded into price_history; otherwise the first successful refresh freezes
+        it (see :meth:`update_item_price`)."""
+        if asin:
+            existing = self._fetchone(
+                "SELECT id FROM watched_items WHERE user_id=? AND asin=? AND domain=?",
+                (user_id, asin, domain),
+            )
+            if existing:
+                return existing["id"]
+        sp = _money(start_price) if start_price is not None else None
+        iid = self._execute(
+            "INSERT INTO watched_items "
+            "(user_id, asin, domain, url, title, currency, start_price, current_price) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (user_id, asin, domain, url, title, currency, sp, sp),
+        )
+        if sp is not None:
+            self._execute(
+                "INSERT INTO price_history (item_id, price) VALUES (?,?)", (iid, sp)
+            )
+        self._log("INSERT", "watched_item", iid,
+                  {"url": url, "asin": asin, "domain": domain}, user_id=user_id)
+        return iid
+
+    def remove_watched_item(self, item_id: int) -> None:
+        self._execute("DELETE FROM watched_items WHERE id=?", (item_id,))
+        self._log("DELETE", "watched_item", item_id)
+
+    def update_item_price(
+        self,
+        item_id: int,
+        price: float,
+        currency: Optional[str] = None,
+        title: Optional[str] = None,
+        checked_at: Optional[str] = None,
+    ) -> None:
+        """Record a fresh price: set current_price + last_checked, clear the
+        blocked flag, freeze start_price on the first success, and append to
+        price_history."""
+        checked_at = checked_at or datetime.now().isoformat(timespec="seconds")
+        price = _money(price)
+        row = self._fetchone(
+            "SELECT start_price FROM watched_items WHERE id=?", (item_id,)
+        )
+        if row is None:
+            return
+        sets = ["current_price=?", "last_checked=?", "is_blocked=0"]
+        params: list = [price, checked_at]
+        if row["start_price"] is None:
+            sets.append("start_price=?")
+            params.append(price)
+        if currency:
+            sets.append("currency=?")
+            params.append(currency)
+        if title:
+            sets.append("title=?")
+            params.append(title)
+        params.append(item_id)
+        conn = self._conn()
+        conn.execute(f"UPDATE watched_items SET {', '.join(sets)} WHERE id=?", params)
+        conn.execute(
+            "INSERT INTO price_history (item_id, price, checked_at) VALUES (?,?,?)",
+            (item_id, price, checked_at),
+        )
+        conn.commit()
+        self._log("UPDATE", "watched_item", item_id, {"price": price})
+
+    def mark_item_blocked(self, item_id: int, checked_at: Optional[str] = None) -> None:
+        """Flag the last refresh as bot-walled; keeps the previous price intact."""
+        checked_at = checked_at or datetime.now().isoformat(timespec="seconds")
+        self._execute(
+            "UPDATE watched_items SET is_blocked=1, last_checked=? WHERE id=?",
+            (checked_at, item_id),
+        )
+
+    def get_price_history(self, item_id: int) -> list[dict]:
+        return self._fetchall(
+            "SELECT price, checked_at FROM price_history WHERE item_id=? ORDER BY checked_at",
+            (item_id,),
+        )
+
+    def get_price_alerts(self, user_id: int) -> list[dict]:
+        """Tracked items whose current price dropped below the frozen start
+        price. Each row adds ``drop`` (absolute) and ``drop_pct``. Biggest drop
+        first."""
+        rows = self._fetchall(
+            "SELECT * FROM watched_items WHERE user_id=? "
+            "AND start_price IS NOT NULL AND current_price IS NOT NULL "
+            "AND current_price < start_price "
+            "ORDER BY (start_price - current_price) DESC",
+            (user_id,),
+        )
+        for r in rows:
+            r["drop"] = r["start_price"] - r["current_price"]
+            r["drop_pct"] = (r["drop"] / r["start_price"] * 100) if r["start_price"] else 0.0
+        return rows

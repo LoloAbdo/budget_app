@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-07-12
+
+### Added
+- **Shopping price tracker.** A new **Shopping** tab tracks Amazon product
+  prices. Add a product URL (or seed items from a public wishlist), and the app
+  freezes the starting price and re-checks it when you open the tab. If a price
+  drops below where it started, a **Price Drops** alert appears on the Dashboard.
+  Prices are scraped best-effort — Amazon can block or delay a check, and a
+  blocked item is shown as stale rather than with a wrong price.
+- **User Guide as PDF.** Settings ▸ About has a **User Guide (PDF)** button that
+  saves the guide as a PDF and opens it.
+
+### Fixed
+- **Settings tabs no longer crush their fields on a short window.** The Security
+  tab now scrolls when the window is too short, instead of squashing the
+  password fields into thin strips.
+
 ## [2.11.0] - 2026-07-11
 
 ### Added

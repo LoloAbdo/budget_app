@@ -7,6 +7,24 @@ et ce projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+## [2.12.0] - 2026-07-12
+
+### Ajouté
+- **Suivi des prix (Achats).** Un nouvel onglet **Achats** suit les prix des
+  produits Amazon. Ajoutez l'adresse d'un produit (ou importez une liste de
+  souhaits publique) : l'application fige le prix de départ et le revérifie à
+  l'ouverture de l'onglet. Si un prix descend sous son point de départ, une
+  alerte **Baisses de prix** apparaît sur le Tableau de bord. Les prix sont
+  récupérés au mieux — Amazon peut bloquer ou retarder une vérification, et un
+  article bloqué est affiché comme périmé plutôt qu'avec un prix erroné.
+- **Guide d'utilisation en PDF.** Paramètres ▸ À propos comporte un bouton
+  **Guide d'utilisation (PDF)** qui enregistre le guide en PDF et l'ouvre.
+
+### Corrigé
+- **Les onglets des paramètres n'écrasent plus leurs champs sur une fenêtre
+  courte.** L'onglet Sécurité défile désormais lorsque la fenêtre est trop
+  courte, au lieu d'écraser les champs de mot de passe en fines bandes.
+
 ## [2.11.0] - 2026-07-11
 
 ### Ajouté

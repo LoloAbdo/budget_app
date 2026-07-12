@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QDialog,
     QFormLayout, QLineEdit, QComboBox, QFileDialog, QMessageBox,
     QFrame, QTabWidget, QListWidget, QListWidgetItem, QProgressBar,
-    QApplication, QPlainTextEdit, QTextBrowser,
+    QApplication, QPlainTextEdit, QTextBrowser, QScrollArea,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot, QThreadPool
 from PyQt6.QtGui import QColor, QFont
@@ -311,12 +311,29 @@ class SettingsView(QWidget):
 
         tabs.addTab(self._build_appearance_tab(), tr("Appearance"))
         tabs.addTab(self._build_currency_tab(),   tr("Currency"))
-        tabs.addTab(self._build_security_tab(),   tr("Security"))
+        tabs.addTab(self._scrollable(self._build_security_tab()), tr("Security"))
         tabs.addTab(self._build_categories_tab(), tr("Categories"))
         tabs.addTab(self._build_rules_tab(),      tr("Rules"))
         tabs.addTab(self._build_backup_tab(),     tr("Backup & Restore"))
         tabs.addTab(self._build_import_tab(),     tr("Import Data"))
         tabs.addTab(self._build_about_tab(),      tr("About"))
+
+    def _scrollable(self, inner: QWidget) -> QScrollArea:
+        """Wrap a tall tab in a vertical scroll area.
+
+        Settings tabs are plain vertical columns with no scrolling of their
+        own. On a short window (e.g. a laptop at 125–150% display scaling) the
+        tallest tab can't fit, and Qt then compresses its widgets *below* their
+        minimum sizes — collapsing inputs to thin strips and overlapping labels.
+        Letting the content scroll instead keeps every field at full height.
+        Same idiom the dashboard/savings/forecast panels already use.
+        """
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidget(inner)
+        return scroll
 
     # ── Appearance ─────────────────────────────────────────────────────────────
 
@@ -1015,6 +1032,15 @@ class SettingsView(QWidget):
         ver.setObjectName("muted")
         layout.addWidget(ver)
 
+        doc_row = QHBoxLayout()
+        guide_btn = QPushButton(tr("📖 User Guide (PDF)"))
+        guide_btn.setObjectName("secondary")
+        hug_button(guide_btn)
+        guide_btn.clicked.connect(self._open_user_guide)
+        doc_row.addWidget(guide_btn)
+        doc_row.addStretch()
+        layout.addLayout(doc_row)
+
         row = QHBoxLayout()
         self._update_btn = QPushButton(tr("Check for updates"))
         self._update_btn.setObjectName("secondary")
@@ -1063,6 +1089,31 @@ class SettingsView(QWidget):
         layout.addWidget(changelog, 1)
 
         return w
+
+    def _open_user_guide(self) -> None:
+        """Save the bundled user guide as a PDF, then open it in the default
+        viewer. One click covers both 'download' and 'open'."""
+        from services.user_guide import write_pdf, guide_markdown
+        from PyQt6.QtGui import QDesktopServices
+        from PyQt6.QtCore import QUrl
+        lang = get_language()
+        if not guide_markdown(lang):
+            QMessageBox.warning(self, tr("User Guide"),
+                                tr("The user guide is unavailable."))
+            return
+        default = os.path.join(os.path.expanduser("~"),
+                               "Budget Manager User Guide.pdf")
+        path, _ = QFileDialog.getSaveFileName(
+            self, tr("Save User Guide"), default, tr("PDF files (*.pdf)"))
+        if not path:
+            return
+        if not path.lower().endswith(".pdf"):
+            path += ".pdf"
+        if not write_pdf(path, lang):
+            QMessageBox.warning(self, tr("User Guide"),
+                                tr("The user guide is unavailable."))
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
     def _check_for_updates(self) -> None:
         self._update_btn.setEnabled(False)

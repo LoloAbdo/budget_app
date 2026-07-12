@@ -32,6 +32,7 @@ from views.recurring_view   import RecurringView
 from views.subscriptions_view import SubscriptionsView
 from views.savings_view     import SavingsView
 from views.markets_view     import MarketsView
+from views.shopping_view    import ShoppingView
 from views.activity_view    import ActivityView
 from views.settings_view    import SettingsView
 from views.update_check     import UpdateCheckWorker
@@ -54,8 +55,9 @@ NAV_ITEMS = [
     ("🧾", "Subscriptions",  9),
     ("🐷", "Savings",        10),
     ("💹", "Markets",        11),
-    ("📝", "Activity",       12),
-    ("⚙️",  "Settings",      13),
+    ("🛒", "Shopping",       12),
+    ("📝", "Activity",       13),
+    ("⚙️",  "Settings",      14),
 ]
 
 
@@ -151,6 +153,7 @@ class MainWindow(QMainWindow):
         self._subscriptions_view = SubscriptionsView(self._db, self._user)
         self._savings_view      = SavingsView(self._db, self._user)
         self._markets_view      = MarketsView(self._db, self._user)
+        self._shopping_view     = ShoppingView(self._db, self._user)
         self._activity_view     = ActivityView(self._db, self._user)
         self._settings_view     = SettingsView(
             self._db, self._user, self._backup, self._theme
@@ -169,6 +172,7 @@ class MainWindow(QMainWindow):
             self._subscriptions_view,
             self._savings_view,
             self._markets_view,
+            self._shopping_view,
             self._activity_view,
             self._settings_view,
         ]:
@@ -186,6 +190,7 @@ class MainWindow(QMainWindow):
         self._accounts_view.accounts_changed.connect(self._savings_view.refresh)
         self._accounts_view.accounts_changed.connect(self._forecast_view.refresh)
         self._budget_view.budget_changed.connect(self._dashboard_view.refresh)
+        self._shopping_view.prices_changed.connect(self._dashboard_view.refresh)
         self._settings_view.theme_changed.connect(self._on_theme_changed)
         self._settings_view.data_changed.connect(self._refresh_all)
         self._settings_view.language_changed.connect(self._on_language_changed)
@@ -254,6 +259,10 @@ class MainWindow(QMainWindow):
         # always current without needing a signal from each view.
         elif widget is self._activity_view:
             self._activity_view.refresh()
+        # Re-check tracked prices when opening Shopping (throttled to items not
+        # checked within the last hour), so drops surface without a restart.
+        elif widget is self._shopping_view:
+            self._shopping_view.refresh_on_open()
         # A recurring item can come due while the app stays open (past its due
         # date). Post any now-due items when opening Transactions so the tab is
         # current without restarting the app.

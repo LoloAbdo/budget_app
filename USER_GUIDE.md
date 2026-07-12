@@ -275,6 +275,19 @@ Track a watchlist of **stocks and crypto**, converted into your account currency
 
 Prices and daily change are converted to your currency. Stock requests are batched into a single call for speed.
 
+### Shopping (Amazon price tracker)
+
+The **Shopping** tab watches Amazon product prices and alerts you when one drops.
+
+1. **Shopping** → **+ Add Product**: paste an Amazon product URL (e.g. `https://www.amazon.ca/dp/…`). The app records the current price as the **starting price**.
+2. **+ Add Wishlist**: paste a *public* Amazon wishlist URL to seed several items at once (best-effort — some items may not import).
+3. When you open the Shopping tab, prices are re-checked in the background (items checked within the last hour are skipped). **Refresh** re-checks everything now.
+4. If a price falls **below its starting price**, a **Price Drops** card appears on the **Dashboard**.
+
+**Notes:**
+- Prices are **scraped best-effort**. Amazon can block or delay a check; a blocked item shows **⚠ Blocked (stale)** and keeps its last known price instead of showing a wrong one.
+- The starting price is frozen once and never changes, so the drop is always measured from when you added the item.
+
 ---
 
 ## 12. Settings
@@ -644,6 +657,19 @@ Suivez une liste d'**actions et de cryptomonnaies**, converties dans la devise d
 - Vous pouvez activer un intervalle fixe (ex. toutes les quelques minutes) dans le menu déroulant.
 
 Les cours et la variation quotidienne sont convertis dans votre devise. Les requêtes d'actions sont regroupées en un seul appel pour plus de rapidité.
+
+### Achats (suivi des prix Amazon)
+
+L'onglet **Achats** surveille les prix des produits Amazon et vous alerte en cas de baisse.
+
+1. **Achats** → **+ Ajouter un produit** : collez l'adresse d'un produit Amazon (ex. `https://www.amazon.ca/dp/…`). L'application enregistre le prix actuel comme **prix de départ**.
+2. **+ Ajouter une liste** : collez l'adresse d'une liste de souhaits Amazon *publique* pour importer plusieurs articles d'un coup (au mieux — certains articles peuvent manquer).
+3. À l'ouverture de l'onglet Achats, les prix sont revérifiés en arrière-plan (les articles vérifiés depuis moins d'une heure sont ignorés). **Actualiser** revérifie tout immédiatement.
+4. Si un prix descend **sous son prix de départ**, une carte **Baisses de prix** apparaît sur le **Tableau de bord**.
+
+**Remarques :**
+- Les prix sont **récupérés au mieux**. Amazon peut bloquer ou retarder une vérification ; un article bloqué affiche **⚠ Bloqué (périmé)** et conserve son dernier prix connu au lieu d'en afficher un erroné.
+- Le prix de départ est figé une seule fois et ne change jamais, donc la baisse est toujours mesurée depuis l'ajout de l'article.
 
 ---
 

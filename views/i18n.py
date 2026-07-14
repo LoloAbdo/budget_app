@@ -614,48 +614,6 @@ _FR: dict[str, str] = {
     "Save User Guide": "Enregistrer le guide d'utilisation",
     "PDF files (*.pdf)": "Fichiers PDF (*.pdf)",
     "The user guide is unavailable.": "Le guide d'utilisation est indisponible.",
-    # ── Shopping price tracker ──
-    "Shopping": "Achats",
-    "+ Add Product": "+ Ajouter un produit",
-    "+ Add Wishlist": "+ Ajouter une liste",
-    "Add": "Ajouter",
-    "A URL is required.": "Une adresse URL est requise.",
-    "Add Product": "Ajouter un produit",
-    "Product URL": "Adresse du produit",
-    "Add Wishlist": "Ajouter une liste de souhaits",
-    "Public wishlist URL": "Adresse d'une liste de souhaits publique",
-    "Item": "Article",
-    "Start Price": "Prix de départ",
-    "Current": "Actuel",
-    "Change": "Variation",
-    "Checked": "Vérifié",
-    "🗑 Remove": "🗑 Retirer",
-    "No tracked items yet.\nClick '+ Add Product' to start tracking a price.":
-        "Aucun article suivi.\nCliquez sur « + Ajouter un produit » pour suivre un prix.",
-    "Tracks Amazon product prices. Prices are scraped best-effort and can be blocked or delayed by Amazon — a drop below the starting price alerts you on the Dashboard.":
-        "Suit les prix des produits Amazon. Les prix sont récupérés au mieux et "
-        "peuvent être bloqués ou retardés par Amazon — une baisse sous le prix de "
-        "départ vous alerte sur le Tableau de bord.",
-    "Checking prices…": "Vérification des prix…",
-    "Prices updated {time}": "Prix mis à jour {time}",
-    "⚠ Amazon blocked the request — showing last saved prices":
-        "⚠ Amazon a bloqué la requête — affichage des derniers prix enregistrés",
-    "⚠ Couldn't update — showing last saved prices":
-        "⚠ Mise à jour impossible — affichage des derniers prix enregistrés",
-    "⚠ Blocked (stale)": "⚠ Bloqué (périmé)",
-    "Not checked yet": "Pas encore vérifié",
-    "⬇ Price dropped": "⬇ Prix en baisse",
-    "Tracking": "Suivi",
-    "That doesn't look like an Amazon product URL (no product id found).":
-        "Cette adresse ne ressemble pas à un produit Amazon (aucun identifiant trouvé).",
-    "Reading wishlist…": "Lecture de la liste…",
-    "Couldn't read the wishlist (empty, private, or blocked).":
-        "Impossible de lire la liste (vide, privée ou bloquée).",
-    "Added {n} item(s) from wishlist.": "{n} article(s) ajouté(s) depuis la liste.",
-    "Stop tracking '{name}'?": "Arrêter le suivi de « {name} » ?",
-    "Price Drops": "Baisses de prix",
-    "{name} — now {cur} {now} (was {cur} {start}, −{pct:.0f}%)":
-        "{name} — maintenant {cur} {now} (était {cur} {start}, −{pct:.0f} %)",
     "Update available: {v} — see Settings ▸ About":
         "Mise à jour disponible : {v} — voir Paramètres ▸ À propos",
     "⤓ Update now": "⤓ Mettre à jour maintenant",

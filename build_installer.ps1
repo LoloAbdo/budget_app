@@ -38,7 +38,6 @@ if (-not $SkipBuild) {
         --add-data "CHANGELOG.md;." `
         --add-data "CHANGELOG.fr.md;." `
         --add-data "USER_GUIDE.md;." `
-        --hidden-import soupsieve `
         --collect-all matplotlib `
         main.py
 }

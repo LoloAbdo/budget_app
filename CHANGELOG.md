@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-07-14
+
+### Removed
+- **Shopping price tracker.** The **Shopping** tab and its Dashboard **Price
+  Drops** alert have been removed. Amazon blocked the best-effort price scrape
+  too often for it to be reliable, and price tracking sat outside the scope of a
+  personal-finance app. The **User Guide (PDF)** button and the settings-tab
+  scroll fix introduced in 2.12.0 are unaffected.
+
 ## [2.12.0] - 2026-07-12
 
 ### Added

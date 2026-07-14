@@ -75,7 +75,6 @@ class DashboardView(QWidget):
         networth = self._db.get_net_worth_history(self._user["id"], 12)
         alerts   = self._db.get_budget_alerts(self._user["id"], month, year)
         insights = self._db.get_spending_insights(self._user["id"], month, year)
-        price_alerts = self._db.get_price_alerts(self._user["id"])
         upcoming = self._db.get_upcoming_recurring(self._user["id"], 7)
         recent   = self._db.get_transactions(self._user["id"], limit=10)
 
@@ -136,10 +135,6 @@ class DashboardView(QWidget):
         if alerts:
             self._main_layout.addWidget(self._build_budget_alerts(alerts))
 
-        # ── Price-drop alerts (Shopping tracker) ──────────────────────────────────
-        if price_alerts:
-            self._main_layout.addWidget(self._build_price_alerts(price_alerts))
-
         # ── Spending insights ────────────────────────────────────────────────────
         if insights:
             self._main_layout.addWidget(self._build_insights(insights))
@@ -194,37 +189,6 @@ class DashboardView(QWidget):
             )
             row = QLabel(text)
             row.setStyleSheet(f"color: {color};")
-            layout.addWidget(row)
-
-        return card
-
-    # ── Price-drop alerts ──────────────────────────────────────────────────────
-
-    def _build_price_alerts(self, items: list[dict]) -> QFrame:
-        """A card listing tracked products whose price fell below the start price."""
-        card = QFrame()
-        card.setObjectName("card")
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(14, 12, 14, 12)
-        layout.setSpacing(6)
-
-        lbl = QLabel("🛒 " + tr("Price Drops"))
-        lbl.setObjectName("subheading")
-        layout.addWidget(lbl)
-
-        for it in items:
-            cur = it.get("currency") or self._currency
-            name = (it.get("title") or it.get("url") or "—")
-            if len(name) > 70:
-                name = name[:67] + "…"
-            text = tr("{name} — now {cur} {now} (was {cur} {start}, −{pct:.0f}%)").format(
-                name=name, cur=cur,
-                now=f"{it['current_price']:,.2f}",
-                start=f"{it['start_price']:,.2f}",
-                pct=it["drop_pct"])
-            row = QLabel(text)
-            row.setStyleSheet("color: #10B981;")
-            row.setWordWrap(True)
             layout.addWidget(row)
 
         return card

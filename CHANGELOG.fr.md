@@ -7,6 +7,16 @@ et ce projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+## [2.13.0] - 2026-07-14
+
+### Supprimé
+- **Suivi des prix (Achats).** L'onglet **Achats** et son alerte **Baisses de
+  prix** sur le Tableau de bord ont été retirés. Amazon bloquait trop souvent la
+  récupération des prix pour qu'elle soit fiable, et le suivi des prix sortait du
+  cadre d'une application de finances personnelles. Le bouton **Guide
+  d'utilisation (PDF)** et le correctif de défilement des onglets des paramètres
+  ajoutés en 2.12.0 ne sont pas affectés.
+
 ## [2.12.0] - 2026-07-12
 
 ### Ajouté

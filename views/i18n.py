@@ -244,6 +244,9 @@ _FR: dict[str, str] = {
     "Could not create transfer:\n{err}": "Impossible de créer le virement :\n{err}",
     "Transfers cannot be edited.\nDelete this transfer and create a new one if needed.":
         "Les virements ne peuvent pas être modifiés.\nSupprimez ce virement et créez-en un nouveau au besoin.",
+    "Update Recurring Transaction": "Mettre à jour la transaction récurrente",
+    "This transaction comes from the recurring rule “{name}”.\nAlso apply these changes to the recurring rule?":
+        "Cette transaction provient de la règle récurrente « {name} ».\nAppliquer aussi ces changements à la règle récurrente ?",
     "Delete Transaction": "Supprimer la transaction",
     "Delete Transfer": "Supprimer le virement",
     "Delete '{desc}'?\nThis cannot be undone.":

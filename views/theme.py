@@ -400,6 +400,28 @@ QPushButton#navBtn:checked {{
     font-weight: 700;
 }}
 
+/* Drag-reorderable nav list — styled to match the nav buttons above. */
+QListWidget#navList {{
+    background: transparent;
+    border: none;
+    outline: none;
+}}
+QListWidget#navList::item {{
+    color: {p['text_muted']};
+    border-radius: 10px;
+    padding: 11px 16px;
+    margin-bottom: 4px;
+    font-size: {fs(13)}px;
+}}
+QListWidget#navList::item:hover {{
+    background-color: {p['surface2']};
+    color: {p['text']};
+}}
+QListWidget#navList::item:selected {{
+    background: {accent_grad};
+    color: #FFFFFF;
+}}
+
 /* ── Primary buttons ── */
 QPushButton {{
     background-color: {p['accent']};

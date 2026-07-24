@@ -368,6 +368,13 @@ class DatabaseManager:
             conn.execute("ALTER TABLE users ADD COLUMN accent TEXT")
             conn.commit()
 
+        # v1.0.12 — per-user sidebar order (drag-reorderable nav). Stored as a
+        # comma-separated list of nav item ids; NULL/empty means the default
+        # order, so upgraded databases show the sidebar exactly as before.
+        if "nav_order" not in user_cols:
+            conn.execute("ALTER TABLE users ADD COLUMN nav_order TEXT")
+            conn.commit()
+
         # v1.0.9 — per-account currency (multi-currency accounts). Existing
         # accounts inherit their owner's home currency, so upgraded databases
         # show exactly the same numbers as before the migration.
@@ -512,6 +519,10 @@ class DatabaseManager:
         """Set (or clear, with None) the user's custom accent color."""
         self._execute("UPDATE users SET accent=? WHERE id=?", (accent, user_id))
         self._log("UPDATE", "user", user_id, {"accent": accent}, user_id=user_id)
+
+    def update_user_nav_order(self, user_id: int, order: str) -> None:
+        """Persist the user's drag-chosen sidebar order (cosmetic; not logged)."""
+        self._execute("UPDATE users SET nav_order=? WHERE id=?", (order, user_id))
 
     def update_user_password(self, user_id: int, password_hash: str) -> None:
         self._execute("UPDATE users SET password=? WHERE id=?", (password_hash, user_id))
@@ -1231,6 +1242,17 @@ class DatabaseManager:
                LEFT JOIN accounts ta ON r.to_account_id = ta.id
                WHERE r.user_id=? ORDER BY r.next_due_date""",
             (user_id,),
+        )
+
+    def get_recurring_by_id(self, rec_id: int) -> Optional[dict]:
+        return self._fetchone(
+            """SELECT r.*, c.name AS category_name,
+                      a.account_name, a.currency AS account_currency
+               FROM recurring_transactions r
+               LEFT JOIN categories c ON r.category_id = c.id
+               LEFT JOIN accounts a  ON r.account_id = a.id
+               WHERE r.id=?""",
+            (rec_id,),
         )
 
     def create_recurring(

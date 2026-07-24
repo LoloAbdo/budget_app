@@ -7,6 +7,19 @@ et ce projet respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+## [2.14.0] - 2026-07-24
+
+### Ajouté
+- **Barre latérale réorganisable.** Glissez les éléments de navigation de la
+  barre latérale gauche dans l'ordre de votre choix. Votre ordre est enregistré
+  par utilisateur et rétabli au prochain lancement.
+- **Modifier une transaction récurrente depuis son écriture.** Lorsque vous
+  modifiez une transaction créée par une règle récurrente, l'application demande
+  désormais si vous souhaitez appliquer les mêmes changements (nom, montant,
+  catégorie, compte) à la règle récurrente afin que les prochaines occurrences
+  correspondent. Le calendrier de la règle (fréquence, prochaine échéance, date
+  de fin) reste inchangé.
+
 ## [2.13.0] - 2026-07-14
 
 ### Supprimé

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-07-24
+
+### Added
+- **Reorderable sidebar.** Drag the navigation items in the left sidebar into
+  whatever order you like. Your chosen order is saved per user and restored on
+  the next launch.
+- **Edit a recurring transaction from its posting.** When you edit a transaction
+  that was created by a recurring rule, the app now asks whether to apply the
+  same changes (name, amount, category, account) back to the recurring rule so
+  future occurrences match. The rule's schedule (frequency, next due date, end
+  date) is left untouched.
+
 ## [2.13.0] - 2026-07-14
 
 ### Removed

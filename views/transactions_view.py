@@ -246,7 +246,38 @@ class TransactionDialog(QDialog):
         except Exception as exc:
             QMessageBox.critical(self, tr("Error"), tr("Could not save transaction:\n{err}").format(err=exc))
             return
+        # If this transaction came from a recurring rule, offer to push the same
+        # edits back to the rule so future occurrences match.
+        if self._txn and self._txn.get("recurring_id"):
+            self._maybe_update_recurring(
+                self._txn["recurring_id"], acct_id, cat_id, desc, amount
+            )
         self.accept()
+
+    def _maybe_update_recurring(
+        self, rec_id: int, account_id, category_id, description: str, amount: float
+    ) -> None:
+        """Ask whether to also update the source recurring rule, and do it.
+
+        Only the fields the transaction dialog can change are pushed (name,
+        amount, category, account); frequency, next due date, end date and any
+        transfer link are preserved as-is.
+        """
+        rule = self._db.get_recurring_by_id(rec_id)
+        if not rule or rule.get("to_account_id"):
+            return  # rule gone, or a transfer rule (no single-amount mapping)
+        reply = QMessageBox.question(
+            self, tr("Update Recurring Transaction"),
+            tr("This transaction comes from the recurring rule “{name}”.\n"
+               "Also apply these changes to the recurring rule?").format(name=rule["name"]),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        self._db.update_recurring(
+            rec_id, description, amount, rule["frequency"], rule["next_due_date"],
+            category_id, account_id, rule.get("to_account_id"), rule.get("end_date"),
+        )
 
 
 

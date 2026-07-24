@@ -9,7 +9,7 @@ from typing import Optional
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel,
     QPushButton, QFrame, QStackedWidget, QSizePolicy, QMessageBox,
-    QApplication,
+    QApplication, QListWidget, QListWidgetItem, QAbstractItemView,
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot, QThreadPool, QSettings
 from PyQt6.QtGui import QFont, QIcon, QKeySequence, QShortcut
@@ -127,9 +127,7 @@ class MainWindow(QMainWindow):
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
 
-        # Initialise nav dict BEFORE building sidebar (sidebar populates it)
         self._views: dict[int, QWidget] = {}
-        self._nav_buttons: dict[int, QPushButton] = {}
 
         # Sidebar
         root_layout.addWidget(self._build_sidebar())
@@ -218,20 +216,24 @@ class MainWindow(QMainWindow):
         user_lbl.setContentsMargins(0, 0, 0, 10)
         layout.addWidget(user_lbl)
 
-        # Nav buttons
-        for icon, label, idx in NAV_ITEMS:
-            btn = QPushButton(f"  {icon}  {tr(label)}")
-            btn.setObjectName("navBtn")
-            btn.setCheckable(True)
-            btn.setMinimumHeight(42)
-            btn.clicked.connect(lambda checked, i=idx: self._switch_to(i))
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            layout.addWidget(btn)
-            self._nav_buttons[idx] = btn
+        # Nav list — drag-reorderable; the chosen order is saved per user.
+        self._nav_list = QListWidget()
+        self._nav_list.setObjectName("navList")
+        self._nav_list.setFrameShape(QFrame.Shape.NoFrame)
+        self._nav_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self._nav_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self._nav_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._nav_list.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._nav_list.setUniformItemSizes(True)
+        for icon, label, idx in self._ordered_nav_items():
+            item = QListWidgetItem(f"  {icon}  {tr(label)}")
+            item.setData(Qt.ItemDataRole.UserRole, idx)
+            self._nav_list.addItem(item)
+        self._nav_list.currentItemChanged.connect(self._on_nav_item_changed)
+        self._nav_list.model().rowsMoved.connect(self._on_nav_reordered)
+        layout.addWidget(self._nav_list, 1)
 
-        layout.addStretch()
-
-        # Sign out
+        # Sign out (fixed below the reorderable list)
         signout_btn = QPushButton(f"  🚪  {tr('Sign Out')}")
         signout_btn.setObjectName("navBtn")
         signout_btn.clicked.connect(self._sign_out)
@@ -239,12 +241,57 @@ class MainWindow(QMainWindow):
 
         return sidebar
 
+    # ── Sidebar order ──────────────────────────────────────────────────────────
+
+    def _ordered_nav_items(self) -> list[tuple]:
+        """NAV_ITEMS reordered by the user's saved preference.
+
+        Unknown ids in the saved list are ignored and any nav items missing from
+        it (e.g. added in a later version) are appended in their default order,
+        so the sidebar is always complete and stable.
+        """
+        by_idx = {idx: item for item in NAV_ITEMS for *_rest, idx in [item]}
+        saved = (self._user.get("nav_order") or "").strip()
+        order: list[int] = []
+        if saved:
+            for tok in saved.split(","):
+                tok = tok.strip()
+                if tok.isdigit() and int(tok) in by_idx and int(tok) not in order:
+                    order.append(int(tok))
+        for _icon, _label, idx in NAV_ITEMS:
+            if idx not in order:
+                order.append(idx)
+        return [by_idx[i] for i in order]
+
+    def _on_nav_reordered(self, *_args) -> None:
+        """Persist the sidebar order after a drag-and-drop move."""
+        order = [
+            self._nav_list.item(row).data(Qt.ItemDataRole.UserRole)
+            for row in range(self._nav_list.count())
+        ]
+        order_str = ",".join(str(i) for i in order)
+        self._db.update_user_nav_order(self._user["id"], order_str)
+        self._user["nav_order"] = order_str
+
+    def _on_nav_item_changed(self, current, _previous) -> None:
+        """Selecting a nav row switches to its panel."""
+        if current is not None:
+            self._switch_to(current.data(Qt.ItemDataRole.UserRole))
+
+    def _sync_nav_selection(self, idx: int) -> None:
+        """Highlight the nav row for *idx* without re-triggering navigation."""
+        self._nav_list.blockSignals(True)
+        for row in range(self._nav_list.count()):
+            if self._nav_list.item(row).data(Qt.ItemDataRole.UserRole) == idx:
+                self._nav_list.setCurrentRow(row)
+                break
+        self._nav_list.blockSignals(False)
+
     # ── Navigation ─────────────────────────────────────────────────────────────
 
     def _switch_to(self, idx: int) -> None:
         self._stack.setCurrentIndex(idx)
-        for i, btn in self._nav_buttons.items():
-            btn.setChecked(i == idx)
+        self._sync_nav_selection(idx)
         widget = self._stack.widget(idx)
         # The forecast depends on recurring items, which emit no change signal,
         # so recompute it whenever the user opens the panel.
@@ -265,7 +312,7 @@ class MainWindow(QMainWindow):
     def _restore_last_panel(self) -> None:
         """Reopen on the sidebar panel that was active when the app last closed."""
         idx = self._settings.value("window/panel", 0, type=int)
-        if 0 <= idx < len(self._nav_buttons):
+        if 0 <= idx < len(NAV_ITEMS):
             self._switch_to(idx)
 
     def closeEvent(self, event) -> None:
